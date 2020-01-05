@@ -27,5 +27,5 @@ object MultivariateGaussian {
       .map(log).reduce(_ + _)
 
     unnormalizedlogpdf(point, mean, cov) - (mean.size / 2.0 * log(2 * Pi) + det)
-  } 
+  }
 }

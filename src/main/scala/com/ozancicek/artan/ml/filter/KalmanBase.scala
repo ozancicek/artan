@@ -308,51 +308,51 @@ trait KalmanUpdateParams extends HasGroupKeyCol with HasMeasurementCol
   protected def getMeasurementExpr = col($(measurementCol)).cast(SQLDataTypes.VectorType)
 
   protected def getMeasurementModelExpr = {
-   if (isSet(measurementModelCol)) {
-     col($(measurementModelCol))
-   } else {
-     val default = $(measurementModel)
-     val col = udf(()=>default)
-     col()
-   }
+    if (isSet(measurementModelCol)) {
+      col($(measurementModelCol))
+    } else {
+      val default = $(measurementModel)
+      val col = udf(()=>default)
+      col()
+    }
   }
 
   protected def getMeasurementNoiseExpr = {
-   if (isSet(measurementNoiseCol)) {
-     col($(measurementNoiseCol))
-   } else {
-     val default = $(measurementNoise)
-     val col = udf(()=>default)
-     col()
-   }
+    if (isSet(measurementNoiseCol)) {
+      col($(measurementNoiseCol))
+    } else {
+      val default = $(measurementNoise)
+      val col = udf(()=>default)
+      col()
+    }
   }
 
   protected def getProcessModelExpr = {
-   if (isSet(processModelCol)) {
-     col($(processModelCol))
-   } else {
-     val default = $(processModel)
-     val col = udf(()=>default)
-     col()
-   }
+    if (isSet(processModelCol)) {
+      col($(processModelCol))
+    } else {
+      val default = $(processModel)
+      val col = udf(()=>default)
+      col()
+    }
   }
 
   protected def getProcessNoiseExpr = {
-   if (isSet(processNoiseCol)) {
-     col($(processNoiseCol))
-   } else {
-     val default = $(processNoise)
-     val col = udf(()=>default)
-     col()
-   }
+    if (isSet(processNoiseCol)) {
+      col($(processNoiseCol))
+    } else {
+      val default = $(processNoise)
+      val col = udf(()=>default)
+      col()
+    }
   }
 
   protected def getControlExpr = {
-   if (isSet(controlCol)) {
-     col($(controlCol))
-   } else {
-     lit(null).cast(SQLDataTypes.VectorType)
-   }
+    if (isSet(controlCol)) {
+      col($(controlCol))
+    } else {
+      lit(null).cast(SQLDataTypes.VectorType)
+    }
   }
 
   protected def getControlFunctionExpr = {
@@ -386,8 +386,7 @@ trait KalmanUpdateParams extends HasGroupKeyCol with HasMeasurementCol
   private def validateColParamType(schema: StructType, col: Param[String], t: DataType): Unit = {
     if (isSet(col)) {
       val colname = $(col)
-      require(schema(colname).dataType == t,
-              s"$colname must be of $t")
+      require(schema(colname).dataType == t, s"$colname must be of $t")
     }
   }
 
@@ -422,15 +421,15 @@ private[ml] trait KalmanStateUpdateFunction[+Compute <: KalmanStateCompute]
     key: String,
     row: KalmanUpdate,
     state: Option[KalmanState]): Option[KalmanState] = {
-    
+
     val currentState = state
       .getOrElse(KalmanState(
-         key,
-         0L,
-         stateMean.toDense,
-         stateCov.toDense,
-         new DenseVector(Array(0.0)),
-         DenseMatrix.zeros(1, 1)))
+        key,
+        0L,
+        stateMean.toDense,
+        stateCov.toDense,
+        new DenseVector(Array(0.0)),
+        DenseMatrix.zeros(1, 1)))
 
     val nextState = row.measurement match {
       case Some(m) => kalmanCompute.update(currentState, row)
@@ -442,10 +441,9 @@ private[ml] trait KalmanStateUpdateFunction[+Compute <: KalmanStateCompute]
 
 
 private[ml] abstract class KalmanTransformer[
-   Compute <: KalmanStateCompute,
-   StateUpdate <: KalmanStateUpdateFunction[Compute]] 
-   extends StatefulTransformer[String, KalmanUpdate, KalmanState]
-   with KalmanUpdateParams {
+  Compute <: KalmanStateCompute,
+  StateUpdate <: KalmanStateUpdateFunction[Compute]]
+  extends StatefulTransformer[String, KalmanUpdate, KalmanState] with KalmanUpdateParams {
 
   implicit val kalmanUpdateEncoder = Encoders.product[KalmanUpdate]
   implicit val groupKeyEncoder = Encoders.STRING
@@ -464,7 +462,7 @@ private[ml] abstract class KalmanTransformer[
   def mahalanobisUDF = udf((residual: Vector, covariance: Matrix) => {
     val zeroMean = new DenseVector(Array.fill(residual.size) {0.0})
     LinalgUtils.mahalanobis(residual.toDense, zeroMean, covariance.toDense)
-  }) 
+  })
 
   def withExtraColumns(dataset: Dataset[KalmanState]): DataFrame = {
     val df = dataset.toDF
@@ -481,7 +479,7 @@ private[ml] abstract class KalmanTransformer[
 
   def filter(dataset: Dataset[_]): Dataset[KalmanState] = {
     transformSchema(dataset.schema)
-    val kalmanUpdateDS = toKalmanUpdate(dataset) 
+    val kalmanUpdateDS = toKalmanUpdate(dataset)
     transformWithState(kalmanUpdateDS)
   }
 
@@ -495,9 +493,10 @@ private[ml] abstract class KalmanTransformer[
       .withColumn("processNoise", getProcessNoiseExpr)
       .withColumn("control", getControlExpr)
       .withColumn("controlFunction", getControlFunctionExpr)
-      .select("groupKey", "measurement", "measurementModel",
-              "measurementNoise", "processModel", "processNoise",
-              "control", "controlFunction")
+      .select(
+        "groupKey", "measurement", "measurementModel",
+        "measurementNoise", "processModel", "processNoise",
+        "control", "controlFunction")
       .as(kalmanUpdateEncoder)
   }
 

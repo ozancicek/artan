@@ -9,9 +9,9 @@ import org.apache.spark.sql._
 
 
 class ExtendedKalmanFilter(
-  val stateSize: Int,
-  val measurementSize: Int,
-  override val uid: String)
+    val stateSize: Int,
+    val measurementSize: Int,
+    override val uid: String)
   extends KalmanTransformer[
     ExtendedKalmanStateCompute,
     ExtendedKalmanStateEstimator]
@@ -90,15 +90,15 @@ class ExtendedKalmanFilter(
 
 
 private[ml] class ExtendedKalmanStateEstimator(
-  val stateMean: Vector,
-  val stateCov: Matrix,
-  val fadingFactor: Double,
-  val processFunction: Option[(Vector, Matrix) => Vector],
-  val processStateJacobian: Option[(Vector, Matrix) => Matrix],
-  val processNoiseJacobian: Option[(Vector, Matrix) => Matrix],
-  val measurementFunction: Option[(Vector, Matrix) => Vector],
-  val measurementStateJacobian: Option[(Vector, Matrix) => Matrix],
-  val measurementNoiseJacobian: Option[(Vector, Matrix) => Matrix])
+    val stateMean: Vector,
+    val stateCov: Matrix,
+    val fadingFactor: Double,
+    val processFunction: Option[(Vector, Matrix) => Vector],
+    val processStateJacobian: Option[(Vector, Matrix) => Matrix],
+    val processNoiseJacobian: Option[(Vector, Matrix) => Matrix],
+    val measurementFunction: Option[(Vector, Matrix) => Vector],
+    val measurementStateJacobian: Option[(Vector, Matrix) => Matrix],
+    val measurementNoiseJacobian: Option[(Vector, Matrix) => Matrix])
   extends KalmanStateUpdateFunction[ExtendedKalmanStateCompute] {
 
   val kalmanCompute = new ExtendedKalmanStateCompute(
@@ -112,13 +112,13 @@ private[ml] class ExtendedKalmanStateEstimator(
 }
 
 private[ml] class ExtendedKalmanStateCompute(
-  fadingFactor: Double,
-  processFunc: Option[(Vector, Matrix) => Vector],
-  processStateJac: Option[(Vector, Matrix) => Matrix],
-  processNoiseJac: Option[(Vector, Matrix) => Matrix],
-  measurementFunc: Option[(Vector, Matrix) => Vector],
-  measurementStateJac: Option[(Vector, Matrix) => Matrix],
-  measurementNoiseJac: Option[(Vector, Matrix) => Matrix])
+    fadingFactor: Double,
+    processFunc: Option[(Vector, Matrix) => Vector],
+    processStateJac: Option[(Vector, Matrix) => Matrix],
+    processNoiseJac: Option[(Vector, Matrix) => Matrix],
+    measurementFunc: Option[(Vector, Matrix) => Vector],
+    measurementStateJac: Option[(Vector, Matrix) => Matrix],
+    measurementNoiseJac: Option[(Vector, Matrix) => Matrix])
   extends LinearKalmanStateCompute(fadingFactor) {
 
   override def progressStateMean(

@@ -13,9 +13,9 @@ import scala.math.{pow}
 
 
 class UnscentedKalmanFilter(
-  val stateSize: Int,
-  val measurementSize: Int,
-  override val uid: String)
+    val stateSize: Int,
+    val measurementSize: Int,
+    override val uid: String)
   extends KalmanTransformer[
     UnscentedKalmanStateCompute,
     UnscentedKalmanStateEstimator]
@@ -84,12 +84,12 @@ class UnscentedKalmanFilter(
 
 
 private[ml] class UnscentedKalmanStateEstimator(
-  val stateMean: Vector,
-  val stateCov: Matrix,
-  val fadingFactor: Double,
-  val sigma: SigmaPoints,
-  val processFunction: Option[(Vector, Matrix) => Vector],
-  val measurementFunction: Option[(Vector, Matrix) => Vector])
+    val stateMean: Vector,
+    val stateCov: Matrix,
+    val fadingFactor: Double,
+    val sigma: SigmaPoints,
+    val processFunction: Option[(Vector, Matrix) => Vector],
+    val measurementFunction: Option[(Vector, Matrix) => Vector])
   extends KalmanStateUpdateFunction[UnscentedKalmanStateCompute] {
 
   val kalmanCompute = new UnscentedKalmanStateCompute(
@@ -101,10 +101,10 @@ private[ml] class UnscentedKalmanStateEstimator(
 
 
 private[ml] class UnscentedKalmanStateCompute(
-  fadingFactor: Double,
-  sigma: SigmaPoints,
-  processFunc: Option[(Vector, Matrix) => Vector],
-  measurementFunc: Option[(Vector, Matrix) => Vector]) extends KalmanStateCompute {
+    fadingFactor: Double,
+    sigma: SigmaPoints,
+    processFunc: Option[(Vector, Matrix) => Vector],
+    measurementFunc: Option[(Vector, Matrix) => Vector]) extends KalmanStateCompute {
 
   private[ml] def predict(
     state: KalmanState,
@@ -148,23 +148,14 @@ private[ml] class UnscentedKalmanStateCompute(
 
     val (stateMean, stateCov) = (state.mean.toDense, state.covariance.toDense)
     val stateSigmaPoints = sigma.sigmaPoints(stateMean, stateCov)
-
-    val measurementModel = process
-      .measurementModel.get
-
+    val measurementModel = process.measurementModel.get
     val measurementFunction = measurementFunc.getOrElse(
       (in: Vector, model: Matrix) => model.multiply(in))
-
     val measurementNoise = process.measurementNoise.get.toDense
-
     val measurementSigmaPoints = stateSigmaPoints
       .map(x => measurementFunction(x, measurementModel).toDense)
-
-    val (estimateMean, estimateCov) = sigma.unscentedTransform(
-      measurementSigmaPoints,
-      measurementNoise,
-      1.0)
-
+    val (estimateMean, estimateCov) = sigma
+      .unscentedTransform(measurementSigmaPoints, measurementNoise, 1.0)
     val fadingFactorSquare = scala.math.pow(fadingFactor, 2)
 
     val crossCov = DenseMatrix.zeros(state.mean.size, process.measurement.get.size)
@@ -177,34 +168,24 @@ private[ml] class UnscentedKalmanStateCompute(
         val measurementResidual = measurementSigma.copy
         BLAS.axpy(-1.0, estimateMean, measurementResidual)
 
-        BLAS.dger(sigma.covWeights(i) * fadingFactorSquare,
-                  stateResidual,
-                  measurementResidual,
-                  crossCov)
+        BLAS.dger(
+          sigma.covWeights(i) * fadingFactorSquare,
+          stateResidual, measurementResidual, crossCov)
       }
     }
 
     val gain = crossCov.multiply(LinalgUtils.pinv(estimateCov))
-
     val residual = process.measurement.get.copy.toDense
     BLAS.axpy(-1.0, estimateMean, residual)
-
     val newMean = stateMean.copy
     BLAS.gemv(1.0, gain, residual, 1.0, newMean)
-
     val covUpdate = gain.multiply(estimateCov).multiply(gain.transpose)
-
     val newCov = DenseMatrix.zeros(stateCov.numRows, stateCov.numCols)
     BLAS.axpy(fadingFactorSquare, stateCov, newCov)
     BLAS.axpy(-1.0, covUpdate, newCov)
 
     KalmanState(
-      state.groupKey,
-      state.index,
-      newMean,
-      newCov,
-      residual,
-      estimateCov)
+      state.groupKey, state.index, newMean, newCov, residual, estimateCov)
   }
 
   private[ml] def update(
@@ -248,10 +229,10 @@ trait SigmaPoints extends Serializable {
 
 
 class MerweScaledSigmaPoints(
-  val stateSize: Int,
-  val alpha: Double,
-  val beta: Double,
-  val kappa: Double) extends SigmaPoints {
+    val stateSize: Int,
+    val alpha: Double,
+    val beta: Double,
+    val kappa: Double) extends SigmaPoints {
 
   private val lambda = pow(alpha, 2) * (stateSize + kappa) - stateSize
   private val initConst = 0.5 / (stateSize + lambda)

@@ -3,7 +3,6 @@ package org.apache.spark.ml
 import org.apache.spark.ml.linalg._
 import com.github.fommil.netlib.{LAPACK => NetlibLAPACK}
 import com.github.fommil.netlib.LAPACK.{getInstance}
-import org.apache.spark.ml.BLAS
 import org.netlib.util.intW
 
 object LAPACK {
@@ -22,7 +21,7 @@ object LAPACK {
       i <- 0 until a.numCols
       j <- 0 until a.numRows
       if(j > i)
-    } { a.values(j + i * a.numCols) = 0.0 } 
+    } { a.values(j + i * a.numCols) = 0.0 }
   }
 
   /* LU solve b = a \ b */
@@ -42,8 +41,9 @@ object LAPACK {
       info
     )
     assert(info.`val` >= 0)
-    if (info.`val` > 0)
-      throw new Exception("Not converged") 
+    if (info.`val` > 0) {
+      throw new Exception("Not converged")
+    }
   }
 
   /* cholesky decomposition of matrix a*/
@@ -58,8 +58,9 @@ object LAPACK {
       lda,
       info)
     assert(info.`val` >= 0)
-    if (info.`val` > 0)
+    if (info.`val` > 0) {
       throw new Exception("Not converged")
+    }
   }
 
   /* least squares*/
@@ -88,10 +89,10 @@ object LAPACK {
   }
   /* a = u * s * v**T */
   def dgesdd(
-      a: DenseMatrix,
-      u: DenseMatrix,
-      s: DenseVector,
-      v: DenseMatrix): Unit = {
+    a: DenseMatrix,
+    u: DenseMatrix,
+    s: DenseVector,
+    v: DenseMatrix): Unit = {
     val mode = "A"
     val m = a.numRows
     val n = a.numCols
@@ -99,20 +100,17 @@ object LAPACK {
     val ldu = if (!u.isTransposed) u.numRows else u.numCols
     val ldv = if (!v.isTransposed) v.numRows else v.numCols
 
-    
+
     val iwork = new Array[Int](8 * (m.min(n)))
-    val workSize = (3L
-      * scala.math.min(m, n)
-      * scala.math.min(m, n)
-      + scala.math.max(
+    val workSize = (
+      3L * scala.math.min(m, n) * scala.math.min(m, n) + scala.math.max(
         scala.math.max(m, n),
-        4L * scala.math.min(m, n)
-          * scala.math.min(m, n) + 4L * scala.math.min(m, n)))
+        4L * scala.math.min(m, n) * scala.math.min(m, n) + 4L * scala.math.min(m, n)))
     if (workSize >= Int.MaxValue) {
       throw new RuntimeException(
         "The param k and numFeatures is too large for SVD computation. " +
-          "Try reducing the parameter k for PCA, or reduce the input feature " +
-          "vector dimension to make this tractable.")
+        "Try reducing the parameter k for PCA, or reduce the input feature " +
+        "vector dimension to make this tractable.")
     }
     val work = new Array[Double](workSize.toInt)
     val info = new intW(0)
@@ -133,11 +131,12 @@ object LAPACK {
       iwork,
       info
     )
-    if (info.`val` > 0)
+    if (info.`val` > 0) {
       throw new Exception("Not converged")
-    else if (info.`val` < 0)
+    }
+    else if (info.`val` < 0) {
       throw new IllegalArgumentException()
+    }
   }
 
-  
 }

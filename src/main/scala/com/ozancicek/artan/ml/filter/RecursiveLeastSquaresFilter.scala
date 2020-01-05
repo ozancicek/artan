@@ -21,7 +21,7 @@ trait HasForgettingFactor extends Params {
     "forgettingFactor",
     "Forgetting factor",
     ParamValidators.ltEq(1.0))
-  
+
   setDefault(forgettingFactor, 1.0)
 
   final def getForgettingFactor: Double = $(forgettingFactor)
@@ -29,8 +29,8 @@ trait HasForgettingFactor extends Params {
 
 
 class RecursiveLeastSquaresFilter(
-  val stateSize: Int,
-  override val uid: String)
+    val stateSize: Int,
+    override val uid: String)
   extends StatefulTransformer[String, RLSUpdate, RLSState]
   with HasGroupKeyCol with HasLabelCol with HasFeaturesCol with HasForgettingFactor
   with HasStateMean with HasStateCovariance {
@@ -66,7 +66,7 @@ class RecursiveLeastSquaresFilter(
     new DenseMatrix(stateSize, stateSize, DenseMatrix.eye(stateSize).values.map(_ * value))
   }
 
- private def validateSchema(schema: StructType): Unit = {
+  private def validateSchema(schema: StructType): Unit = {
     require(isSet(groupKeyCol), "Group key column must be set")
     require(schema($(groupKeyCol)).dataType == StringType, "Group key column must be StringType")
     require(schema($(labelCol)).dataType == DoubleType)
@@ -99,9 +99,9 @@ class RecursiveLeastSquaresFilter(
 
 
 private[ml] class RecursiveLeastSquaresUpdateFunction(
-  val stateMean: Vector,
-  val stateCov: Matrix,
-  val forgettingFactor: Double)
+    val stateMean: Vector,
+    val stateCov: Matrix,
+    val forgettingFactor: Double)
   extends StateUpdateFunction[String, RLSUpdate, RLSState] {
 
   def updateGroupState(

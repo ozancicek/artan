@@ -12,17 +12,15 @@ import org.apache.spark.sql.types.StructType
 
 
 class LinearKalmanFilter(
-  val stateSize: Int,
-  val measurementSize: Int,
-  override val uid: String)
-  extends KalmanTransformer[
-    LinearKalmanStateCompute,
-    LinearKalmanStateEstimator]
+    val stateSize: Int,
+    val measurementSize: Int,
+    override val uid: String)
+  extends KalmanTransformer[LinearKalmanStateCompute, LinearKalmanStateEstimator]
   with KalmanUpdateParams with HasStateMean with HasStateCovariance with HasFadingFactor {
 
   def this(
     measurementSize: Int,
-    stateSize: Int) = { 
+    stateSize: Int) = {
     this(measurementSize, stateSize, Identifiable.randomUID("linearKalmanFilter"))
   }
 
@@ -37,7 +35,7 @@ class LinearKalmanFilter(
   def setProcessNoise(value: Matrix): this.type = set(processNoise, value)
 
   def setMeasurementModel(value: Matrix): this.type = set(measurementModel, value)
-  
+
   def setMeasurementNoise(value: Matrix): this.type = set(measurementNoise, value)
 
   def setGroupKeyCol(value: String): this.type = set(groupKeyCol, value)
@@ -73,9 +71,9 @@ class LinearKalmanFilter(
 
 
 private[ml] class LinearKalmanStateEstimator(
-  val stateMean: Vector,
-  val stateCov: Matrix,
-  val fadingFactor: Double)
+    val stateMean: Vector,
+    val stateCov: Matrix,
+    val fadingFactor: Double)
   extends KalmanStateUpdateFunction[LinearKalmanStateCompute] {
 
   val kalmanCompute = new LinearKalmanStateCompute(fadingFactor)
@@ -83,40 +81,40 @@ private[ml] class LinearKalmanStateEstimator(
 
 
 private[ml] class LinearKalmanStateCompute(
-  val fadingFactor: Double) extends KalmanStateCompute {
+    val fadingFactor: Double) extends KalmanStateCompute {
 
   def progressStateMean(
-      stateMean: DenseVector,
-      processModel: DenseMatrix): DenseVector = {
+    stateMean: DenseVector,
+    processModel: DenseMatrix): DenseVector = {
     val mean = new DenseVector(Array.fill(stateMean.size) {0.0})
-    BLAS.gemv(1.0, processModel, stateMean, 0.0, mean) 
+    BLAS.gemv(1.0, processModel, stateMean, 0.0, mean)
     mean
   }
 
   def calculateResidual(
-      stateMean: DenseVector,
-      measurement: DenseVector,
-      measurementModel: DenseMatrix): DenseVector = {
+    stateMean: DenseVector,
+    measurement: DenseVector,
+    measurementModel: DenseMatrix): DenseVector = {
     val residual = measurement.copy
-    BLAS.gemv(-1.0, measurementModel, stateMean, 1.0, residual) 
+    BLAS.gemv(-1.0, measurementModel, stateMean, 1.0, residual)
     residual
   }
 
   def getProcessModel(
-      stateMean: DenseVector,
-      processModel: DenseMatrix): DenseMatrix = processModel
+    stateMean: DenseVector,
+    processModel: DenseMatrix): DenseMatrix = processModel
 
   def getMeasurementModel(
-      stateMean: DenseVector,
-      measurementModel: DenseMatrix): DenseMatrix = measurementModel
+    stateMean: DenseVector,
+    measurementModel: DenseMatrix): DenseMatrix = measurementModel
 
   def getProcessNoise(
-      stateMean: DenseVector,
-      processNoise: DenseMatrix): DenseMatrix = processNoise
+    stateMean: DenseVector,
+    processNoise: DenseMatrix): DenseMatrix = processNoise
 
   def getMeasurementNoise(
-      stateMean: DenseVector,
-      measurementNoise: DenseMatrix): DenseMatrix = measurementNoise
+    stateMean: DenseVector,
+    measurementNoise: DenseMatrix): DenseMatrix = measurementNoise
 
   private[ml] def predict(
     state: KalmanState,

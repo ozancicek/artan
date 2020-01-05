@@ -15,8 +15,8 @@ import org.apache.spark.sql.types._
 
 
 class LeastMeanSquaresFilter(
-  val stateSize: Int,
-  override val uid: String)
+    val stateSize: Int,
+    override val uid: String)
   extends StatefulTransformer[String, LMSUpdate, LMSState]
   with HasGroupKeyCol with HasLabelCol with HasFeaturesCol with HasStateMean {
 
@@ -70,7 +70,7 @@ class LeastMeanSquaresFilter(
 
 
 private[ml] class LeastMeanSquaresUpdateFunction(
-  val stateMean: Vector)
+    val stateMean: Vector)
   extends StateUpdateFunction[String, LMSUpdate, LMSState] {
 
   def updateGroupState(

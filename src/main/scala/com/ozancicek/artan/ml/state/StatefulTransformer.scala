@@ -6,14 +6,14 @@ import org.apache.spark.sql._
 
 
 private[ml] trait StateUpdateFunction[
-    GroupKeyType,
-    RowType,
-    StateType]
+  GroupKeyType,
+  RowType,
+  StateType]
   extends Function3[
-    GroupKeyType,
-    Iterator[RowType],
-    GroupState[StateType],
-    Iterator[StateType]] with Serializable {
+  GroupKeyType,
+  Iterator[RowType],
+  GroupState[StateType],
+  Iterator[StateType]] with Serializable {
 
   def updateGroupState(
     key: GroupKeyType,
@@ -41,21 +41,20 @@ private[ml] trait StateUpdateFunction[
 
 
 private[ml] trait StatefulTransformer[
-    GroupKeyType,
-    RowType,
-    StateType] extends Transformer {
+  GroupKeyType,
+  RowType,
+  StateType] extends Transformer {
 
   def stateUpdateFunc: StateUpdateFunction[GroupKeyType, RowType, StateType]
-  def keyFunc: (RowType) => GroupKeyType 
+  def keyFunc: (RowType) => GroupKeyType
 
   def transformWithState(
-   in: Dataset[RowType])(implicit
-   keyEncoder: Encoder[GroupKeyType],
-   rowEncoder: Encoder[RowType],
-   stateEncoder: Encoder[StateType]) = in
-    .groupByKey(keyFunc)
-    .flatMapGroupsWithState(
-      OutputMode.Append,
-      GroupStateTimeout.ProcessingTimeTimeout())(stateUpdateFunc)
-
+    in: Dataset[RowType])(implicit
+    keyEncoder: Encoder[GroupKeyType],
+    rowEncoder: Encoder[RowType],
+    stateEncoder: Encoder[StateType]) = in
+      .groupByKey(keyFunc)
+      .flatMapGroupsWithState(
+        OutputMode.Append,
+        GroupStateTimeout.ProcessingTimeTimeout())(stateUpdateFunc)
 }
