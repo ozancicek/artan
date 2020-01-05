@@ -1,0 +1,159 @@
+package com.ozancicek.artan.ml.filter
+import breeze.stats.distributions.{RandBasis, Gaussian}
+import com.ozancicek.artan.ml.testutils.SparkSessionTestWrapper
+import org.apache.spark.ml.linalg._
+import org.apache.spark.ml.stat.Summarizer
+import org.apache.spark.ml.{LAPACK}
+import org.apache.spark.sql._
+import org.apache.spark.sql.functions._
+import org.scalatest.{FunSpec, Matchers}
+
+class LinearKalmanFilterSpec
+  extends FunSpec
+  with Matchers
+  with SparkSessionTestWrapper {
+
+  import spark.implicits._
+  implicit val basis: RandBasis = RandBasis.withSeed(0)
+
+  describe("Batch linear kalman filter tests") {
+    it("should filter local linear trend") {
+      val n = 100
+      val dist = breeze.stats.distributions.Gaussian(0, 20)
+
+      val ts = (0 until n).map(_.toDouble).toArray
+      val zs = ts.map(t =>  t + dist.draw())
+      val df = zs.toSeq.map(z => ("1", new DenseVector(Array(z))))
+        .toDF("modelID", "measurement")
+
+      val filter = new LinearKalmanFilter(2, 1)
+        .setGroupKeyCol("modelID")
+        .setMeasurementCol("measurement")
+        .setStateCovariance(
+          new DenseMatrix(2, 2, Array(1000, 0, 0, 1000)))
+        .setProcessModel(
+          new DenseMatrix(2, 2, Array(1, 0, 1, 1)))
+        .setProcessNoise(
+          new DenseMatrix(2, 2, Array(0.0001, 0.0, 0.0, 0.0001)))
+        .setMeasurementNoise(
+          new DenseMatrix(1, 1, Array(20)))
+        .setMeasurementModel(
+          new DenseMatrix(1, 2, Array(1, 0)))
+        .setCalculateMahalanobis
+
+      val modelState = filter.transform(df)
+      val stats = modelState.groupBy($"groupKey")
+        .agg(
+          avg($"mahalanobis").alias("mahalanobis"),
+          Summarizer.mean($"mean").alias("avg"))
+        .head
+
+      assert(stats.getAs[Double]("mahalanobis") < 6.0)
+      assert(scala.math.abs(stats.getAs[DenseVector]("avg")(0) - n/2) < 1.0)
+      assert(scala.math.abs(stats.getAs[DenseVector]("avg")(1) - 1.0) < 1.0)
+    }
+
+    it("should be equivalent to ols") {
+      // Ols problem
+      // z = a*x + b*y + c + N(0, R)
+      val n = 40
+      val dist = breeze.stats.distributions.Gaussian(0, 1)
+
+      val a = 1.5
+      val b = -2.7
+      val c = 5.0
+      val xs = (0 until n).map(_.toDouble).toArray
+      val ys = (0 until n).map(i=> scala.math.sqrt(i.toDouble)).toArray
+      val zs = xs.zip(ys).map {
+        case(x,y)=> (x, y, a*x + b*y + c + dist.draw())
+      }
+      val df = zs.map {
+        case (x, y, z) => ("1", new DenseVector(Array(z)), new DenseMatrix(1, 3, Array(x, y, 1)))
+      }.toSeq.toDF("modelId", "measurement", "measurementModel")
+
+      val filter = new LinearKalmanFilter(3, 1)
+        .setGroupKeyCol("modelId")
+        .setStateCovariance(
+          new DenseMatrix(3, 3, Array(10.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 10.0)))
+        .setMeasurementCol("measurement")
+        .setMeasurementModelCol("measurementModel")
+        .setProcessModel(DenseMatrix.eye(3))
+        .setProcessNoise(DenseMatrix.zeros(3, 3))
+        .setMeasurementNoise(new DenseMatrix(1, 1, Array(0.0001)))
+
+      val modelState = filter.transform(df)
+
+      val lastState = modelState.collect
+        .filter(row=>row.getAs[Long]("index") == n)(0)
+        .getAs[DenseVector]("mean")
+
+      // find least squares solution with dgels
+      val features = new DenseMatrix(n, 3, xs ++ ys ++ Array.fill(n) {1.0})
+      val target = new DenseVector(zs.map {case (x, y, z) => z}.toArray)
+      val coeffs = LAPACK.dgels(features, target)
+      // Error is mean absolute difference of kalman and least squares solutions
+      val mae = (0 until coeffs.size).foldLeft(0.0) {
+        case(s, i) => s + scala.math.abs(lastState(i) - coeffs(i))
+      } / coeffs.size
+      // Error should be smaller than a certain threshold. The threshold is
+      // tuned to some arbitrary small value depending on noise, cov and true coefficients.
+      val threshold = 1E-4
+
+      assert(mae < threshold)
+    }
+
+    it("linear regression with time varying params") {
+      // Linear regression where params perform a random walk
+      // z = a*x + b + N(0, R)
+      // [a, b] = [a, b] + N(0, Q)
+      val n = 100
+      val R = breeze.stats.distributions.Gaussian(0, 1)
+      val Q1 = breeze.stats.distributions.Gaussian(0, 0.1)
+      val Q2 = breeze.stats.distributions.Gaussian(0, 0.15)
+
+      var a = 1.5
+      var b = -2.7
+      val xs = (0 until n).map(_.toDouble).toArray
+      val zs = xs.map { x =>
+        a += Q1.draw()
+        b += Q2.draw()
+        val z = a*x + b + R.draw()
+        z
+      }.toArray
+
+      val df = (1 until n).map { i=>
+        val modelID = "1"
+        val dx = xs(i) - xs(i - 1)
+        val measurement = new DenseVector(Array(zs(i)))
+        val processModel = new DenseMatrix(
+          2, 2, Array(1.0, 0.0, dx, 1.0))
+        (modelID, measurement, processModel)
+      }.toSeq.toDF("modelID", "measurement", "processModel")
+
+      val filter = new LinearKalmanFilter(2, 1)
+        .setGroupKeyCol("modelID")
+        .setStateCovariance(
+          new DenseMatrix(2, 2, Array(10.0, 0.0, 0.0, 10.0)))
+        .setMeasurementCol("measurement")
+        .setProcessModelCol("processModel")
+        .setMeasurementModel(new DenseMatrix(1, 2, Array(1.0, 0.0)))
+        .setProcessNoise(
+          new DenseMatrix(2, 2, Array(0.1, 0.0, 0.0, 0.05)))
+        .setMeasurementNoise(new DenseMatrix(1, 1, Array(0.01)))
+        .setCalculateMahalanobis
+        .setCalculateLoglikelihood
+
+      val modelState = filter.transform(df).cache()
+
+      val lastState = modelState.collect
+        .filter(row=>row.getAs[Long]("index") == n - 1)(0)
+        .getAs[DenseVector]("mean")
+
+      val stats = modelState.groupBy($"groupKey")
+        .agg(
+          Summarizer.mean($"mean").alias("avg"))
+        .head
+      assert(scala.math.abs(stats.getAs[DenseVector]("avg")(0) - zs.reduce(_ + _)/zs.size) < 1.0)
+    }
+  }
+}
