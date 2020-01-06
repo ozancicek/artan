@@ -1,6 +1,6 @@
 import Dependencies._
 
-scalaVersion     := "2.11.8"
+scalaVersion     := "2.12.8"
 version          := "0.1.0-SNAPSHOT"
 organization     := "com.ozancicek"
 organizationName := "ozancicek"
