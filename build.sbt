@@ -19,7 +19,9 @@ lazy val root = (project in file("."))
   )
 
 logBuffered in Test := false
-
+fork in Test := true
+javaOptions ++= Seq("-Xms512M", "-Xmx2048M", "-XX:MaxPermSize=2048M", "-XX:+CMSClassUnloadingEnabled")
+parallelExecution in Test := false
 lazy val compileScalastyle = taskKey[Unit]("compileScalastyle")
 
 compileScalastyle := scalastyle.in(Compile).toTask("").value
