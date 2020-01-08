@@ -100,7 +100,7 @@ object LAPACK {
       work.size,
       info)
     if (info.`val` < 0) {
-      throw new ArithmeticException("Least squares did not converge.")
+      throw new ArithmeticException("Not converged")
     }
     new DenseVector(b.values.slice(0, a.numCols))
   }
@@ -124,10 +124,7 @@ object LAPACK {
         scala.math.max(m, n),
         4L * scala.math.min(m, n) * scala.math.min(m, n) + 4L * scala.math.min(m, n)))
     if (workSize >= Int.MaxValue) {
-      throw new RuntimeException(
-        "The param k and numFeatures is too large for SVD computation. " +
-        "Try reducing the parameter k for PCA, or reduce the input feature " +
-        "vector dimension to make this tractable.")
+      throw new RuntimeException("Too large dimensions")
     }
     val work = new Array[Double](workSize.toInt)
     val info = new intW(0)

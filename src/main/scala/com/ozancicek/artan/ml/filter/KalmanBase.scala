@@ -22,7 +22,7 @@ import com.ozancicek.artan.ml.state.{StateUpdateFunction, StatefulTransformer}
 import com.ozancicek.artan.ml.stats.{MultivariateGaussian}
 import com.ozancicek.artan.ml.linalg.{LinalgUtils}
 import org.apache.spark.ml.linalg.SQLDataTypes
-import org.apache.spark.ml.linalg.{DenseVector, DenseMatrix, Vector, Vectors, Matrices, Matrix}
+import org.apache.spark.ml.linalg.{DenseVector, DenseMatrix, Vector, Matrix}
 import org.apache.spark.ml.param._
 import org.apache.spark.sql._
 import org.apache.spark.sql.Encoders

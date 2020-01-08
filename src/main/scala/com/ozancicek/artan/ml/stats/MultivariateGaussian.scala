@@ -17,7 +17,7 @@
 
 package com.ozancicek.artan.ml.stats
 
-import org.apache.spark.ml.{BLAS, LAPACK}
+import org.apache.spark.ml.{LAPACK}
 import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector}
 import com.ozancicek.artan.ml.linalg.LinalgUtils
 import scala.math.{log, Pi}

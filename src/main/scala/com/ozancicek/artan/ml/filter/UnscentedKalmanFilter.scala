@@ -19,14 +19,13 @@ package com.ozancicek.artan.ml.filter
 
 import com.ozancicek.artan.ml.linalg.LinalgUtils
 import com.ozancicek.artan.ml.state.{KalmanState, KalmanUpdate}
-import com.ozancicek.artan.ml.state.{StatefulTransformer}
-import com.ozancicek.artan.ml.stats._
 import org.apache.spark.ml.linalg.{DenseVector, DenseMatrix, Vector, Matrix}
 import org.apache.spark.ml.param.ParamMap
+import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.ml.{LAPACK, BLAS}
+import org.apache.spark.ml.BLAS
 import org.apache.spark.sql._
-import scala.math.{pow}
+import scala.math.pow
 
 
 class UnscentedKalmanFilter(
@@ -37,15 +36,13 @@ class UnscentedKalmanFilter(
     UnscentedKalmanStateCompute,
     UnscentedKalmanStateEstimator]
   with KalmanUpdateParams with HasStateMean with HasStateCovariance with HasFadingFactor
-  with HasProcessFunction with HasMeasurementFunction {
+  with HasProcessFunction with HasMeasurementFunction with SigmaPointsParams {
 
   def this(
     measurementSize: Int,
     stateSize: Int) = {
     this(measurementSize, stateSize, Identifiable.randomUID("unscentedKalmanFilter"))
   }
-
-  def getSigma = new MerweScaledSigmaPoints(stateSize, 0.3, 2.0, 0.1)
 
   def setStateMean(value: Vector): this.type = set(stateMean, value)
 
@@ -85,6 +82,14 @@ class UnscentedKalmanFilter(
 
   def setCalculateMahalanobis: this.type = set(calculateMahalanobis, true)
 
+  def setSigmaPoints(value: String): this.type = set(sigmaPoints, value)
+
+  def setMerweAlpha(value: Double): this.type = set(merweAlpha, value)
+
+  def setMerweBeta(value: Double): this.type = set(merweBeta, value)
+
+  def setMerweKappa(value: Double): this.type = set(merweKappa, value)
+
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)
 
   def transform(dataset: Dataset[_]): DataFrame = withExtraColumns(filter(dataset))
@@ -93,7 +98,7 @@ class UnscentedKalmanFilter(
     getStateMean,
     getStateCov,
     getFadingFactor,
-    getSigma,
+    getSigmaPoints,
     getProcessFunctionOpt,
     getMeasurementFunctionOpt
   )
@@ -245,7 +250,66 @@ trait SigmaPoints extends Serializable {
 }
 
 
-class MerweScaledSigmaPoints(
+trait HasMerweAlpha extends Params {
+  final val merweAlpha: Param[Double] = new Param[Double](
+    this,
+    "merweAlpha",
+    "merwe alpha"
+  )
+
+  setDefault(merweAlpha, 0.3)
+
+  final def getMerweAlpha: Double = $(merweAlpha)
+}
+
+
+trait HasMerweBeta extends Params {
+  final val merweBeta: Param[Double] = new Param[Double](
+    this,
+    "merweBeta",
+    "merwe beta"
+  )
+
+  setDefault(merweBeta, 2.0)
+
+  final def getMerweBeta: Double = $(merweBeta)
+}
+
+
+trait HasMerweKappa extends Params {
+  final val merweKappa: Param[Double] = new Param[Double](
+    this,
+    "merweKappa",
+    "merwe kappa"
+  )
+
+  setDefault(merweKappa, 0.1)
+
+  final def getMerweKappa: Double = $(merweKappa)
+}
+
+
+trait SigmaPointsParams extends HasMerweAlpha with HasMerweBeta with HasMerweKappa {
+
+  def stateSize: Int
+
+  final val sigmaPoints: Param[String] = new Param[String](
+    this,
+    "sigmaPoints",
+    "sigma pints"
+  )
+  setDefault(sigmaPoints, "merwe")
+
+  final def getSigmaPoints: SigmaPoints = {
+    $(sigmaPoints) match {
+      case "merwe" => new MerweSigmaPoints(stateSize, $(merweAlpha), $(merweBeta), $(merweKappa))
+      case _ => throw new Exception("Unsupported sigma point option")
+    }
+  }
+}
+
+
+class MerweSigmaPoints(
     val stateSize: Int,
     val alpha: Double,
     val beta: Double,
@@ -268,7 +332,7 @@ class MerweScaledSigmaPoints(
 
   def sigmaPoints(mean: DenseVector, cov: DenseMatrix) = {
     val covUpdate = DenseMatrix.zeros(cov.numRows, cov.numCols)
-    BLAS.axpy((lambda + stateSize), cov, covUpdate)
+    BLAS.axpy(lambda + stateSize, cov, covUpdate)
     val sqrt = LinalgUtils.sqrt(covUpdate)
 
     val (pos, neg) = sqrt.rowIter.foldLeft((List(mean), List[DenseVector]())) {

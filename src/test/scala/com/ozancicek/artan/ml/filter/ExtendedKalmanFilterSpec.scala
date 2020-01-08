@@ -17,15 +17,13 @@
 
 package com.ozancicek.artan.ml.filter
 
-import breeze.stats.distributions.{RandBasis, Gaussian}
+import breeze.stats.distributions.{RandBasis}
 import com.ozancicek.artan.ml.testutils.SparkSessionTestWrapper
-import org.apache.spark.ml.BLAS
 import org.apache.spark.ml.linalg._
 import org.apache.spark.ml.stat.Summarizer
-import org.apache.spark.ml.{LAPACK}
-import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.scalatest.{FunSpec, Matchers}
+
 
 class ExtendedKalmanFilterSpec
   extends FunSpec
@@ -124,7 +122,7 @@ class ExtendedKalmanFilterSpec
       }.toDF("modelID", "measurement", "measurementModel", "processModel")
 
       val processNoiseJac = (in: Vector, model: Matrix) => {
-        new DenseMatrix(2, 1, Array(1.0, 0.9))
+        new DenseMatrix(2, 1, Array(1.0, 0.8))
       }
 
       val filter = new ExtendedKalmanFilter(2, 1)

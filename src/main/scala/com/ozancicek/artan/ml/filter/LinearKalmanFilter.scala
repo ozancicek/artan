@@ -19,13 +19,11 @@ package com.ozancicek.artan.ml.filter
 
 import com.ozancicek.artan.ml.linalg.LinalgUtils
 import com.ozancicek.artan.ml.state.{KalmanState, KalmanUpdate}
-import com.ozancicek.artan.ml.stats._
-import org.apache.spark.ml.linalg.{DenseVector, DenseMatrix, Vector, Vectors, Matrices, Matrix}
+import org.apache.spark.ml.linalg.{DenseVector, DenseMatrix, Vector, Matrix}
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.ml.{BLAS, LAPACK}
+import org.apache.spark.ml.{BLAS}
 import org.apache.spark.sql._
-import org.apache.spark.sql.types.StructType
 
 
 class LinearKalmanFilter(

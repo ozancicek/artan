@@ -17,14 +17,14 @@
 
 package com.ozancicek.artan.ml.filter
 
-import breeze.stats.distributions.{RandBasis, Gaussian}
+import breeze.stats.distributions.{RandBasis}
 import com.ozancicek.artan.ml.testutils.SparkSessionTestWrapper
 import org.apache.spark.ml.linalg._
 import org.apache.spark.ml.stat.Summarizer
 import org.apache.spark.ml.{LAPACK}
-import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.scalatest.{FunSpec, Matchers}
+
 
 class LinearKalmanFilterSpec
   extends FunSpec

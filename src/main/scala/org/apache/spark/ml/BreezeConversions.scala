@@ -17,12 +17,12 @@
 
 package org.apache.spark.ml
 
-import breeze.linalg.{Vector=>BV, DenseVector=>BDV, SparseVector=>BSV}
-import breeze.linalg.{Matrix=>BM, DenseMatrix=>BDM, CSCMatrix=>BSM}
+import breeze.linalg.{Vector=>BV, DenseVector=>BDV}
+import breeze.linalg.{Matrix=>BM, DenseMatrix=>BDM}
 
 import org.apache.spark.ml.linalg.{Vectors, Matrices}
-import org.apache.spark.ml.linalg.{Vector=>SV, DenseVector=>SDV, SparseVector=>SSV}
-import org.apache.spark.ml.linalg.{Matrix=>SM, DenseMatrix=>SDM, SparseMatrix=>SSM}
+import org.apache.spark.ml.linalg.{Vector=>SV, DenseVector=>SDV}
+import org.apache.spark.ml.linalg.{Matrix=>SM, DenseMatrix=>SDM}
 
 
 object BreezeConversions {

@@ -17,7 +17,6 @@
 
 package com.ozancicek.artan.ml.filter
 
-import com.ozancicek.artan.ml.state.{KalmanState, KalmanUpdate}
 import org.apache.spark.ml.linalg._
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable

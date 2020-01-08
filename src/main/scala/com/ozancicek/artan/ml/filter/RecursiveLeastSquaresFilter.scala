@@ -20,7 +20,7 @@ package com.ozancicek.artan.ml.filter
 import com.ozancicek.artan.ml.state.{RLSState, RLSUpdate}
 import com.ozancicek.artan.ml.state.{StateUpdateFunction, StatefulTransformer}
 import org.apache.spark.ml.linalg.SQLDataTypes
-import org.apache.spark.ml.linalg.{DenseVector, DenseMatrix, Vector, Vectors, Matrices, Matrix}
+import org.apache.spark.ml.linalg.{DenseMatrix, Vector, Matrix}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.param.shared._
 import org.apache.spark.ml.util.Identifiable
