@@ -122,6 +122,8 @@ class UnscentedKalmanFilterSpec
       .setProcessNoise(DenseMatrix.zeros(3, 3))
       .setMeasurementNoise(new DenseMatrix(1, 1, Array(0.001)))
       .setMeasurementFunction(measurementFunc)
+      .setSigmaPoints("merwe")
+      .setMerweKappa(-0.7)
 
     val modelState = filter.transform(df)
 

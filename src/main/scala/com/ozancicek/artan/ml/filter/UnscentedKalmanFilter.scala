@@ -24,6 +24,7 @@ import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.BLAS
+import org.apache.spark.ml.LAPACK
 import org.apache.spark.sql._
 import scala.math.pow
 
@@ -89,6 +90,8 @@ class UnscentedKalmanFilter(
   def setMerweBeta(value: Double): this.type = set(merweBeta, value)
 
   def setMerweKappa(value: Double): this.type = set(merweKappa, value)
+
+  def setJulierKappa(value: Double): this.type = set(julierKappa, value)
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)
 
@@ -289,7 +292,20 @@ trait HasMerweKappa extends Params {
 }
 
 
-trait SigmaPointsParams extends HasMerweAlpha with HasMerweBeta with HasMerweKappa {
+trait HasJulierKappa extends Params {
+  final val julierKappa: Param[Double] = new Param[Double](
+    this,
+    "julierKappa",
+    "julier kappa"
+  )
+
+  setDefault(julierKappa, 1.0)
+
+  final def getJulierKappa: Double = $(julierKappa)
+}
+
+
+trait SigmaPointsParams extends HasMerweAlpha with HasMerweBeta with HasMerweKappa with HasJulierKappa {
 
   def stateSize: Int
 
@@ -303,13 +319,14 @@ trait SigmaPointsParams extends HasMerweAlpha with HasMerweBeta with HasMerweKap
   final def getSigmaPoints: SigmaPoints = {
     $(sigmaPoints) match {
       case "merwe" => new MerweSigmaPoints(stateSize, $(merweAlpha), $(merweBeta), $(merweKappa))
+      case "julier" => new JulierSigmaPoints(stateSize, $(julierKappa))
       case _ => throw new Exception("Unsupported sigma point option")
     }
   }
 }
 
 
-class MerweSigmaPoints(
+private[filter] class MerweSigmaPoints(
     val stateSize: Int,
     val alpha: Double,
     val beta: Double,
@@ -318,19 +335,19 @@ class MerweSigmaPoints(
   private val lambda = pow(alpha, 2) * (stateSize + kappa) - stateSize
   private val initConst = 0.5 / (stateSize + lambda)
 
-  val meanWeights = {
+  val meanWeights: DenseVector = {
     val weights = Array.fill(2 * stateSize + 1) { initConst }
     weights(0) = lambda / (stateSize + lambda)
     new DenseVector(weights)
   }
 
-  val covWeights = {
+  val covWeights: DenseVector = {
     val weights = Array.fill(2 * stateSize + 1) { initConst }
     weights(0) = lambda / (stateSize + lambda) + (1 - pow(alpha, 2) + beta)
     new DenseVector(weights)
   }
 
-  def sigmaPoints(mean: DenseVector, cov: DenseMatrix) = {
+  def sigmaPoints(mean: DenseVector, cov: DenseMatrix): List[DenseVector] = {
     val covUpdate = DenseMatrix.zeros(cov.numRows, cov.numCols)
     BLAS.axpy(lambda + stateSize, cov, covUpdate)
     val sqrt = LinalgUtils.sqrt(covUpdate)
@@ -347,4 +364,35 @@ class MerweSigmaPoints(
     pos.reverse:::neg.reverse
   }
 
+}
+
+
+private[filter] class JulierSigmaPoints(val stateSize: Int, val kappa: Double) extends SigmaPoints {
+
+  private val initConst = 0.5/(stateSize + kappa)
+
+  val meanWeights: DenseVector = {
+    val weights = Array.fill(2 * stateSize + 1) { initConst }
+    weights(0) = kappa / (kappa + stateSize)
+    new DenseVector(weights)
+  }
+
+  val covWeights: DenseVector = meanWeights
+
+  def sigmaPoints(mean: DenseVector, cov: DenseMatrix): List[DenseVector] = {
+    val covUpdate = DenseMatrix.zeros(cov.numRows, cov.numCols)
+    BLAS.axpy(kappa + stateSize, cov, covUpdate)
+    val sqrt = LinalgUtils.sqrt(covUpdate)
+
+    val (pos, neg) = sqrt.rowIter.foldLeft((List(mean), List[DenseVector]())) {
+      case (coeffs, right) => {
+        val meanPos = mean.copy
+        BLAS.axpy(1.0, right, meanPos)
+        val meanNeg = mean.copy
+        BLAS.axpy(-1.0, right, meanNeg)
+        (meanPos::coeffs._1, meanNeg::coeffs._2)
+      }
+    }
+    pos.reverse:::neg.reverse
+  }
 }
