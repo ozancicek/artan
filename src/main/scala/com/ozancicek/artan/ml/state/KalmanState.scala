@@ -66,12 +66,12 @@ private[ml] case class KalmanUpdate(
  * @param residualCovariance covariance of residual, matrix with dimensions n_obs, n_obs
  */
 case class KalmanOutput(
-  groupKey: String,
-  index: Long,
-  mean: Vector,
-  covariance: Matrix,
-  residual: Vector,
-  residualCovariance: Matrix) {
+    groupKey: String,
+    index: Long,
+    mean: Vector,
+    covariance: Matrix,
+    residual: Vector,
+    residualCovariance: Matrix) {
 
   def loglikelihood: Double = {
     val zeroMean = new DenseVector(Array.fill(residual.size) {0.0})
