@@ -23,13 +23,57 @@ import org.apache.spark.sql._
 import scala.collection.immutable.Queue
 import scala.reflect.ClassTag
 
+/**
+ * Base class for a stateful [[org.apache.spark.ml.Transformer]]. Performs a stateful transformation
+ * using flatMapGroupsWithState function, which is specified with a [[StateUpdateFunction]]. Currently, only
+ * append output mode is supported.
+ *
+ * @param stateTag ClassTag for StateType
+ * @tparam GroupKeyType Key type of groups.
+ * @tparam RowType Input type
+ * @tparam StateType State type
+ * @tparam OutType Output type
+ */
+private[ml] abstract class StatefulTransformer[
+  GroupKeyType,
+  RowType,
+  StateType <: KeyedState[GroupKeyType, OutType],
+  OutType <: Product](implicit stateTag: ClassTag[StateType]) extends Transformer {
 
+  /* Function to pass to flatMapGroupsWithState */
+  def stateUpdateFunc: StateUpdateFunction[GroupKeyType, RowType, StateType, OutType]
+
+  /* Key function for groupByKey*/
+  def keyFunc: (RowType) => GroupKeyType
+
+  /* State is encoded with kyro in order to support schema evolution*/
+  implicit val stateEncoder = Encoders.kryo[StateType]
+
+  def transformWithState(
+    in: Dataset[RowType])(
+    implicit keyEncoder: Encoder[GroupKeyType],
+    rowEncoder: Encoder[RowType],
+    outEncoder: Encoder[OutType]): Dataset[OutType] = in
+    .groupByKey(keyFunc)
+    .flatMapGroupsWithState(
+      OutputMode.Append,
+      GroupStateTimeout.NoTimeout())(stateUpdateFunc)
+}
+
+/**
+ * Base trait for a function to be used in flatMapGroupsWithState. Performs a stateful transformation
+ * from [[RowType]] to [[OutType]], while storing [[StateType]] for each group denoted by key [[GroupKeyType]].
+ *
+ * @tparam GroupKeyType Key type of groups.
+ * @tparam RowType Input type
+ * @tparam StateType State type
+ * @tparam OutType Output type
+ */
 private[ml] trait StateUpdateFunction[
   GroupKeyType,
   RowType,
   StateType <: KeyedState[GroupKeyType, OutType],
-  OutType <: Product]
-  extends Function3[
+  OutType <: Product] extends Function3[
   GroupKeyType,
   Iterator[RowType],
   GroupState[StateType],
@@ -50,34 +94,14 @@ private[ml] trait StateUpdateFunction[
       groupState.remove()
     }
 
-    val currentState = groupState.getOption
-    val nextState = rows.foldLeft(Queue(currentState)) {
-      case (states, row) => states :+ updateGroupState(key, row, states.last)
-    }
-    nextState.last.foreach(s=>groupState.update(s))
-    nextState.flatten.map(_.asOut).toIterator
+    val stateQueue = Queue(groupState.getOption)
+
+    rows.foldLeft(stateQueue) {
+      case (states, row) => {
+        val nextState = updateGroupState(key, row, states.last)
+        nextState.foreach(s => groupState.update(s))
+        states :+ nextState
+      }
+    }.flatten.map(_.asOut).toIterator
   }
-}
-
-
-private[ml] abstract class StatefulTransformer[
-  GroupKeyType,
-  RowType,
-  StateType <: KeyedState[GroupKeyType, OutType],
-  OutType <: Product](implicit stateTag: ClassTag[StateType]) extends Transformer {
-
-  def stateUpdateFunc: StateUpdateFunction[GroupKeyType, RowType, StateType, OutType]
-  def keyFunc: (RowType) => GroupKeyType
-
-  implicit val stateEncoder = Encoders.kryo[StateType]
-
-  def transformWithState(
-    in: Dataset[RowType])(
-    implicit keyEncoder: Encoder[GroupKeyType],
-    rowEncoder: Encoder[RowType],
-    outEncoder: Encoder[OutType]): Dataset[OutType] = in
-      .groupByKey(keyFunc)
-      .flatMapGroupsWithState(
-        OutputMode.Append,
-        GroupStateTimeout.ProcessingTimeTimeout())(stateUpdateFunc)
 }
