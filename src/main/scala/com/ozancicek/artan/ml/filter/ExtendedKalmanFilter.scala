@@ -105,7 +105,7 @@ class ExtendedKalmanFilter(
 }
 
 
-private[ml] class ExtendedKalmanStateEstimator(
+private[filter] class ExtendedKalmanStateEstimator(
     val stateMean: Vector,
     val stateCov: Matrix,
     val fadingFactor: Double,
@@ -127,7 +127,7 @@ private[ml] class ExtendedKalmanStateEstimator(
     measurementNoiseJacobian)
 }
 
-private[ml] class ExtendedKalmanStateCompute(
+private[filter] class ExtendedKalmanStateCompute(
     fadingFactor: Double,
     processFunc: Option[(Vector, Matrix) => Vector],
     processStateJac: Option[(Vector, Matrix) => Matrix],

@@ -85,7 +85,7 @@ class LinearKalmanFilter(
 }
 
 
-private[ml] class LinearKalmanStateEstimator(
+private[filter] class LinearKalmanStateEstimator(
     val stateMean: Vector,
     val stateCov: Matrix,
     val fadingFactor: Double)
@@ -95,7 +95,7 @@ private[ml] class LinearKalmanStateEstimator(
 }
 
 
-private[ml] class LinearKalmanStateCompute(
+private[filter] class LinearKalmanStateCompute(
     val fadingFactor: Double) extends KalmanStateCompute {
 
   def progressStateMean(

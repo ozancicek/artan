@@ -86,7 +86,7 @@ class LeastMeanSquaresFilter(
 }
 
 
-private[ml] class LeastMeanSquaresUpdateFunction(
+private[filter] class LeastMeanSquaresUpdateFunction(
     val stateMean: Vector)
   extends StateUpdateFunction[String, LMSUpdate, LMSState, LMSOutput] {
 

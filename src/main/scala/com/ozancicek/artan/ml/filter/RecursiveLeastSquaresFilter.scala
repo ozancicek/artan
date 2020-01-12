@@ -30,9 +30,9 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
 
 
-trait HasForgettingFactor extends Params {
+private[filter] trait HasForgettingFactor extends Params {
 
-  final val forgettingFactor: Param[Double] = new DoubleParam(
+  final val forgettingFactor: DoubleParam = new DoubleParam(
     this,
     "forgettingFactor",
     "Forgetting factor",
@@ -76,7 +76,7 @@ class RecursiveLeastSquaresFilter(
   def setInverseCovarianceDiag(value: Double): this.type = set(stateCov, getInverseCovMat(value))
 
   setDefault(
-    stateCov, getInverseCovMat(100))
+    stateCov, getInverseCovMat(10E5))
 
   private def getInverseCovMat(value: Double): DenseMatrix = {
     new DenseMatrix(stateSize, stateSize, DenseMatrix.eye(stateSize).values.map(_ * value))
@@ -114,7 +114,7 @@ class RecursiveLeastSquaresFilter(
 }
 
 
-private[ml] class RecursiveLeastSquaresUpdateFunction(
+private[filter] class RecursiveLeastSquaresUpdateFunction(
     val stateMean: Vector,
     val stateCov: Matrix,
     val forgettingFactor: Double)

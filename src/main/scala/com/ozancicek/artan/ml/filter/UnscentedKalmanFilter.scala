@@ -252,8 +252,8 @@ trait SigmaPoints extends Serializable {
 }
 
 
-trait HasMerweAlpha extends Params {
-  final val merweAlpha: Param[Double] = new Param[Double](
+private[filter] trait HasMerweAlpha extends Params {
+  final val merweAlpha: DoubleParam = new DoubleParam(
     this,
     "merweAlpha",
     "merwe alpha"
@@ -265,8 +265,8 @@ trait HasMerweAlpha extends Params {
 }
 
 
-trait HasMerweBeta extends Params {
-  final val merweBeta: Param[Double] = new Param[Double](
+private[filter] trait HasMerweBeta extends Params {
+  final val merweBeta: DoubleParam = new DoubleParam(
     this,
     "merweBeta",
     "merwe beta"
@@ -278,8 +278,8 @@ trait HasMerweBeta extends Params {
 }
 
 
-trait HasMerweKappa extends Params {
-  final val merweKappa: Param[Double] = new Param[Double](
+private[filter] trait HasMerweKappa extends Params {
+  final val merweKappa: DoubleParam = new DoubleParam(
     this,
     "merweKappa",
     "merwe kappa"
@@ -291,8 +291,8 @@ trait HasMerweKappa extends Params {
 }
 
 
-trait HasJulierKappa extends Params {
-  final val julierKappa: Param[Double] = new Param[Double](
+private[filter] trait HasJulierKappa extends Params {
+  final val julierKappa: DoubleParam = new DoubleParam(
     this,
     "julierKappa",
     "julier kappa"
@@ -304,7 +304,7 @@ trait HasJulierKappa extends Params {
 }
 
 
-trait SigmaPointsParams extends HasMerweAlpha with HasMerweBeta with HasMerweKappa with HasJulierKappa {
+private[filter] trait SigmaPointsParams extends HasMerweAlpha with HasMerweBeta with HasMerweKappa with HasJulierKappa {
 
   def stateSize: Int
 
