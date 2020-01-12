@@ -17,7 +17,7 @@
 
 package com.ozancicek.artan.ml.filter
 
-import com.ozancicek.artan.ml.state.{KalmanState, KalmanUpdate}
+import com.ozancicek.artan.ml.state.{KalmanState, KalmanUpdate, KalmanOutput}
 import com.ozancicek.artan.ml.state.{StateUpdateFunction, StatefulTransformer}
 import com.ozancicek.artan.ml.stats.{MultivariateGaussian}
 import com.ozancicek.artan.ml.linalg.{LinalgUtils}
@@ -428,7 +428,7 @@ private[ml] trait KalmanStateCompute extends Serializable {
 
 
 private[ml] trait KalmanStateUpdateFunction[+Compute <: KalmanStateCompute]
-  extends StateUpdateFunction[String, KalmanUpdate, KalmanState] {
+  extends StateUpdateFunction[String, KalmanUpdate, KalmanState, KalmanOutput] {
 
   val kalmanCompute: Compute
   def stateMean: Vector
@@ -460,15 +460,15 @@ private[ml] trait KalmanStateUpdateFunction[+Compute <: KalmanStateCompute]
 private[ml] abstract class KalmanTransformer[
   Compute <: KalmanStateCompute,
   StateUpdate <: KalmanStateUpdateFunction[Compute]]
-  extends StatefulTransformer[String, KalmanUpdate, KalmanState] with KalmanUpdateParams {
+  extends StatefulTransformer[String, KalmanUpdate, KalmanState, KalmanOutput] with KalmanUpdateParams {
 
   implicit val kalmanUpdateEncoder = Encoders.product[KalmanUpdate]
   implicit val groupKeyEncoder = Encoders.STRING
-  implicit val kalmanStateEncoder = Encoders.product[KalmanState]
+  implicit val kalmanOutputEncoder = Encoders.product[KalmanOutput]
 
   def transformSchema(schema: StructType): StructType = {
     validateSchema(schema)
-    kalmanUpdateEncoder.schema
+    kalmanOutputEncoder.schema
   }
 
   def loglikelihoodUDF = udf((residual: Vector, covariance: Matrix) => {
@@ -481,7 +481,7 @@ private[ml] abstract class KalmanTransformer[
     LinalgUtils.mahalanobis(residual.toDense, zeroMean, covariance.toDense)
   })
 
-  def withExtraColumns(dataset: Dataset[KalmanState]): DataFrame = {
+  def withExtraColumns(dataset: Dataset[KalmanOutput]): DataFrame = {
     val df = dataset.toDF
     val withLoglikelihood = if (getCalculateLoglikelihood) {
       df.withColumn("loglikelihood", loglikelihoodUDF(col("residual"), col("residualCovariance")))
@@ -494,7 +494,7 @@ private[ml] abstract class KalmanTransformer[
     withMahalanobis
   }
 
-  def filter(dataset: Dataset[_]): Dataset[KalmanState] = {
+  def filter(dataset: Dataset[_]): Dataset[KalmanOutput] = {
     transformSchema(dataset.schema)
     val kalmanUpdateDS = toKalmanUpdate(dataset)
     transformWithState(kalmanUpdateDS)

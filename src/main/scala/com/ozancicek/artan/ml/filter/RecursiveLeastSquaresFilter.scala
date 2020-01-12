@@ -17,14 +17,13 @@
 
 package com.ozancicek.artan.ml.filter
 
-import com.ozancicek.artan.ml.state.{RLSState, RLSUpdate}
-import com.ozancicek.artan.ml.state.{StateUpdateFunction, StatefulTransformer}
+import com.ozancicek.artan.ml.state.{RLSOutput, RLSState, RLSUpdate, StateUpdateFunction, StatefulTransformer}
 import org.apache.spark.ml.linalg.SQLDataTypes
-import org.apache.spark.ml.linalg.{DenseMatrix, Vector, Matrix}
+import org.apache.spark.ml.linalg.{DenseMatrix, Matrix, Vector}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.param.shared._
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.ml.{BLAS}
+import org.apache.spark.ml.BLAS
 import org.apache.spark.sql._
 import org.apache.spark.sql.Encoders
 import org.apache.spark.sql.functions.col
@@ -48,12 +47,12 @@ trait HasForgettingFactor extends Params {
 class RecursiveLeastSquaresFilter(
     val stateSize: Int,
     override val uid: String)
-  extends StatefulTransformer[String, RLSUpdate, RLSState]
+  extends StatefulTransformer[String, RLSUpdate, RLSState, RLSOutput]
   with HasGroupKeyCol with HasLabelCol with HasFeaturesCol with HasForgettingFactor
   with HasStateMean with HasStateCovariance {
 
   implicit val rlsUpdateEncoder = Encoders.product[RLSUpdate]
-  implicit val rlsStateEncoder = Encoders.product[RLSState]
+  implicit val rlsOutEncoder = Encoders.product[RLSOutput]
   implicit val groupKeyEncoder = Encoders.STRING
 
   def this(stateSize: Int) = this(stateSize, Identifiable.randomUID("recursiveLeastSquaresFilter"))
@@ -95,7 +94,7 @@ class RecursiveLeastSquaresFilter(
     rlsUpdateEncoder.schema
   }
 
-  def filter(dataset: Dataset[_]): Dataset[RLSState] = {
+  def filter(dataset: Dataset[_]): Dataset[RLSOutput] = {
     transformSchema(dataset.schema)
     val rlsUpdateDS = dataset
       .withColumn("groupKey", col($(groupKeyCol)))
@@ -119,7 +118,7 @@ private[ml] class RecursiveLeastSquaresUpdateFunction(
     val stateMean: Vector,
     val stateCov: Matrix,
     val forgettingFactor: Double)
-  extends StateUpdateFunction[String, RLSUpdate, RLSState] {
+  extends StateUpdateFunction[String, RLSUpdate, RLSState, RLSOutput] {
 
   def updateGroupState(
     key: String,

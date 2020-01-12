@@ -20,17 +20,20 @@ package com.ozancicek.artan.ml.state
 import org.apache.spark.ml.Transformer
 import org.apache.spark.sql.streaming.{GroupState, OutputMode, GroupStateTimeout}
 import org.apache.spark.sql._
+import scala.collection.immutable.Queue
+import scala.reflect.ClassTag
 
 
 private[ml] trait StateUpdateFunction[
   GroupKeyType,
   RowType,
-  StateType]
+  StateType <: KeyedState[GroupKeyType, OutType],
+  OutType <: Product]
   extends Function3[
   GroupKeyType,
   Iterator[RowType],
   GroupState[StateType],
-  Iterator[StateType]] with Serializable {
+  Iterator[OutType]] with Serializable {
 
   def updateGroupState(
     key: GroupKeyType,
@@ -41,35 +44,38 @@ private[ml] trait StateUpdateFunction[
     key: GroupKeyType,
     rows: Iterator[RowType],
     groupState: GroupState[StateType]
-  ): Iterator[StateType] = {
+  ): Iterator[OutType] = {
 
-  if (groupState.hasTimedOut) {
-    groupState.remove()
-  }
+    if (groupState.hasTimedOut) {
+      groupState.remove()
+    }
 
-  val currentState = groupState.getOption
-  val nextState = rows.foldLeft(List(currentState)) {
-    case (states, row) => updateGroupState(key, row, states.head) :: states
-  }
-  nextState.head.foreach(s=>groupState.update(s))
-  nextState.flatten.reverse.toIterator
+    val currentState = groupState.getOption
+    val nextState = rows.foldLeft(Queue(currentState)) {
+      case (states, row) => states :+ updateGroupState(key, row, states.last)
+    }
+    nextState.last.foreach(s=>groupState.update(s))
+    nextState.flatten.map(_.asOut).toIterator
   }
 }
 
 
-private[ml] trait StatefulTransformer[
+private[ml] abstract class StatefulTransformer[
   GroupKeyType,
   RowType,
-  StateType] extends Transformer {
+  StateType <: KeyedState[GroupKeyType, OutType],
+  OutType <: Product](implicit stateTag: ClassTag[StateType]) extends Transformer {
 
-  def stateUpdateFunc: StateUpdateFunction[GroupKeyType, RowType, StateType]
+  def stateUpdateFunc: StateUpdateFunction[GroupKeyType, RowType, StateType, OutType]
   def keyFunc: (RowType) => GroupKeyType
 
+  implicit val stateEncoder = Encoders.kryo[StateType]
+
   def transformWithState(
-    in: Dataset[RowType])(implicit
-    keyEncoder: Encoder[GroupKeyType],
+    in: Dataset[RowType])(
+    implicit keyEncoder: Encoder[GroupKeyType],
     rowEncoder: Encoder[RowType],
-    stateEncoder: Encoder[StateType]) = in
+    outEncoder: Encoder[OutType]) = in
       .groupByKey(keyFunc)
       .flatMapGroupsWithState(
         OutputMode.Append,

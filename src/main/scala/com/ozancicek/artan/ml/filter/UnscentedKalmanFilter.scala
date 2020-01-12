@@ -24,7 +24,6 @@ import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.BLAS
-import org.apache.spark.ml.LAPACK
 import org.apache.spark.sql._
 import scala.math.pow
 

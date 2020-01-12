@@ -17,13 +17,31 @@
 
 package com.ozancicek.artan.ml.state
 
+import org.apache.spark.ml.linalg.{Vector}
 
-private[state] trait KeyedState[
-  KeyType,
-  OutType <: Product] {
 
-  val groupKey: KeyType
-  val index: Long
+private[ml] case class LMSState(
+    groupKey: String,
+    index: Long,
+    mean: Vector) extends KeyedState[String, LMSOutput] {
 
-  def asOut: OutType
+  def asOut: LMSOutput = {
+    LMSOutput(
+      groupKey,
+      index,
+      mean
+    )
+  }
 }
+
+
+case class LMSOutput(
+    groupKey: String,
+    index: Long,
+    mean: Vector)
+
+
+case class LMSUpdate(
+    groupKey: String,
+    label: Double,
+    features: Vector)

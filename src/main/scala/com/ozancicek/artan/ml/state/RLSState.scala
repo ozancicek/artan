@@ -17,13 +17,33 @@
 
 package com.ozancicek.artan.ml.state
 
+import org.apache.spark.ml.linalg.{Vector, Matrix}
 
-private[state] trait KeyedState[
-  KeyType,
-  OutType <: Product] {
 
-  val groupKey: KeyType
-  val index: Long
+private[ml] case class RLSState(
+    groupKey: String,
+    index: Long,
+    mean: Vector,
+    covariance: Matrix) extends KeyedState[String, RLSOutput] {
 
-  def asOut: OutType
+  def asOut: RLSOutput = {
+    RLSOutput(
+      groupKey,
+      index,
+      mean,
+      covariance
+    )
+  }
 }
+
+case class RLSOutput(
+    groupKey: String,
+    index: Long,
+    mean: Vector,
+    covariance: Matrix)
+
+
+case class RLSUpdate(
+    groupKey: String,
+    label: Double,
+    features: Vector)

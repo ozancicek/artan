@@ -17,7 +17,7 @@
 
 package com.ozancicek.artan.ml.filter
 
-import com.ozancicek.artan.ml.state.{LMSState, LMSUpdate}
+import com.ozancicek.artan.ml.state.{LMSState, LMSUpdate, LMSOutput}
 import com.ozancicek.artan.ml.state.{StateUpdateFunction, StatefulTransformer}
 import org.apache.spark.ml.linalg.SQLDataTypes
 import org.apache.spark.ml.linalg.{Vector}
@@ -34,11 +34,11 @@ import org.apache.spark.sql.types._
 class LeastMeanSquaresFilter(
     val stateSize: Int,
     override val uid: String)
-  extends StatefulTransformer[String, LMSUpdate, LMSState]
+  extends StatefulTransformer[String, LMSUpdate, LMSState, LMSOutput]
   with HasGroupKeyCol with HasLabelCol with HasFeaturesCol with HasStateMean {
 
   implicit val lmsUpdateEncoder = Encoders.product[LMSUpdate]
-  implicit val lmsStateEncoder = Encoders.product[LMSState]
+  implicit val lmsOutputEncoder = Encoders.product[LMSOutput]
   implicit val groupKeyEncoder = Encoders.STRING
 
   def this(stateSize: Int) = this(stateSize, Identifiable.randomUID("leastMeanSquaresFilter"))
@@ -67,7 +67,7 @@ class LeastMeanSquaresFilter(
     lmsUpdateEncoder.schema
   }
 
-  def filter(dataset: Dataset[_]): Dataset[LMSState] = {
+  def filter(dataset: Dataset[_]): Dataset[LMSOutput] = {
     transformSchema(dataset.schema)
     val lmsUpdateDS = dataset
       .withColumn("groupKey", col($(groupKeyCol)))
@@ -88,7 +88,7 @@ class LeastMeanSquaresFilter(
 
 private[ml] class LeastMeanSquaresUpdateFunction(
     val stateMean: Vector)
-  extends StateUpdateFunction[String, LMSUpdate, LMSState] {
+  extends StateUpdateFunction[String, LMSUpdate, LMSState, LMSOutput] {
 
   def updateGroupState(
     key: String,
