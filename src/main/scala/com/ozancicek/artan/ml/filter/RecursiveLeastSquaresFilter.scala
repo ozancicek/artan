@@ -51,8 +51,6 @@ class RecursiveLeastSquaresFilter(
   with HasGroupKeyCol with HasLabelCol with HasFeaturesCol with HasForgettingFactor
   with HasStateMean with HasStateCovariance {
 
-  implicit val rlsUpdateEncoder = Encoders.product[RLSUpdate]
-  implicit val rlsOutEncoder = Encoders.product[RLSOutput]
   implicit val groupKeyEncoder = Encoders.STRING
 
   def this(stateSize: Int) = this(stateSize, Identifiable.randomUID("recursiveLeastSquaresFilter"))
@@ -91,7 +89,7 @@ class RecursiveLeastSquaresFilter(
 
   def transformSchema(schema: StructType): StructType = {
     validateSchema(schema)
-    rlsUpdateEncoder.schema
+    outEncoder.schema
   }
 
   def filter(dataset: Dataset[_]): Dataset[RLSOutput] = {
@@ -101,13 +99,13 @@ class RecursiveLeastSquaresFilter(
       .withColumn("label", col($(labelCol)))
       .withColumn("features", col($(featuresCol)))
       .select("groupKey", "label", "features")
-      .as(rlsUpdateEncoder)
+      .as(rowEncoder)
     transformWithState(rlsUpdateDS)
   }
 
   def transform(dataset: Dataset[_]): DataFrame = filter(dataset).toDF
 
-  def stateUpdateFunc: RecursiveLeastSquaresUpdateFunction = new RecursiveLeastSquaresUpdateFunction(
+  protected def stateUpdateFunc: RecursiveLeastSquaresUpdateFunction = new RecursiveLeastSquaresUpdateFunction(
     getStateMean,
     getStateCov,
     getForgettingFactor)

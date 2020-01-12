@@ -77,7 +77,7 @@ class LinearKalmanFilter(
 
   def transform(dataset: Dataset[_]): DataFrame = withExtraColumns(filter(dataset))
 
-  def stateUpdateFunc: LinearKalmanStateEstimator = new LinearKalmanStateEstimator(
+  protected def stateUpdateFunc: LinearKalmanStateEstimator = new LinearKalmanStateEstimator(
     getStateMean,
     getStateCov,
     getFadingFactor
@@ -98,7 +98,7 @@ private[filter] class LinearKalmanStateEstimator(
 private[filter] class LinearKalmanStateCompute(
     val fadingFactor: Double) extends KalmanStateCompute {
 
-  def progressStateMean(
+  protected def progressStateMean(
     stateMean: DenseVector,
     processModel: DenseMatrix): DenseVector = {
     val mean = new DenseVector(Array.fill(stateMean.size) {0.0})
@@ -106,7 +106,7 @@ private[filter] class LinearKalmanStateCompute(
     mean
   }
 
-  def calculateResidual(
+  protected def calculateResidual(
     stateMean: DenseVector,
     measurement: DenseVector,
     measurementModel: DenseMatrix): DenseVector = {
@@ -115,23 +115,23 @@ private[filter] class LinearKalmanStateCompute(
     residual
   }
 
-  def getProcessModel(
+  protected def getProcessModel(
     stateMean: DenseVector,
     processModel: DenseMatrix): DenseMatrix = processModel
 
-  def getMeasurementModel(
+  protected def getMeasurementModel(
     stateMean: DenseVector,
     measurementModel: DenseMatrix): DenseMatrix = measurementModel
 
-  def getProcessNoise(
+  protected def getProcessNoise(
     stateMean: DenseVector,
     processNoise: DenseMatrix): DenseMatrix = processNoise
 
-  def getMeasurementNoise(
+  protected def getMeasurementNoise(
     stateMean: DenseVector,
     measurementNoise: DenseMatrix): DenseMatrix = measurementNoise
 
-  private[ml] def predict(
+  def predict(
     state: KalmanState,
     process: KalmanUpdate): KalmanState = {
 
@@ -160,7 +160,7 @@ private[filter] class LinearKalmanStateCompute(
       state.residualCovariance)
   }
 
-  private[ml] def estimate(
+  def estimate(
     state: KalmanState,
     process: KalmanUpdate): KalmanState = {
 
@@ -206,7 +206,7 @@ private[filter] class LinearKalmanStateCompute(
       noiseCov)
   }
 
-  private[ml] def update(
+  def update(
     state: KalmanState,
     process: KalmanUpdate): KalmanState = {
     estimate(predict(state, process), process)

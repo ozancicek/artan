@@ -96,7 +96,7 @@ class UnscentedKalmanFilter(
 
   def transform(dataset: Dataset[_]): DataFrame = withExtraColumns(filter(dataset))
 
-  def stateUpdateFunc: UnscentedKalmanStateEstimator = new UnscentedKalmanStateEstimator(
+  protected def stateUpdateFunc: UnscentedKalmanStateEstimator = new UnscentedKalmanStateEstimator(
     getStateMean,
     getStateCov,
     getFadingFactor,
@@ -130,7 +130,7 @@ private[ml] class UnscentedKalmanStateCompute(
     processFunc: Option[(Vector, Matrix) => Vector],
     measurementFunc: Option[(Vector, Matrix) => Vector]) extends KalmanStateCompute {
 
-  private[ml] def predict(
+  def predict(
     state: KalmanState,
     process: KalmanUpdate): KalmanState = {
 
@@ -166,7 +166,7 @@ private[ml] class UnscentedKalmanStateCompute(
   }
 
 
-  private[ml] def estimate(
+  private def estimate(
     state: KalmanState,
     process: KalmanUpdate): KalmanState = {
 
@@ -212,7 +212,7 @@ private[ml] class UnscentedKalmanStateCompute(
       state.groupKey, state.index, newMean, newCov, residual, estimateCov)
   }
 
-  private[ml] def update(
+  def update(
     state: KalmanState,
     process: KalmanUpdate): KalmanState = {
     estimate(predict(state, process), process)

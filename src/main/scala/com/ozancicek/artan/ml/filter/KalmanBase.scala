@@ -128,11 +128,11 @@ private[filter] trait KalmanUpdateParams extends HasGroupKeyCol with HasMeasurem
 
 private[filter] trait KalmanStateCompute extends Serializable {
 
-  private[ml] def update(
+  def update(
     state: KalmanState,
     process: KalmanUpdate): KalmanState
 
-  private[ml] def predict(
+  def predict(
     state: KalmanState,
     process: KalmanUpdate): KalmanState
 
@@ -178,13 +178,11 @@ private[filter] abstract class KalmanTransformer[
   StateUpdate <: KalmanStateUpdateFunction[Compute]]
   extends StatefulTransformer[String, KalmanUpdate, KalmanState, KalmanOutput] with KalmanUpdateParams {
 
-  implicit val kalmanUpdateEncoder = Encoders.product[KalmanUpdate]
   implicit val groupKeyEncoder = Encoders.STRING
-  implicit val kalmanOutputEncoder = Encoders.product[KalmanOutput]
 
   def transformSchema(schema: StructType): StructType = {
     validateSchema(schema)
-    kalmanOutputEncoder.schema
+    outEncoder.schema
   }
 
   private def loglikelihoodUDF = udf((residual: Vector, covariance: Matrix) => {
@@ -197,7 +195,7 @@ private[filter] abstract class KalmanTransformer[
     LinalgUtils.mahalanobis(residual.toDense, zeroMean, covariance.toDense)
   })
 
-  def withExtraColumns(dataset: Dataset[KalmanOutput]): DataFrame = {
+  protected def withExtraColumns(dataset: Dataset[KalmanOutput]): DataFrame = {
     val df = dataset.toDF
     val withLoglikelihood = if (getCalculateLoglikelihood) {
       df.withColumn("loglikelihood", loglikelihoodUDF(col("residual"), col("residualCovariance")))
@@ -216,7 +214,7 @@ private[filter] abstract class KalmanTransformer[
     transformWithState(kalmanUpdateDS)
   }
 
-  def toKalmanUpdate(dataset: Dataset[_]): Dataset[KalmanUpdate] = {
+  private def toKalmanUpdate(dataset: Dataset[_]): Dataset[KalmanUpdate] = {
     dataset
       .withColumn("groupKey", getGroupKeyExpr)
       .withColumn("measurement", getMeasurementExpr)
@@ -230,9 +228,9 @@ private[filter] abstract class KalmanTransformer[
         "groupKey", "measurement", "measurementModel",
         "measurementNoise", "processModel", "processNoise",
         "control", "controlFunction")
-      .as(kalmanUpdateEncoder)
+      .as(rowEncoder)
   }
 
-  def keyFunc: KalmanUpdate => String = (in: KalmanUpdate) => in.groupKey
-  def stateUpdateFunc: StateUpdate
+  protected def keyFunc: KalmanUpdate => String = (in: KalmanUpdate) => in.groupKey
+  protected def stateUpdateFunc: StateUpdate
 }

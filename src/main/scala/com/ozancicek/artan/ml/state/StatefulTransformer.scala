@@ -21,14 +21,14 @@ import org.apache.spark.ml.Transformer
 import org.apache.spark.sql.streaming.{GroupState, OutputMode, GroupStateTimeout}
 import org.apache.spark.sql._
 import scala.collection.immutable.Queue
-import scala.reflect.ClassTag
+import scala.reflect.{ClassTag}
+import scala.reflect.runtime.universe.TypeTag
 
 /**
  * Base class for a stateful [[org.apache.spark.ml.Transformer]]. Performs a stateful transformation
  * using flatMapGroupsWithState function, which is specified with a [[StateUpdateFunction]]. Currently, only
  * append output mode is supported.
  *
- * @param stateTag ClassTag for StateType
  * @tparam GroupKeyType Key type of groups.
  * @tparam RowType Input type
  * @tparam StateType State type
@@ -36,24 +36,24 @@ import scala.reflect.ClassTag
  */
 private[ml] abstract class StatefulTransformer[
   GroupKeyType,
-  RowType,
-  StateType <: KeyedState[GroupKeyType, OutType],
-  OutType <: Product](implicit stateTag: ClassTag[StateType]) extends Transformer {
+  RowType <: Product : TypeTag,
+  StateType <: KeyedState[GroupKeyType, OutType] : ClassTag,
+  OutType <: Product : TypeTag] extends Transformer {
 
   /* Function to pass to flatMapGroupsWithState */
-  def stateUpdateFunc: StateUpdateFunction[GroupKeyType, RowType, StateType, OutType]
+  protected def stateUpdateFunc: StateUpdateFunction[GroupKeyType, RowType, StateType, OutType]
 
-  /* Key function for groupByKey*/
-  def keyFunc: (RowType) => GroupKeyType
+  /* Keying function for groupByKey*/
+  protected def keyFunc: (RowType) => GroupKeyType
 
-  /* State is encoded with kyro in order to support schema evolution*/
-  implicit val stateEncoder = Encoders.kryo[StateType]
+  /* State is encoded with kyro in order to support schema evolution. Others are encoded with spark encoders. */
+  protected implicit val stateEncoder = Encoders.kryo[StateType]
+  protected implicit val rowEncoder = Encoders.product[RowType]
+  protected implicit val outEncoder = Encoders.product[OutType]
 
-  def transformWithState(
+  protected def transformWithState(
     in: Dataset[RowType])(
-    implicit keyEncoder: Encoder[GroupKeyType],
-    rowEncoder: Encoder[RowType],
-    outEncoder: Encoder[OutType]): Dataset[OutType] = in
+    implicit keyEncoder: Encoder[GroupKeyType]): Dataset[OutType] = in
     .groupByKey(keyFunc)
     .flatMapGroupsWithState(
       OutputMode.Append,
@@ -71,15 +71,12 @@ private[ml] abstract class StatefulTransformer[
  */
 private[ml] trait StateUpdateFunction[
   GroupKeyType,
-  RowType,
+  RowType <: Product,
   StateType <: KeyedState[GroupKeyType, OutType],
-  OutType <: Product] extends Function3[
-  GroupKeyType,
-  Iterator[RowType],
-  GroupState[StateType],
-  Iterator[OutType]] with Serializable {
+  OutType <: Product] extends Function3[GroupKeyType, Iterator[RowType], GroupState[StateType], Iterator[OutType]]
+  with Serializable {
 
-  def updateGroupState(
+  protected def updateGroupState(
     key: GroupKeyType,
     row: RowType,
     state: Option[StateType]): Option[StateType]
