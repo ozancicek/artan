@@ -4,7 +4,7 @@ scalaVersion     := "2.12.8"
 version          := "0.1.0-SNAPSHOT"
 organization     := "com.ozancicek"
 organizationName := "ozancicek"
-val sparkVersion = "2.4.1"
+val sparkVersion = "2.4.4"
 
 lazy val root = (project in file("."))
   .settings(
