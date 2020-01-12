@@ -187,12 +187,12 @@ private[filter] abstract class KalmanTransformer[
     kalmanOutputEncoder.schema
   }
 
-  def loglikelihoodUDF = udf((residual: Vector, covariance: Matrix) => {
+  private def loglikelihoodUDF = udf((residual: Vector, covariance: Matrix) => {
     val zeroMean = new DenseVector(Array.fill(residual.size) {0.0})
     MultivariateGaussian.logpdf(residual.toDense, zeroMean, covariance.toDense)
   })
 
-  def mahalanobisUDF = udf((residual: Vector, covariance: Matrix) => {
+  private def mahalanobisUDF = udf((residual: Vector, covariance: Matrix) => {
     val zeroMean = new DenseVector(Array.fill(residual.size) {0.0})
     LinalgUtils.mahalanobis(residual.toDense, zeroMean, covariance.toDense)
   })
@@ -233,6 +233,6 @@ private[filter] abstract class KalmanTransformer[
       .as(kalmanUpdateEncoder)
   }
 
-  def keyFunc = (in: KalmanUpdate) => in.groupKey
+  def keyFunc: KalmanUpdate => String = (in: KalmanUpdate) => in.groupKey
   def stateUpdateFunc: StateUpdate
 }

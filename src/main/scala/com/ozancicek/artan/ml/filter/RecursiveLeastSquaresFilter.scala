@@ -57,7 +57,7 @@ class RecursiveLeastSquaresFilter(
 
   def this(stateSize: Int) = this(stateSize, Identifiable.randomUID("recursiveLeastSquaresFilter"))
 
-  def keyFunc = (in: RLSUpdate) => in.groupKey
+  def keyFunc: RLSUpdate => String = (in: RLSUpdate) => in.groupKey
 
   override def copy(extra: ParamMap): RecursiveLeastSquaresFilter = defaultCopy(extra)
 
@@ -107,7 +107,7 @@ class RecursiveLeastSquaresFilter(
 
   def transform(dataset: Dataset[_]): DataFrame = filter(dataset).toDF
 
-  def stateUpdateFunc = new RecursiveLeastSquaresUpdateFunction(
+  def stateUpdateFunc: RecursiveLeastSquaresUpdateFunction = new RecursiveLeastSquaresUpdateFunction(
     getStateMean,
     getStateCov,
     getForgettingFactor)

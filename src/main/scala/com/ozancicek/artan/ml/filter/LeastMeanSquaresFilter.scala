@@ -43,7 +43,7 @@ class LeastMeanSquaresFilter(
 
   def this(stateSize: Int) = this(stateSize, Identifiable.randomUID("leastMeanSquaresFilter"))
 
-  def keyFunc = (in: LMSUpdate) => in.groupKey
+  def keyFunc: LMSUpdate => String = (in: LMSUpdate) => in.groupKey
 
   override def copy(extra: ParamMap): LeastMeanSquaresFilter = defaultCopy(extra)
 
@@ -80,7 +80,7 @@ class LeastMeanSquaresFilter(
 
   def transform(dataset: Dataset[_]): DataFrame = filter(dataset).toDF
 
-  def stateUpdateFunc = new LeastMeanSquaresUpdateFunction(
+  def stateUpdateFunc: LeastMeanSquaresUpdateFunction = new LeastMeanSquaresUpdateFunction(
     getStateMean)
 
 }

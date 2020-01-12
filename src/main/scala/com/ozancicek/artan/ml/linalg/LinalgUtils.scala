@@ -74,8 +74,8 @@ object LinalgUtils {
     result.transpose
   }
 
-  def pinv(mat: DenseMatrix) = svdDiagOp(mat, (v: Double) => if (v == 0.0) 0.0f else 1 / v)
-  def sqrt(mat: DenseMatrix) = svdDiagOp(mat, scalarSqrt)
+  def pinv(mat: DenseMatrix): DenseMatrix = svdDiagOp(mat, (v: Double) => if (v == 0.0) 0.0f else 1 / v)
+  def sqrt(mat: DenseMatrix): DenseMatrix = svdDiagOp(mat, scalarSqrt)
 
   def squaredMahalanobis(
     point: DenseVector,

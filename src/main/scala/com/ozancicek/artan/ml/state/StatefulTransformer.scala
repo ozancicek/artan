@@ -75,7 +75,7 @@ private[ml] abstract class StatefulTransformer[
     in: Dataset[RowType])(
     implicit keyEncoder: Encoder[GroupKeyType],
     rowEncoder: Encoder[RowType],
-    outEncoder: Encoder[OutType]) = in
+    outEncoder: Encoder[OutType]): Dataset[OutType] = in
       .groupByKey(keyFunc)
       .flatMapGroupsWithState(
         OutputMode.Append,

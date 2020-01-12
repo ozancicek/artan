@@ -91,7 +91,7 @@ class ExtendedKalmanFilter(
 
   def transform(dataset: Dataset[_]): DataFrame = withExtraColumns(filter(dataset))
 
-  def stateUpdateFunc = new ExtendedKalmanStateEstimator(
+  def stateUpdateFunc: ExtendedKalmanStateEstimator = new ExtendedKalmanStateEstimator(
     getStateMean,
     getStateCov,
     getFadingFactor,

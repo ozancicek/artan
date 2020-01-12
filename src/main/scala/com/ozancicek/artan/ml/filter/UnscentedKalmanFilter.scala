@@ -96,7 +96,7 @@ class UnscentedKalmanFilter(
 
   def transform(dataset: Dataset[_]): DataFrame = withExtraColumns(filter(dataset))
 
-  def stateUpdateFunc = new UnscentedKalmanStateEstimator(
+  def stateUpdateFunc: UnscentedKalmanStateEstimator = new UnscentedKalmanStateEstimator(
     getStateMean,
     getStateCov,
     getFadingFactor,

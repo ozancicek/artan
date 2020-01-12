@@ -28,38 +28,38 @@ import org.apache.spark.ml.linalg.{Matrix=>SM, DenseMatrix=>SDM}
 object BreezeConversions {
 
   implicit class SparkToBreezeVector(vec: SV) {
-    def asBreeze = vec.asBreeze
+    def asBreeze: BV[Double] = vec.asBreeze
   }
 
   implicit class SparkToBreezeDenseVector(vec: SDV) {
-    def asBreeze = vec.asBreeze
+    def asBreeze: BDV[Double] = vec.asBreeze
       .asInstanceOf[BDV[Double]]
   }
 
   implicit class BreezeToSparkVector(vec: BV[Double]) {
-    def asSpark = Vectors.fromBreeze(vec)
+    def asSpark: SV = Vectors.fromBreeze(vec)
   }
 
   implicit class BreezeToSparkDenseVector(vec: BDV[Double]) {
-    def asSpark = Vectors.fromBreeze(vec)
+    def asSpark: SDV = Vectors.fromBreeze(vec)
       .asInstanceOf[SDV]
   }
 
   implicit class SparkToBreezeMatrix(mat: SM) {
-    def asBreeze = mat.asBreeze
+    def asBreeze: BM[Double] = mat.asBreeze
   }
 
   implicit class SparkToBreezeDenseMatrix(mat: SDM) {
-    def asBreeze = mat.asBreeze
+    def asBreeze: BDM[Double] = mat.asBreeze
       .asInstanceOf[BDM[Double]]
   }
 
   implicit class BreezeToSparkMatrix(mat: BM[Double]) {
-    def asSpark = Matrices.fromBreeze(mat)
+    def asSpark: SM = Matrices.fromBreeze(mat)
   }
 
   implicit class BreezeToSparkDenseMatrix(mat: BDM[Double]) {
-    def asSpark = Matrices.fromBreeze(mat)
+    def asSpark: SDM = Matrices.fromBreeze(mat)
       .asInstanceOf[SDM]
   }
 }
