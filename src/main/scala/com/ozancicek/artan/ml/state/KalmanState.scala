@@ -21,7 +21,25 @@ import org.apache.spark.ml.linalg.{Vector, Matrix, DenseVector}
 import com.ozancicek.artan.ml.linalg.LinalgUtils
 import com.ozancicek.artan.ml.stats.MultivariateGaussian
 
-
+/**
+ * Case class for inputs of a kalman filter. Let state at step k be denoted with x_k, measurement with
+ * z_k, where x_k and z_k are vectors of lenght n_state and n_obs
+ *
+ * State evolution:
+ * x_k = F_k * x_k-1 + B_k * u_k + w_k
+ *
+ * Measurement:
+ * z_k = H_k * x_k + v_k
+ *
+ * @param groupKey Key of the filter.
+ * @param measurement z_k, Vector with length n_obs
+ * @param measurementModel H_k, Matrix with dimensions (n_state, n_obs)
+ * @param measurementNoise v_k, Matrix with dimensions (n_obs, n_obs)
+ * @param processModel F_k, Matrix with dimensions (n_state, n_state)
+ * @param processNoise w_k, Matrix with dimensions (n_state, n_state)
+ * @param control u_k, Vector with length n_state
+ * @param controlFunction B_k, Matrix with dimensions (n_state, n_state)
+ */
 private[ml] case class KalmanUpdate(
     groupKey: String,
     measurement: Option[Vector],
@@ -33,6 +51,42 @@ private[ml] case class KalmanUpdate(
     controlFunction: Option[Matrix])
 
 
+
+/**
+ * Case class for representing the output state of a kalman filter.
+ * Let state at step k be denoted with x_k, measurement with
+ * z_k, where x_k and z_k are vectors of lenght n_state and n_obs
+ *
+ *
+ * @param groupKey Key of the filter
+ * @param index index of the filter, incremented only on state evolution
+ * @param mean x_k, the state vector with length n_state
+ * @param covariance state covariance matrix with dimensions n_state, n_stae
+ * @param residual residual of x_k and z_k, vector with length n_obs
+ * @param residualCovariance covariance of residual, matrix with dimensions n_obs, n_obs
+ */
+case class KalmanOutput(
+  groupKey: String,
+  index: Long,
+  mean: Vector,
+  covariance: Matrix,
+  residual: Vector,
+  residualCovariance: Matrix) {
+
+  def loglikelihood: Double = {
+    val zeroMean = new DenseVector(Array.fill(residual.size) {0.0})
+    MultivariateGaussian.logpdf(residual.toDense, zeroMean, residualCovariance.toDense)
+  }
+
+  def mahalanobis: Double = {
+    val zeroMean = new DenseVector(Array.fill(residual.size) {0.0})
+    LinalgUtils.mahalanobis(residual.toDense, zeroMean, residualCovariance.toDense)
+  }
+}
+
+/**
+ * Internal representation of the state of a kalman filter.
+ */
 private[ml] case class KalmanState(
     groupKey: String,
     index: Long,
@@ -53,22 +107,3 @@ private[ml] case class KalmanState(
   }
 }
 
-
-case class KalmanOutput(
-    groupKey: String,
-    index: Long,
-    mean: Vector,
-    covariance: Matrix,
-    residual: Vector,
-    residualCovariance: Matrix) {
-
-  def loglikelihood: Double = {
-    val zeroMean = new DenseVector(Array.fill(residual.size) {0.0})
-    MultivariateGaussian.logpdf(residual.toDense, zeroMean, residualCovariance.toDense)
-  }
-
-  def mahalanobis: Double = {
-    val zeroMean = new DenseVector(Array.fill(residual.size) {0.0})
-    LinalgUtils.mahalanobis(residual.toDense, zeroMean, residualCovariance.toDense)
-  }
-}

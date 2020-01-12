@@ -19,7 +19,27 @@ package com.ozancicek.artan.ml.state
 
 import org.apache.spark.ml.linalg.{Vector, Matrix}
 
+/**
+ * Case class representing the output state of an RLS filter.
+ * @param groupKey Key of the filter.
+ * @param index Index of the filter state.
+ * @param mean The state vector.
+ * @param covariance Covariance of the state.
+ */
+case class RLSOutput(groupKey: String, index: Long, mean: Vector, covariance: Matrix)
 
+/**
+ * Case class for the inputs of an RLS filter
+ * @param groupKey Key of the filter.
+ * @param label Label corresponding to the features
+ * @param features Features vector
+ */
+case class RLSUpdate(groupKey: String, label: Double, features: Vector)
+
+
+/**
+ * Internal representation of the state of an RLS filter
+ */
 private[ml] case class RLSState(
     groupKey: String,
     index: Long,
@@ -36,14 +56,3 @@ private[ml] case class RLSState(
   }
 }
 
-case class RLSOutput(
-    groupKey: String,
-    index: Long,
-    mean: Vector,
-    covariance: Matrix)
-
-
-case class RLSUpdate(
-    groupKey: String,
-    label: Double,
-    features: Vector)

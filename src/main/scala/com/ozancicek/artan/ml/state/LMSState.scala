@@ -19,7 +19,29 @@ package com.ozancicek.artan.ml.state
 
 import org.apache.spark.ml.linalg.{Vector}
 
+/**
+ * Case class for the inputs of a least mean squares filter.
+ * @param groupKey Key of the filter
+ * @param label Label corresponding to the features.
+ * @param features Features vector.
+ */
+case class LMSUpdate(groupKey: String, label: Double, features: Vector)
 
+
+/**
+ * Case class for the output state of a least mean squares filter.
+ * @param groupKey Key of the filter.
+ * @param index Index of state.
+ * @param mean State vector.
+ */
+case class LMSOutput(groupKey: String, index: Long, mean: Vector)
+
+/**
+ * Internal representation of the state of a least mean squares filter.
+ * @param groupKey Key of the filter.
+ * @param index Index of the state.
+ * @param mean State vector.
+ */
 private[ml] case class LMSState(
     groupKey: String,
     index: Long,
@@ -34,14 +56,3 @@ private[ml] case class LMSState(
   }
 }
 
-
-case class LMSOutput(
-    groupKey: String,
-    index: Long,
-    mean: Vector)
-
-
-case class LMSUpdate(
-    groupKey: String,
-    label: Double,
-    features: Vector)
