@@ -18,7 +18,7 @@
 package com.ozancicek.artan.ml.filter
 
 import com.ozancicek.artan.ml.linalg.LinalgUtils
-import com.ozancicek.artan.ml.state.{KalmanState, KalmanUpdate}
+import com.ozancicek.artan.ml.state.{KalmanState, KalmanInput}
 import org.apache.spark.ml.linalg.{DenseVector, DenseMatrix, Vector, Matrix}
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable
@@ -31,7 +31,7 @@ class LinearKalmanFilter(
     val measurementSize: Int,
     override val uid: String)
   extends KalmanTransformer[LinearKalmanStateCompute, LinearKalmanStateEstimator]
-  with KalmanUpdateParams with HasStateMean with HasStateCovariance with HasFadingFactor {
+  with KalmanUpdateParams with HasInitialState with HasInitialCovariance with HasFadingFactor {
 
   def this(
     measurementSize: Int,
@@ -39,9 +39,9 @@ class LinearKalmanFilter(
     this(measurementSize, stateSize, Identifiable.randomUID("linearKalmanFilter"))
   }
 
-  def setStateMean(value: Vector): this.type = set(stateMean, value)
+  def setInitialState(value: Vector): this.type = set(initialState, value)
 
-  def setStateCovariance(value: Matrix): this.type = set(stateCov, value)
+  def setInitialCovariance(value: Matrix): this.type = set(initialCovariance, value)
 
   def setFadingFactor(value: Double): this.type = set(fadingFactor, value)
 
@@ -53,7 +53,7 @@ class LinearKalmanFilter(
 
   def setMeasurementNoise(value: Matrix): this.type = set(measurementNoise, value)
 
-  def setGroupKeyCol(value: String): this.type = set(groupKeyCol, value)
+  def setStateKeyCol(value: String): this.type = set(stateKeyCol, value)
 
   def setMeasurementCol(value: String): this.type = set(measurementCol, value)
 
@@ -78,8 +78,8 @@ class LinearKalmanFilter(
   def transform(dataset: Dataset[_]): DataFrame = withExtraColumns(filter(dataset))
 
   protected def stateUpdateFunc: LinearKalmanStateEstimator = new LinearKalmanStateEstimator(
-    getStateMean,
-    getStateCov,
+    getInitialState,
+    getInitialCovariance,
     getFadingFactor
   )
 }
@@ -133,28 +133,28 @@ private[filter] class LinearKalmanStateCompute(
 
   def predict(
     state: KalmanState,
-    process: KalmanUpdate): KalmanState = {
+    process: KalmanInput): KalmanState = {
 
     val newMean = progressStateMean(
-      state.mean.toDense, process.processModel.get.toDense)
+      state.state.toDense, process.processModel.get.toDense)
 
     val pModel = getProcessModel(
-      state.mean.toDense, process.processModel.get.toDense)
+      state.state.toDense, process.processModel.get.toDense)
 
     (process.control, process.controlFunction) match {
       case (Some(vec), Some(func)) => BLAS.gemv(1.0, func, vec, 1.0, newMean)
       case _ =>
     }
 
-    val covUpdate = DenseMatrix.zeros(pModel.numRows, state.covariance.numCols)
+    val covUpdate = DenseMatrix.zeros(pModel.numRows, state.stateCovariance.numCols)
     val fadingFactorSquare = scala.math.pow(fadingFactor, 2)
-    BLAS.gemm(fadingFactorSquare, pModel, state.covariance.toDense, 1.0, covUpdate)
+    BLAS.gemm(fadingFactorSquare, pModel, state.stateCovariance.toDense, 1.0, covUpdate)
 
-    val newCov = getProcessNoise(state.mean.toDense, process.processNoise.get.copy.toDense)
+    val newCov = getProcessNoise(state.state.toDense, process.processNoise.get.copy.toDense)
     BLAS.gemm(1.0, covUpdate, pModel.transpose, 1.0, newCov)
     KalmanState(
-      state.groupKey,
-      state.index + 1,
+      state.stateKey,
+      state.stateIndex + 1L,
       newMean, newCov,
       state.residual,
       state.residualCovariance)
@@ -162,22 +162,22 @@ private[filter] class LinearKalmanStateCompute(
 
   def estimate(
     state: KalmanState,
-    process: KalmanUpdate): KalmanState = {
+    process: KalmanInput): KalmanState = {
 
     val residual = calculateResidual(
-      state.mean.toDense,
+      state.state.toDense,
       process.measurement.get.toDense,
       process.measurementModel.get.toDense)
 
     val mModel = getMeasurementModel(
-      state.mean.toDense,
+      state.state.toDense,
       process.measurementModel.get.toDense)
 
     val mNoise = getMeasurementNoise(
-      state.mean.toDense,
+      state.state.toDense,
       process.measurementNoise.get.toDense)
 
-    val speed = state.covariance.multiply(mModel.transpose)
+    val speed = state.stateCovariance.multiply(mModel.transpose)
     val noiseCov = mNoise.copy
     BLAS.gemm(1.0, mModel, speed, 1.0, noiseCov)
 
@@ -185,21 +185,21 @@ private[filter] class LinearKalmanStateCompute(
     val gain = DenseMatrix.zeros(speed.numRows, inverseUpdate.numCols)
     BLAS.gemm(1.0, speed, inverseUpdate, 1.0, gain)
 
-    val estMean = state.mean.copy.toDense
+    val estMean = state.state.copy.toDense
     BLAS.gemv(1.0, gain, residual, 1.0, estMean)
 
     val ident = DenseMatrix.eye(estMean.size)
     BLAS.gemm(-1.0, gain, mModel, 1.0, ident)
 
-    val estCov = ident.multiply(state.covariance.toDense).multiply(ident.transpose)
+    val estCov = ident.multiply(state.stateCovariance.toDense).multiply(ident.transpose)
 
     val noiseUpdate = gain.multiply(mNoise.toDense)
 
     BLAS.gemm(1.0, noiseUpdate, gain.transpose, 1.0, estCov)
 
     KalmanState(
-      state.groupKey,
-      state.index,
+      state.stateKey,
+      state.stateIndex,
       estMean,
       estCov,
       residual,
@@ -208,7 +208,7 @@ private[filter] class LinearKalmanStateCompute(
 
   def update(
     state: KalmanState,
-    process: KalmanUpdate): KalmanState = {
+    process: KalmanInput): KalmanState = {
     estimate(predict(state, process), process)
   }
 }

@@ -91,14 +91,15 @@ private[ml] trait StateUpdateFunction[
       groupState.remove()
     }
 
-    val stateQueue = Queue(groupState.getOption)
+    val outputQueue = Queue[Option[OutType]]()
+    val statePair = (groupState.getOption, groupState.getOption)
 
-    rows.foldLeft(stateQueue) {
-      case (states, row) => {
-        val nextState = updateGroupState(key, row, states.last)
+    rows.foldLeft((outputQueue, statePair)) {
+      case ((q, (_, currentState)), row) => {
+        val nextState = updateGroupState(key, row, currentState)
         nextState.foreach(s => groupState.update(s))
-        states :+ nextState
+        (q :+ nextState.map(_.asOut), (currentState, nextState))
       }
-    }.flatten.map(_.asOut).toIterator
+    }._1.flatten.toIterator
   }
 }

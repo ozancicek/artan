@@ -22,21 +22,21 @@ import org.apache.spark.ml.param._
 
 
 /**
- * Param for initial state mean vector of a filter.
+ * Param for initial state vector of a filter.
  */
-private[filter] trait HasStateMean extends Params {
+private[filter] trait HasInitialState extends Params {
 
   def stateSize: Int
 
-  final val stateMean: Param[Vector] = new Param[Vector](
+  final val initialState: Param[Vector] = new Param[Vector](
     this,
-    "stateMean",
+    "initialState",
     "Initial value of the state vector",
     (in: Vector) => in.size == stateSize)
 
-  setDefault(stateMean, new DenseVector(Array.fill(stateSize) {0.0}))
+  setDefault(initialState, new DenseVector(Array.fill(stateSize) {0.0}))
 
-  final def getStateMean: Vector = $(stateMean)
+  final def getInitialState: Vector = $(initialState)
 
 }
 
@@ -44,19 +44,19 @@ private[filter] trait HasStateMean extends Params {
 /**
  * Param for initial covariance of the state
  */
-private[filter] trait HasStateCovariance extends Params {
+private[filter] trait HasInitialCovariance extends Params {
 
   def stateSize: Int
 
-  final val stateCov: Param[Matrix] = new Param[Matrix](
+  final val initialCovariance: Param[Matrix] = new Param[Matrix](
     this,
-    "stateCov",
+    "initialCovariance",
     "Initial covariance matrix",
     (in: Matrix) => (in.numRows == stateSize) & (in.numCols == stateSize))
 
-  setDefault(stateCov, DenseMatrix.eye(stateSize))
+  setDefault(initialCovariance, DenseMatrix.eye(stateSize))
 
-  final def getStateCov: Matrix = $(stateCov)
+  final def getInitialCovariance: Matrix = $(initialCovariance)
 
 }
 
@@ -266,14 +266,14 @@ private[filter] trait HasMeasurementNoiseJacobian extends Params {
 
 
 /**
- * Param for group key column
+ * Param for state key column
  */
-private[filter] trait HasGroupKeyCol extends Params {
+private[filter] trait HasStateKeyCol extends Params {
 
-  final val groupKeyCol: Param[String] = new Param[String](
-    this, "groupKeyCol", "group key column name")
+  final val stateKeyCol: Param[String] = new Param[String](
+    this, "stateKeyCol", "state key column name")
 
-  final def getGroupKeyCol: String = $(groupKeyCol)
+  final def getStateKeyCol: String = $(stateKeyCol)
 }
 
 

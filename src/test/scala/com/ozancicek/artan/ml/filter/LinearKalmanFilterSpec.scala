@@ -45,9 +45,9 @@ class LinearKalmanFilterSpec
         .toDF("modelID", "measurement")
 
       val filter = new LinearKalmanFilter(2, 1)
-        .setGroupKeyCol("modelID")
+        .setStateKeyCol("modelID")
         .setMeasurementCol("measurement")
-        .setStateCovariance(
+        .setInitialCovariance(
           new DenseMatrix(2, 2, Array(1000, 0, 0, 1000)))
         .setProcessModel(
           new DenseMatrix(2, 2, Array(1, 0, 1, 1)))
@@ -60,10 +60,10 @@ class LinearKalmanFilterSpec
         .setCalculateMahalanobis
 
       val modelState = filter.transform(df)
-      val stats = modelState.groupBy($"groupKey")
+      val stats = modelState.groupBy($"stateKey")
         .agg(
           avg($"mahalanobis").alias("mahalanobis"),
-          Summarizer.mean($"mean").alias("avg"))
+          Summarizer.mean($"state").alias("avg"))
         .head
 
       assert(stats.getAs[Double]("mahalanobis") < 6.0)
@@ -90,8 +90,8 @@ class LinearKalmanFilterSpec
       }.toSeq.toDF("modelId", "measurement", "measurementModel")
 
       val filter = new LinearKalmanFilter(3, 1)
-        .setGroupKeyCol("modelId")
-        .setStateCovariance(
+        .setStateKeyCol("modelId")
+        .setInitialCovariance(
           new DenseMatrix(3, 3, Array(10.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 10.0)))
         .setMeasurementCol("measurement")
         .setMeasurementModelCol("measurementModel")
@@ -102,8 +102,8 @@ class LinearKalmanFilterSpec
       val modelState = filter.transform(df)
 
       val lastState = modelState.collect
-        .filter(row=>row.getAs[Long]("index") == n)(0)
-        .getAs[DenseVector]("mean")
+        .filter(row=>row.getAs[Long]("stateIndex") == n)(0)
+        .getAs[DenseVector]("state")
 
       // find least squares solution with dgels
       val features = new DenseMatrix(n, 3, xs ++ ys ++ Array.fill(n) {1.0})
@@ -149,8 +149,8 @@ class LinearKalmanFilterSpec
       }.toSeq.toDF("modelID", "measurement", "processModel")
 
       val filter = new LinearKalmanFilter(2, 1)
-        .setGroupKeyCol("modelID")
-        .setStateCovariance(
+        .setStateKeyCol("modelID")
+        .setInitialCovariance(
           new DenseMatrix(2, 2, Array(10.0, 0.0, 0.0, 10.0)))
         .setMeasurementCol("measurement")
         .setProcessModelCol("processModel")
@@ -164,12 +164,12 @@ class LinearKalmanFilterSpec
       val modelState = filter.transform(df).cache()
 
       val lastState = modelState.collect
-        .filter(row=>row.getAs[Long]("index") == n - 1)(0)
-        .getAs[DenseVector]("mean")
+        .filter(row=>row.getAs[Long]("stateIndex") == n - 1)(0)
+        .getAs[DenseVector]("state")
 
-      val stats = modelState.groupBy($"groupKey")
+      val stats = modelState.groupBy($"stateKey")
         .agg(
-          Summarizer.mean($"mean").alias("avg"))
+          Summarizer.mean($"state").alias("avg"))
         .head
       assert(scala.math.abs(stats.getAs[DenseVector]("avg")(0) - zs.reduce(_ + _)/zs.size) < 1.0)
     }

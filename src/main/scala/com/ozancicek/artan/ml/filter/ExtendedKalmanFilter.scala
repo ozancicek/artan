@@ -31,7 +31,7 @@ class ExtendedKalmanFilter(
   extends KalmanTransformer[
     ExtendedKalmanStateCompute,
     ExtendedKalmanStateEstimator]
-  with KalmanUpdateParams with HasStateMean with HasStateCovariance with HasFadingFactor
+  with KalmanUpdateParams with HasInitialState with HasInitialCovariance with HasFadingFactor
   with HasProcessFunction with HasProcessStateJacobian with HasProcessNoiseJacobian
   with HasMeasurementFunction with HasMeasurementStateJacobian with HasMeasurementNoiseJacobian {
 
@@ -41,9 +41,9 @@ class ExtendedKalmanFilter(
     this(measurementSize, stateSize, Identifiable.randomUID("extendedKalmanFilter"))
   }
 
-  def setStateMean(value: Vector): this.type = set(stateMean, value)
+  def setInitialState(value: Vector): this.type = set(initialState, value)
 
-  def setStateCovariance(value: Matrix): this.type = set(stateCov, value)
+  def setInitialCovariance(value: Matrix): this.type = set(initialCovariance, value)
 
   def setFadingFactor(value: Double): this.type = set(fadingFactor, value)
 
@@ -55,7 +55,7 @@ class ExtendedKalmanFilter(
 
   def setMeasurementNoise(value: Matrix): this.type = set(measurementNoise, value)
 
-  def setGroupKeyCol(value: String): this.type = set(groupKeyCol, value)
+  def setStateKeyCol(value: String): this.type = set(stateKeyCol, value)
 
   def setMeasurementCol(value: String): this.type = set(measurementCol, value)
 
@@ -92,8 +92,8 @@ class ExtendedKalmanFilter(
   def transform(dataset: Dataset[_]): DataFrame = withExtraColumns(filter(dataset))
 
   protected def stateUpdateFunc: ExtendedKalmanStateEstimator = new ExtendedKalmanStateEstimator(
-    getStateMean,
-    getStateCov,
+    getInitialState,
+    getInitialCovariance,
     getFadingFactor,
     getProcessFunctionOpt,
     getProcessStateJacobianOpt,

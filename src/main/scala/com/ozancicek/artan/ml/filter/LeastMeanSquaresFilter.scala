@@ -17,7 +17,7 @@
 
 package com.ozancicek.artan.ml.filter
 
-import com.ozancicek.artan.ml.state.{LMSState, LMSUpdate, LMSOutput}
+import com.ozancicek.artan.ml.state.{LMSState, LMSInput, LMSOutput}
 import com.ozancicek.artan.ml.state.{StateUpdateFunction, StatefulTransformer}
 import org.apache.spark.ml.linalg.SQLDataTypes
 import org.apache.spark.ml.linalg.{Vector}
@@ -34,14 +34,14 @@ import org.apache.spark.sql.types._
 class LeastMeanSquaresFilter(
     val stateSize: Int,
     override val uid: String)
-  extends StatefulTransformer[String, LMSUpdate, LMSState, LMSOutput]
-  with HasGroupKeyCol with HasLabelCol with HasFeaturesCol with HasStateMean {
+  extends StatefulTransformer[String, LMSInput, LMSState, LMSOutput]
+  with HasStateKeyCol with HasLabelCol with HasFeaturesCol with HasInitialState {
 
-  implicit val groupKeyEncoder = Encoders.STRING
+  implicit val stateKeyEncoder = Encoders.STRING
 
   def this(stateSize: Int) = this(stateSize, Identifiable.randomUID("leastMeanSquaresFilter"))
 
-  def keyFunc: LMSUpdate => String = (in: LMSUpdate) => in.groupKey
+  protected def keyFunc: LMSInput => String = (in: LMSInput) => in.stateKey
 
   override def copy(extra: ParamMap): LeastMeanSquaresFilter = defaultCopy(extra)
 
@@ -51,11 +51,11 @@ class LeastMeanSquaresFilter(
   def setFeaturesCol(value: String): this.type = set(featuresCol, value)
   setDefault(featuresCol, "features")
 
-  def setGroupKeyCol(value: String): this.type = set(groupKeyCol, value)
+  def setStateKeyCol(value: String): this.type = set(stateKeyCol, value)
 
   private def validateSchema(schema: StructType): Unit = {
-    require(isSet(groupKeyCol), "Group key column must be set")
-    require(schema($(groupKeyCol)).dataType == StringType, "Group key column must be StringType")
+    require(isSet(stateKeyCol), "Group key column must be set")
+    require(schema($(stateKeyCol)).dataType == StringType, "Group key column must be StringType")
     require(schema($(labelCol)).dataType == DoubleType)
     require(schema($(featuresCol)).dataType == SQLDataTypes.VectorType)
   }
@@ -68,10 +68,10 @@ class LeastMeanSquaresFilter(
   def filter(dataset: Dataset[_]): Dataset[LMSOutput] = {
     transformSchema(dataset.schema)
     val lmsUpdateDS = dataset
-      .withColumn("groupKey", col($(groupKeyCol)))
+      .withColumn("stateKey", col($(stateKeyCol)))
       .withColumn("label", col($(labelCol)))
       .withColumn("features", col($(featuresCol)))
-      .select("groupKey", "label", "features")
+      .select("stateKey", "label", "features")
       .as(rowEncoder)
     transformWithState(lmsUpdateDS)
   }
@@ -79,18 +79,18 @@ class LeastMeanSquaresFilter(
   def transform(dataset: Dataset[_]): DataFrame = filter(dataset).toDF
 
   protected def stateUpdateFunc: LeastMeanSquaresUpdateFunction = new LeastMeanSquaresUpdateFunction(
-    getStateMean)
+    getInitialState)
 
 }
 
 
 private[filter] class LeastMeanSquaresUpdateFunction(
     val stateMean: Vector)
-  extends StateUpdateFunction[String, LMSUpdate, LMSState, LMSOutput] {
+  extends StateUpdateFunction[String, LMSInput, LMSState, LMSOutput] {
 
   def updateGroupState(
     key: String,
-    row: LMSUpdate,
+    row: LMSInput,
     state: Option[LMSState]): Option[LMSState] = {
 
     val currentState = state
@@ -99,11 +99,11 @@ private[filter] class LeastMeanSquaresUpdateFunction(
     val features = row.features
     val gain = features.copy
     BLAS.scal(1.0/BLAS.dot(features, features), gain)
-    val residual = row.label -  BLAS.dot(features, currentState.mean)
+    val residual = row.label -  BLAS.dot(features, currentState.state)
 
-    val estMean = currentState.mean.copy
+    val estMean = currentState.state.copy
     BLAS.axpy(residual, gain, estMean)
-    val newState = LMSState(key, currentState.index + 1, estMean)
+    val newState = LMSState(key, currentState.stateIndex + 1, estMean)
     Some(newState)
   }
 }

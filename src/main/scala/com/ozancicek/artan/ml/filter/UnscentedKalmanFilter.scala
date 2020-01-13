@@ -18,7 +18,7 @@
 package com.ozancicek.artan.ml.filter
 
 import com.ozancicek.artan.ml.linalg.LinalgUtils
-import com.ozancicek.artan.ml.state.{KalmanState, KalmanUpdate}
+import com.ozancicek.artan.ml.state.{KalmanState, KalmanInput}
 import org.apache.spark.ml.linalg.{DenseVector, DenseMatrix, Vector, Matrix}
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.param._
@@ -35,7 +35,7 @@ class UnscentedKalmanFilter(
   extends KalmanTransformer[
     UnscentedKalmanStateCompute,
     UnscentedKalmanStateEstimator]
-  with KalmanUpdateParams with HasStateMean with HasStateCovariance with HasFadingFactor
+  with KalmanUpdateParams with HasInitialState with HasInitialCovariance with HasFadingFactor
   with HasProcessFunction with HasMeasurementFunction with SigmaPointsParams {
 
   def this(
@@ -44,9 +44,9 @@ class UnscentedKalmanFilter(
     this(measurementSize, stateSize, Identifiable.randomUID("unscentedKalmanFilter"))
   }
 
-  def setStateMean(value: Vector): this.type = set(stateMean, value)
+  def setInitialState(value: Vector): this.type = set(initialState, value)
 
-  def setStateCovariance(value: Matrix): this.type = set(stateCov, value)
+  def setInitialCovariance(value: Matrix): this.type = set(initialCovariance, value)
 
   def setFadingFactor(value: Double): this.type = set(fadingFactor, value)
 
@@ -58,7 +58,7 @@ class UnscentedKalmanFilter(
 
   def setMeasurementNoise(value: Matrix): this.type = set(measurementNoise, value)
 
-  def setGroupKeyCol(value: String): this.type = set(groupKeyCol, value)
+  def setStateKeyCol(value: String): this.type = set(stateKeyCol, value)
 
   def setMeasurementCol(value: String): this.type = set(measurementCol, value)
 
@@ -97,8 +97,8 @@ class UnscentedKalmanFilter(
   def transform(dataset: Dataset[_]): DataFrame = withExtraColumns(filter(dataset))
 
   protected def stateUpdateFunc: UnscentedKalmanStateEstimator = new UnscentedKalmanStateEstimator(
-    getStateMean,
-    getStateCov,
+    getInitialState,
+    getInitialCovariance,
     getFadingFactor,
     getSigmaPoints,
     getProcessFunctionOpt,
@@ -132,9 +132,9 @@ private[ml] class UnscentedKalmanStateCompute(
 
   def predict(
     state: KalmanState,
-    process: KalmanUpdate): KalmanState = {
+    process: KalmanInput): KalmanState = {
 
-    val sigmaPoints = sigma.sigmaPoints(state.mean.toDense, state.covariance.toDense)
+    val sigmaPoints = sigma.sigmaPoints(state.state.toDense, state.stateCovariance.toDense)
 
     val processModel = process.processModel.get
     val processFunction = processFunc.getOrElse(
@@ -157,8 +157,8 @@ private[ml] class UnscentedKalmanStateCompute(
       fadingFactorSquare)
 
     KalmanState(
-      state.groupKey,
-      state.index + 1,
+      state.stateKey,
+      state.stateIndex + 1,
       stateMean,
       stateCov,
       state.residual,
@@ -168,9 +168,9 @@ private[ml] class UnscentedKalmanStateCompute(
 
   private def estimate(
     state: KalmanState,
-    process: KalmanUpdate): KalmanState = {
+    process: KalmanInput): KalmanState = {
 
-    val (stateMean, stateCov) = (state.mean.toDense, state.covariance.toDense)
+    val (stateMean, stateCov) = (state.state.toDense, state.stateCovariance.toDense)
     val stateSigmaPoints = sigma.sigmaPoints(stateMean, stateCov)
     val measurementModel = process.measurementModel.get
     val measurementFunction = measurementFunc.getOrElse(
@@ -182,7 +182,7 @@ private[ml] class UnscentedKalmanStateCompute(
       .unscentedTransform(measurementSigmaPoints, measurementNoise, 1.0)
     val fadingFactorSquare = scala.math.pow(fadingFactor, 2)
 
-    val crossCov = DenseMatrix.zeros(state.mean.size, process.measurement.get.size)
+    val crossCov = DenseMatrix.zeros(state.state.size, process.measurement.get.size)
     stateSigmaPoints.zip(measurementSigmaPoints).zipWithIndex.foreach {
       case ((stateSigma, measurementSigma), i) => {
 
@@ -209,12 +209,12 @@ private[ml] class UnscentedKalmanStateCompute(
     BLAS.axpy(-1.0, covUpdate, newCov)
 
     KalmanState(
-      state.groupKey, state.index, newMean, newCov, residual, estimateCov)
+      state.stateKey, state.stateIndex, newMean, newCov, residual, estimateCov)
   }
 
   def update(
     state: KalmanState,
-    process: KalmanUpdate): KalmanState = {
+    process: KalmanInput): KalmanState = {
     estimate(predict(state, process), process)
   }
 }

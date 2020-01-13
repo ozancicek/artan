@@ -52,14 +52,14 @@ class RecursiveLeastSquaresFilterSpec
       }.toSeq.toDF("modelId", "label", "features")
 
       val filter = new RecursiveLeastSquaresFilter(3)
-        .setGroupKeyCol("modelId")
+        .setStateKeyCol("modelId")
         .setInverseCovarianceDiag(10000)
 
       val modelState = filter.transform(df)
 
       val lastState = modelState.collect
-        .filter(row=>row.getAs[Long]("index") == n)(0)
-        .getAs[DenseVector]("mean")
+        .filter(row=>row.getAs[Long]("stateIndex") == n)(0)
+        .getAs[DenseVector]("state")
 
       // find least squares solution with dgels
       val features = new DenseMatrix(n, 3, xs ++ ys ++ Array.fill(n) {1.0})

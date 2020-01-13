@@ -31,7 +31,7 @@ import com.ozancicek.artan.ml.stats.MultivariateGaussian
  * Measurement:
  * z_k = H_k * x_k + v_k
  *
- * @param groupKey Key of the filter.
+ * @param stateKey Key of the filter state.
  * @param measurement z_k, Vector with length n_obs
  * @param measurementModel H_k, Matrix with dimensions (n_state, n_obs)
  * @param measurementNoise v_k, Matrix with dimensions (n_obs, n_obs)
@@ -40,8 +40,8 @@ import com.ozancicek.artan.ml.stats.MultivariateGaussian
  * @param control u_k, Vector with length n_state
  * @param controlFunction B_k, Matrix with dimensions (n_state, n_state)
  */
-private[ml] case class KalmanUpdate(
-    groupKey: String,
+private[ml] case class KalmanInput(
+    stateKey: String,
     measurement: Option[Vector],
     measurementModel: Option[Matrix],
     measurementNoise: Option[Matrix],
@@ -58,18 +58,18 @@ private[ml] case class KalmanUpdate(
  * z_k, where x_k and z_k are vectors of lenght n_state and n_obs
  *
  *
- * @param groupKey Key of the filter
- * @param index index of the filter, incremented only on state evolution
- * @param mean x_k, the state vector with length n_state
- * @param covariance state covariance matrix with dimensions n_state, n_stae
+ * @param stateKey Key of the state
+ * @param stateIndex index of the filter, incremented only on state evolution
+ * @param state x_k, the state vector with length n_state
+ * @param stateCovariance state covariance matrix with dimensions n_state, n_stae
  * @param residual residual of x_k and z_k, vector with length n_obs
  * @param residualCovariance covariance of residual, matrix with dimensions n_obs, n_obs
  */
 case class KalmanOutput(
-    groupKey: String,
-    index: Long,
-    mean: Vector,
-    covariance: Matrix,
+    stateKey: String,
+    stateIndex: Long,
+    state: Vector,
+    stateCovariance: Matrix,
     residual: Vector,
     residualCovariance: Matrix) {
 
@@ -88,19 +88,19 @@ case class KalmanOutput(
  * Internal representation of the state of a kalman filter.
  */
 private[ml] case class KalmanState(
-    groupKey: String,
-    index: Long,
-    mean: Vector,
-    covariance: Matrix,
+    stateKey: String,
+    stateIndex: Long,
+    state: Vector,
+    stateCovariance: Matrix,
     residual: Vector,
     residualCovariance: Matrix) extends KeyedState[String, KalmanOutput] {
 
   def asOut: KalmanOutput = {
     KalmanOutput(
-      groupKey,
-      index,
-      mean,
-      covariance,
+      stateKey,
+      stateIndex,
+      state,
+      stateCovariance,
       residual,
       residualCovariance
     )

@@ -17,7 +17,7 @@
 
 package com.ozancicek.artan.ml.filter
 
-import com.ozancicek.artan.ml.state.{KalmanState, KalmanUpdate, KalmanOutput}
+import com.ozancicek.artan.ml.state.{KalmanState, KalmanInput, KalmanOutput}
 import com.ozancicek.artan.ml.state.{StateUpdateFunction, StatefulTransformer}
 import com.ozancicek.artan.ml.stats.{MultivariateGaussian}
 import com.ozancicek.artan.ml.linalg.{LinalgUtils}
@@ -30,14 +30,17 @@ import org.apache.spark.sql.functions.{lit, col, udf}
 import org.apache.spark.sql.types._
 
 
-private[filter] trait KalmanUpdateParams extends HasGroupKeyCol with HasMeasurementCol
+/**
+ * Base trait for kalman input parameters
+ */
+private[filter] trait KalmanUpdateParams extends HasStateKeyCol with HasMeasurementCol
   with HasMeasurementModelCol with HasMeasurementNoiseCol
   with HasProcessModelCol with HasProcessNoiseCol with HasControlCol
   with HasControlFunctionCol with HasProcessModel with HasMeasurementModel
   with HasProcessNoise with HasMeasurementNoise
   with HasCalculateMahalanobis with HasCalculateLoglikelihood {
 
-  protected def getGroupKeyExpr = col($(groupKeyCol)).cast(StringType)
+  protected def getStateKeyExpr = col($(stateKeyCol)).cast(StringType)
 
   protected def getMeasurementExpr = col($(measurementCol)).cast(SQLDataTypes.VectorType)
 
@@ -98,8 +101,8 @@ private[filter] trait KalmanUpdateParams extends HasGroupKeyCol with HasMeasurem
   }
 
   protected def validateSchema(schema: StructType): Unit = {
-    require(isSet(groupKeyCol), "Group key column must be set")
-    require(schema($(groupKeyCol)).dataType == StringType, "Group key column must be StringType")
+    require(isSet(stateKeyCol), "Group key column must be set")
+    require(schema($(stateKeyCol)).dataType == StringType, "Group key column must be StringType")
 
     if (isSet(measurementModelCol)) {
       require(
@@ -130,11 +133,11 @@ private[filter] trait KalmanStateCompute extends Serializable {
 
   def update(
     state: KalmanState,
-    process: KalmanUpdate): KalmanState
+    process: KalmanInput): KalmanState
 
   def predict(
     state: KalmanState,
-    process: KalmanUpdate): KalmanState
+    process: KalmanInput): KalmanState
 
   def logpdf(residual: DenseVector, uncertainity: DenseMatrix): Double = {
     val zeroMean = new DenseVector(Array.fill(residual.size) {0.0})
@@ -144,7 +147,7 @@ private[filter] trait KalmanStateCompute extends Serializable {
 
 
 private[filter] trait KalmanStateUpdateFunction[+Compute <: KalmanStateCompute]
-  extends StateUpdateFunction[String, KalmanUpdate, KalmanState, KalmanOutput] {
+  extends StateUpdateFunction[String, KalmanInput, KalmanState, KalmanOutput] {
 
   val kalmanCompute: Compute
   def stateMean: Vector
@@ -152,7 +155,7 @@ private[filter] trait KalmanStateUpdateFunction[+Compute <: KalmanStateCompute]
 
   def updateGroupState(
     key: String,
-    row: KalmanUpdate,
+    row: KalmanInput,
     state: Option[KalmanState]): Option[KalmanState] = {
 
     val currentState = state
@@ -176,9 +179,9 @@ private[filter] trait KalmanStateUpdateFunction[+Compute <: KalmanStateCompute]
 private[filter] abstract class KalmanTransformer[
   Compute <: KalmanStateCompute,
   StateUpdate <: KalmanStateUpdateFunction[Compute]]
-  extends StatefulTransformer[String, KalmanUpdate, KalmanState, KalmanOutput] with KalmanUpdateParams {
+  extends StatefulTransformer[String, KalmanInput, KalmanState, KalmanOutput] with KalmanUpdateParams {
 
-  implicit val groupKeyEncoder = Encoders.STRING
+  implicit val stateKeyEncoder = Encoders.STRING
 
   def transformSchema(schema: StructType): StructType = {
     validateSchema(schema)
@@ -214,9 +217,9 @@ private[filter] abstract class KalmanTransformer[
     transformWithState(kalmanUpdateDS)
   }
 
-  private def toKalmanUpdate(dataset: Dataset[_]): Dataset[KalmanUpdate] = {
+  private def toKalmanUpdate(dataset: Dataset[_]): Dataset[KalmanInput] = {
     dataset
-      .withColumn("groupKey", getGroupKeyExpr)
+      .withColumn("stateKey", getStateKeyExpr)
       .withColumn("measurement", getMeasurementExpr)
       .withColumn("measurementModel", getMeasurementModelExpr)
       .withColumn("measurementNoise", getMeasurementNoiseExpr)
@@ -225,12 +228,12 @@ private[filter] abstract class KalmanTransformer[
       .withColumn("control", getControlExpr)
       .withColumn("controlFunction", getControlFunctionExpr)
       .select(
-        "groupKey", "measurement", "measurementModel",
+        "stateKey", "measurement", "measurementModel",
         "measurementNoise", "processModel", "processNoise",
         "control", "controlFunction")
       .as(rowEncoder)
   }
 
-  protected def keyFunc: KalmanUpdate => String = (in: KalmanUpdate) => in.groupKey
+  protected def keyFunc: KalmanInput => String = (in: KalmanInput) => in.stateKey
   protected def stateUpdateFunc: StateUpdate
 }

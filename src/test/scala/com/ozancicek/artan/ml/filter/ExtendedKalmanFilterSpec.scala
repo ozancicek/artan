@@ -69,8 +69,8 @@ class ExtendedKalmanFilterSpec
       }
 
       val filter = new ExtendedKalmanFilter(3, 1)
-        .setGroupKeyCol("modelId")
-        .setStateCovariance(
+        .setStateKeyCol("modelId")
+        .setInitialCovariance(
           new DenseMatrix(3, 3, Array(10.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 10.0)))
         .setMeasurementCol("measurement")
         .setMeasurementModelCol("measurementModel")
@@ -83,8 +83,8 @@ class ExtendedKalmanFilterSpec
       val modelState = filter.transform(df)
 
       val lastState = modelState.collect
-        .filter(row=>row.getAs[Long]("index") == n)(0)
-        .getAs[DenseVector]("mean")
+        .filter(row=>row.getAs[Long]("stateIndex") == n)(0)
+        .getAs[DenseVector]("state")
 
       val coeffs = new DenseVector(Array(a, b, c))
       val mae = (0 until coeffs.size).foldLeft(0.0) {
@@ -126,7 +126,7 @@ class ExtendedKalmanFilterSpec
       }
 
       val filter = new ExtendedKalmanFilter(2, 1)
-        .setGroupKeyCol("modelID")
+        .setStateKeyCol("modelID")
         .setMeasurementCol("measurement")
         .setMeasurementModelCol("measurementModel")
         .setProcessModelCol("processModel")
@@ -142,12 +142,12 @@ class ExtendedKalmanFilterSpec
 
       val stats = modelState
         .withColumn("residualCovariance", covExtract($"residualCovariance"))
-        .groupBy($"groupKey")
+        .groupBy($"stateKey")
         .agg(
           avg($"mahalanobis").alias("mahalanobis"),
           avg($"loglikelihood").alias("loglikelihood"),
           avg($"residualCovariance").alias("residualCovariance"),
-          Summarizer.mean($"mean").alias("avg"))
+          Summarizer.mean($"state").alias("avg"))
         .head
 
       assert(scala.math.abs(stats.getAs[DenseVector]("avg")(0) - zs.reduce(_ + _)/zs.size) < 1.0)

@@ -58,8 +58,8 @@ class UnscentedKalmanFilterSpec
       }
 
       val filter = new UnscentedKalmanFilter(3, 1)
-        .setGroupKeyCol("modelId")
-        .setStateCovariance(
+        .setStateKeyCol("modelId")
+        .setInitialCovariance(
           new DenseMatrix(3, 3, Array(10.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 10.0)))
         .setMeasurementCol("measurement")
         .setMeasurementModelCol("measurementModel")
@@ -70,8 +70,8 @@ class UnscentedKalmanFilterSpec
 
       val modelState = filter.transform(df)
       val lastState = modelState.collect
-        .filter(row=>row.getAs[Long]("index") == n)(0)
-        .getAs[DenseVector]("mean")
+        .filter(row => row.getAs[Long]("stateIndex") == n)(0)
+        .getAs[DenseVector]("state")
 
       val features = new DenseMatrix(n, 3, xs ++ ys ++ Array.fill(n) {1.0})
       val target = new DenseVector(zs.map {case (x, y, z) => z}.toArray)
@@ -113,8 +113,8 @@ class UnscentedKalmanFilterSpec
     }
 
     val filter = new UnscentedKalmanFilter(3, 1)
-      .setGroupKeyCol("modelId")
-      .setStateCovariance(
+      .setStateKeyCol("modelId")
+      .setInitialCovariance(
         new DenseMatrix(3, 3, Array(0.1, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.1)))
       .setMeasurementCol("measurement")
       .setMeasurementModelCol("measurementModel")
@@ -128,8 +128,8 @@ class UnscentedKalmanFilterSpec
     val modelState = filter.transform(df)
 
     val lastState = modelState.collect
-      .filter(row=>row.getAs[Long]("index") == n)(0)
-      .getAs[DenseVector]("mean")
+      .filter(row=>row.getAs[Long]("stateIndex") == n)(0)
+      .getAs[DenseVector]("state")
 
     val coeffs = new DenseVector(Array(a, b, c))
     val mae = (0 until coeffs.size).foldLeft(0.0) {

@@ -27,8 +27,8 @@ private[state] trait KeyedState[
   KeyType,
   OutType <: Product] {
 
-  val groupKey: KeyType
-  val index: Long
+  val stateKey: KeyType
+  val stateIndex: Long
 
   def asOut: OutType
 }

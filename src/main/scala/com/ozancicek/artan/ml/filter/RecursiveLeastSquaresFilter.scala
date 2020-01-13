@@ -17,7 +17,7 @@
 
 package com.ozancicek.artan.ml.filter
 
-import com.ozancicek.artan.ml.state.{RLSOutput, RLSState, RLSUpdate, StateUpdateFunction, StatefulTransformer}
+import com.ozancicek.artan.ml.state.{RLSOutput, RLSState, RLSInput, StateUpdateFunction, StatefulTransformer}
 import org.apache.spark.ml.linalg.SQLDataTypes
 import org.apache.spark.ml.linalg.{DenseMatrix, Matrix, Vector}
 import org.apache.spark.ml.param._
@@ -47,15 +47,15 @@ private[filter] trait HasForgettingFactor extends Params {
 class RecursiveLeastSquaresFilter(
     val stateSize: Int,
     override val uid: String)
-  extends StatefulTransformer[String, RLSUpdate, RLSState, RLSOutput]
-  with HasGroupKeyCol with HasLabelCol with HasFeaturesCol with HasForgettingFactor
-  with HasStateMean with HasStateCovariance {
+  extends StatefulTransformer[String, RLSInput, RLSState, RLSOutput]
+  with HasStateKeyCol with HasLabelCol with HasFeaturesCol with HasForgettingFactor
+  with HasInitialState with HasInitialCovariance {
 
-  implicit val groupKeyEncoder = Encoders.STRING
+  implicit val stateKeyEncoder = Encoders.STRING
 
   def this(stateSize: Int) = this(stateSize, Identifiable.randomUID("recursiveLeastSquaresFilter"))
 
-  def keyFunc: RLSUpdate => String = (in: RLSUpdate) => in.groupKey
+  def keyFunc: RLSInput => String = (in: RLSInput) => in.stateKey
 
   override def copy(extra: ParamMap): RecursiveLeastSquaresFilter = defaultCopy(extra)
 
@@ -65,24 +65,24 @@ class RecursiveLeastSquaresFilter(
   def setFeaturesCol(value: String): this.type = set(featuresCol, value)
   setDefault(featuresCol, "features")
 
-  def setGroupKeyCol(value: String): this.type = set(groupKeyCol, value)
+  def setStateKeyCol(value: String): this.type = set(stateKeyCol, value)
 
   def setForgettingFactor(value: Double): this.type = set(forgettingFactor, value)
 
-  def setInverseCovariance(value: Matrix): this.type = set(stateCov, value)
+  def setInverseCovariance(value: Matrix): this.type = set(initialCovariance, value)
 
-  def setInverseCovarianceDiag(value: Double): this.type = set(stateCov, getInverseCovMat(value))
+  def setInverseCovarianceDiag(value: Double): this.type = set(initialCovariance, getInverseCovMat(value))
 
   setDefault(
-    stateCov, getInverseCovMat(10E5))
+    initialCovariance, getInverseCovMat(10E5))
 
   private def getInverseCovMat(value: Double): DenseMatrix = {
     new DenseMatrix(stateSize, stateSize, DenseMatrix.eye(stateSize).values.map(_ * value))
   }
 
   private def validateSchema(schema: StructType): Unit = {
-    require(isSet(groupKeyCol), "Group key column must be set")
-    require(schema($(groupKeyCol)).dataType == StringType, "Group key column must be StringType")
+    require(isSet(stateKeyCol), "Group key column must be set")
+    require(schema($(stateKeyCol)).dataType == StringType, "Group key column must be StringType")
     require(schema($(labelCol)).dataType == DoubleType)
     require(schema($(featuresCol)).dataType == SQLDataTypes.VectorType)
   }
@@ -95,10 +95,10 @@ class RecursiveLeastSquaresFilter(
   def filter(dataset: Dataset[_]): Dataset[RLSOutput] = {
     transformSchema(dataset.schema)
     val rlsUpdateDS = dataset
-      .withColumn("groupKey", col($(groupKeyCol)))
+      .withColumn("stateKey", col($(stateKeyCol)))
       .withColumn("label", col($(labelCol)))
       .withColumn("features", col($(featuresCol)))
-      .select("groupKey", "label", "features")
+      .select("stateKey", "label", "features")
       .as(rowEncoder)
     transformWithState(rlsUpdateDS)
   }
@@ -106,8 +106,8 @@ class RecursiveLeastSquaresFilter(
   def transform(dataset: Dataset[_]): DataFrame = filter(dataset).toDF
 
   protected def stateUpdateFunc: RecursiveLeastSquaresUpdateFunction = new RecursiveLeastSquaresUpdateFunction(
-    getStateMean,
-    getStateCov,
+    getInitialState,
+    getInitialCovariance,
     getForgettingFactor)
 }
 
@@ -116,11 +116,11 @@ private[filter] class RecursiveLeastSquaresUpdateFunction(
     val stateMean: Vector,
     val stateCov: Matrix,
     val forgettingFactor: Double)
-  extends StateUpdateFunction[String, RLSUpdate, RLSState, RLSOutput] {
+  extends StateUpdateFunction[String, RLSInput, RLSState, RLSOutput] {
 
   def updateGroupState(
     key: String,
-    row: RLSUpdate,
+    row: RLSInput,
     state: Option[RLSState]): Option[RLSState] = {
 
     val features = row.features
@@ -132,9 +132,9 @@ private[filter] class RecursiveLeastSquaresUpdateFunction(
     val model = currentState.covariance.transpose.multiply(features)
     val gain = currentState.covariance.multiply(features)
     BLAS.scal(1.0/(forgettingFactor + BLAS.dot(model, features)), gain)
-    val residual = label -  BLAS.dot(features, currentState.mean)
+    val residual = label -  BLAS.dot(features, currentState.state)
 
-    val estMean = currentState.mean.copy
+    val estMean = currentState.state.copy
     BLAS.axpy(residual, gain, estMean)
     val gainUpdate = DenseMatrix.zeros(gain.size, features.size)
     BLAS.dger(1.0, gain, features.toDense, gainUpdate)
@@ -146,7 +146,7 @@ private[filter] class RecursiveLeastSquaresUpdateFunction(
     val estCov = DenseMatrix.zeros(covUpdate.numRows, covUpdate.numCols)
     BLAS.axpy(1.0/forgettingFactor, covUpdate, estCov)
 
-    val newState = RLSState(key, currentState.index + 1L, estMean, estCov)
+    val newState = RLSState(key, currentState.stateIndex + 1L, estMean, estCov)
     Some(newState)
   }
 }
