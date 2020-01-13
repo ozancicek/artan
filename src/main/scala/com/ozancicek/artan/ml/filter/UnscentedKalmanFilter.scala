@@ -166,7 +166,7 @@ private[ml] class UnscentedKalmanStateCompute(
   }
 
 
-  private def estimate(
+  def estimate(
     state: KalmanState,
     process: KalmanInput): KalmanState = {
 
@@ -210,12 +210,6 @@ private[ml] class UnscentedKalmanStateCompute(
 
     KalmanState(
       state.stateKey, state.stateIndex, newMean, newCov, residual, estimateCov)
-  }
-
-  def update(
-    state: KalmanState,
-    process: KalmanInput): KalmanState = {
-    estimate(predict(state, process), process)
   }
 }
 

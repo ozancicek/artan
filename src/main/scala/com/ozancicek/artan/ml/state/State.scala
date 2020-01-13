@@ -18,17 +18,24 @@
 package com.ozancicek.artan.ml.state
 
 /**
- * Base trait for state case classes to be used in flatMapGroupsWithState function. A case class
- * for state should be keyed and indexed, and provide a function to convert to an output case class.
+ * Base trait for state case classes to be used in flatMapGroupsWithState function. Such case classes
+ * should be keyed and indexed, and provide a function to convert to an output case class.
  * @tparam KeyType Type of key
  * @tparam OutType Type of output case class
  */
-private[state] trait KeyedState[
-  KeyType,
-  OutType <: Product] {
+private[state] trait KeyedState[KeyType, OutType <: Product] extends Product {
 
   val stateKey: KeyType
   val stateIndex: Long
 
   def asOut: OutType
+}
+
+/**
+ * Base trait for input case classes for flatMapGroupsWithState function. Such case classes should be keyed
+ * @tparam KeyType Type of key
+ */
+private[state] trait KeyedInput[KeyType] extends Product {
+
+  val stateKey: KeyType
 }

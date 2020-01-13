@@ -48,7 +48,7 @@ private[ml] case class KalmanInput(
     processModel: Option[Matrix],
     processNoise: Option[Matrix],
     control: Option[Vector],
-    controlFunction: Option[Matrix])
+    controlFunction: Option[Matrix]) extends KeyedInput[String]
 
 
 

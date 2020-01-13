@@ -36,7 +36,7 @@ import scala.reflect.runtime.universe.TypeTag
  */
 private[ml] abstract class StatefulTransformer[
   GroupKeyType,
-  RowType <: Product : TypeTag,
+  RowType <: KeyedInput[GroupKeyType] : TypeTag,
   StateType <: KeyedState[GroupKeyType, OutType] : ClassTag,
   OutType <: Product : TypeTag] extends Transformer {
 
@@ -44,7 +44,7 @@ private[ml] abstract class StatefulTransformer[
   protected def stateUpdateFunc: StateUpdateFunction[GroupKeyType, RowType, StateType, OutType]
 
   /* Keying function for groupByKey*/
-  protected def keyFunc: (RowType) => GroupKeyType
+  protected def keyFunc: RowType => GroupKeyType = (in: RowType) => in.stateKey
 
   /* State is encoded with kyro in order to support schema evolution. Others are encoded with spark encoders. */
   protected implicit val stateEncoder = Encoders.kryo[StateType]

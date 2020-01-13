@@ -205,10 +205,4 @@ private[filter] class LinearKalmanStateCompute(
       residual,
       noiseCov)
   }
-
-  def update(
-    state: KalmanState,
-    process: KalmanInput): KalmanState = {
-    estimate(predict(state, process), process)
-  }
 }

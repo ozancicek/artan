@@ -41,8 +41,6 @@ class LeastMeanSquaresFilter(
 
   def this(stateSize: Int) = this(stateSize, Identifiable.randomUID("leastMeanSquaresFilter"))
 
-  protected def keyFunc: LMSInput => String = (in: LMSInput) => in.stateKey
-
   override def copy(extra: ParamMap): LeastMeanSquaresFilter = defaultCopy(extra)
 
   def setLabelCol(value: String): this.type = set(labelCol, value)

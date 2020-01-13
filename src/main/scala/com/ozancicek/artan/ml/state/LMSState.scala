@@ -25,7 +25,7 @@ import org.apache.spark.ml.linalg.{Vector}
  * @param label Label corresponding to the features.
  * @param features Features vector.
  */
-case class LMSInput(stateKey: String, label: Double, features: Vector)
+case class LMSInput(stateKey: String, label: Double, features: Vector) extends KeyedInput[String]
 
 
 /**

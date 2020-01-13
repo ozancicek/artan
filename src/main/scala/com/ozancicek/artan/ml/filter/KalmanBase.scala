@@ -31,7 +31,7 @@ import org.apache.spark.sql.types._
 
 
 /**
- * Base trait for kalman input parameters
+ * Base trait for kalman input parameters & columns
  */
 private[filter] trait KalmanUpdateParams extends HasStateKeyCol with HasMeasurementCol
   with HasMeasurementModelCol with HasMeasurementNoiseCol
@@ -128,57 +128,15 @@ private[filter] trait KalmanUpdateParams extends HasStateKeyCol with HasMeasurem
 
 }
 
-
-private[filter] trait KalmanStateCompute extends Serializable {
-
-  def update(
-    state: KalmanState,
-    process: KalmanInput): KalmanState
-
-  def predict(
-    state: KalmanState,
-    process: KalmanInput): KalmanState
-
-  def logpdf(residual: DenseVector, uncertainity: DenseMatrix): Double = {
-    val zeroMean = new DenseVector(Array.fill(residual.size) {0.0})
-    MultivariateGaussian.logpdf(residual, zeroMean, uncertainity)
-  }
-}
-
-
-private[filter] trait KalmanStateUpdateFunction[+Compute <: KalmanStateCompute]
-  extends StateUpdateFunction[String, KalmanInput, KalmanState, KalmanOutput] {
-
-  val kalmanCompute: Compute
-  def stateMean: Vector
-  def stateCov: Matrix
-
-  def updateGroupState(
-    key: String,
-    row: KalmanInput,
-    state: Option[KalmanState]): Option[KalmanState] = {
-
-    val currentState = state
-      .getOrElse(KalmanState(
-        key,
-        0L,
-        stateMean.toDense,
-        stateCov.toDense,
-        new DenseVector(Array(0.0)),
-        DenseMatrix.zeros(1, 1)))
-
-    val nextState = row.measurement match {
-      case Some(m) => kalmanCompute.update(currentState, row)
-      case None => kalmanCompute.predict(currentState, row)
-    }
-    Some(nextState)
-  }
-}
-
-
+/**
+ * Base trait for kalman filter transformers.
+ *
+ * @tparam Compute Type responsible for calculating the next state
+ * @tparam StateUpdate Type responsible for progressing the state with a compute instance
+ */
 private[filter] abstract class KalmanTransformer[
-  Compute <: KalmanStateCompute,
-  StateUpdate <: KalmanStateUpdateFunction[Compute]]
+Compute <: KalmanStateCompute,
+StateUpdate <: KalmanStateUpdateFunction[Compute]]
   extends StatefulTransformer[String, KalmanInput, KalmanState, KalmanOutput] with KalmanUpdateParams {
 
   implicit val stateKeyEncoder = Encoders.STRING
@@ -198,6 +156,7 @@ private[filter] abstract class KalmanTransformer[
     LinalgUtils.mahalanobis(residual.toDense, zeroMean, covariance.toDense)
   })
 
+  /* Calculate optional statistics*/
   protected def withExtraColumns(dataset: Dataset[KalmanOutput]): DataFrame = {
     val df = dataset.toDF
     val withLoglikelihood = if (getCalculateLoglikelihood) {
@@ -213,11 +172,12 @@ private[filter] abstract class KalmanTransformer[
 
   def filter(dataset: Dataset[_]): Dataset[KalmanOutput] = {
     transformSchema(dataset.schema)
-    val kalmanUpdateDS = toKalmanUpdate(dataset)
-    transformWithState(kalmanUpdateDS)
+    val kalmanInputDS = toKalmanInput(dataset)
+    transformWithState(kalmanInputDS)
   }
 
-  private def toKalmanUpdate(dataset: Dataset[_]): Dataset[KalmanInput] = {
+  private def toKalmanInput(dataset: Dataset[_]): Dataset[KalmanInput] = {
+    /* Get the column expressions and convert to Dataset[KalmanInput]*/
     dataset
       .withColumn("stateKey", getStateKeyExpr)
       .withColumn("measurement", getMeasurementExpr)
@@ -234,6 +194,69 @@ private[filter] abstract class KalmanTransformer[
       .as(rowEncoder)
   }
 
-  protected def keyFunc: KalmanInput => String = (in: KalmanInput) => in.stateKey
   protected def stateUpdateFunc: StateUpdate
+}
+
+
+/**
+ * Base trait for kalman state update function & progressing to next state.
+ * @tparam Compute Type responsible for calculating the next state
+ */
+private[filter] trait KalmanStateUpdateFunction[+Compute <: KalmanStateCompute]
+  extends StateUpdateFunction[String, KalmanInput, KalmanState, KalmanOutput] {
+
+  /* Member responsible for calculating next state update*/
+  val kalmanCompute: Compute
+
+  /* Initial state vector*/
+  def stateMean: Vector
+
+  /* Initial covariance matrix*/
+  def stateCov: Matrix
+
+  def updateGroupState(
+    key: String,
+    row: KalmanInput,
+    state: Option[KalmanState]): Option[KalmanState] = {
+
+    /* If state is empty, create initial state from input parameters*/
+    val currentState = state
+      .getOrElse(KalmanState(
+        key,
+        0L,
+        stateMean.toDense,
+        stateCov.toDense,
+        new DenseVector(Array(0.0)),
+        DenseMatrix.zeros(1, 1)))
+
+    /* Calculate next state from kalmanCompute. If there is a measurement, progress to next state with
+     * predict + estimate. If the measurement is missing, progress to the next state with just predict */
+    val nextState = row.measurement match {
+      case Some(m) => kalmanCompute.predictAndEstimate(currentState, row)
+      case None => kalmanCompute.predict(currentState, row)
+    }
+    Some(nextState)
+  }
+}
+
+
+/**
+ * Base trait for kalman state computation
+ */
+private[filter] trait KalmanStateCompute extends Serializable {
+
+  /* Function for incorporating new measurement*/
+  def estimate(
+    state: KalmanState,
+    process: KalmanInput): KalmanState
+
+  /* Function for predicting the next state*/
+  def predict(
+    state: KalmanState,
+    process: KalmanInput): KalmanState
+
+  /* Apply predict + estimate */
+  def predictAndEstimate(
+    state: KalmanState,
+    process: KalmanInput): KalmanState = estimate(predict(state, process), process)
 }

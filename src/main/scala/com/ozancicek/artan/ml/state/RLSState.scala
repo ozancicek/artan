@@ -34,7 +34,7 @@ case class RLSOutput(stateKey: String, stateIndex: Long, state: Vector, covarian
  * @param label Label corresponding to the features
  * @param features Features vector
  */
-case class RLSInput(stateKey: String, label: Double, features: Vector)
+case class RLSInput(stateKey: String, label: Double, features: Vector) extends KeyedInput[String]
 
 
 /**

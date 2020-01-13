@@ -55,8 +55,6 @@ class RecursiveLeastSquaresFilter(
 
   def this(stateSize: Int) = this(stateSize, Identifiable.randomUID("recursiveLeastSquaresFilter"))
 
-  def keyFunc: RLSInput => String = (in: RLSInput) => in.stateKey
-
   override def copy(extra: ParamMap): RecursiveLeastSquaresFilter = defaultCopy(extra)
 
   def setLabelCol(value: String): this.type = set(labelCol, value)
