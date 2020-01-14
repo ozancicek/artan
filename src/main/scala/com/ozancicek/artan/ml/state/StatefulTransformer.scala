@@ -22,6 +22,7 @@ import org.apache.spark.sql.streaming.{GroupState, OutputMode, GroupStateTimeout
 import org.apache.spark.sql._
 import scala.collection.immutable.Queue
 import scala.reflect.{ClassTag}
+import org.apache.spark.ml.param._
 import scala.reflect.runtime.universe.TypeTag
 
 /**
@@ -40,7 +41,11 @@ private[ml] abstract class StatefulTransformer[
   RowType <: KeyedInput[GroupKeyType] : TypeTag,
   StateType <: KeyedState[GroupKeyType, RowType, OutType] : ClassTag,
   OutType <: Product : TypeTag,
-  ImplType <: StatefulTransformer[GroupKeyType, RowType, StateType, OutType, ImplType]] extends Transformer {
+  ImplType <: StatefulTransformer[GroupKeyType, RowType, StateType, OutType, ImplType]] extends Transformer
+  with HasStateTimeoutMode {
+
+  def setStateTimeoutMode(value: String): ImplType = set(timeoutMode, value).asInstanceOf[ImplType]
+  setDefault(timeoutMode, "none")
 
   /* Function to pass to flatMapGroupsWithState */
   protected def stateUpdateFunc: StateUpdateFunction[GroupKeyType, RowType, StateType, OutType]
@@ -59,7 +64,29 @@ private[ml] abstract class StatefulTransformer[
     .groupByKey(keyFunc)
     .flatMapGroupsWithState(
       OutputMode.Append,
-      GroupStateTimeout.EventTimeTimeout())(stateUpdateFunc)
+      getTimeoutConf)(stateUpdateFunc)
+}
+
+
+trait HasStateTimeoutMode extends Params {
+
+  private val supportedTimeoutMods = Set("none", "process", "event")
+
+  final val timeoutMode: Param[String] = new Param[String](
+    this,
+    "timeoutMode",
+    "Group state timeout mode. Supported options:" +
+    s"${supportedTimeoutMods.mkString(", ")} . (Default none)"
+  )
+
+  def getTimeoutMode: String = $(timeoutMode)
+
+  def getTimeoutConf: GroupStateTimeout = getTimeoutMode match {
+    case "none" => GroupStateTimeout.NoTimeout()
+    case "process" => GroupStateTimeout.ProcessingTimeTimeout()
+    case "event" => GroupStateTimeout.EventTimeTimeout()
+    case _ => throw new Exception("Unsupported mode")
+  }
 }
 
 /**
