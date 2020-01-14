@@ -17,7 +17,9 @@
 
 package com.ozancicek.artan.ml.state
 
-import org.apache.spark.ml.linalg.{Vector, Matrix, DenseVector}
+import java.sql.Timestamp
+
+import org.apache.spark.ml.linalg.{DenseVector, Matrix, Vector}
 import com.ozancicek.artan.ml.linalg.LinalgUtils
 import com.ozancicek.artan.ml.stats.MultivariateGaussian
 
@@ -48,7 +50,8 @@ private[ml] case class KalmanInput(
     processModel: Option[Matrix],
     processNoise: Option[Matrix],
     control: Option[Vector],
-    controlFunction: Option[Matrix]) extends KeyedInput[String]
+    controlFunction: Option[Matrix],
+    eventTime: Option[Timestamp]) extends KeyedInput[String]
 
 
 

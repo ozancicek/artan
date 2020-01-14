@@ -18,11 +18,15 @@
 package com.ozancicek.artan.ml.state
 
 import org.apache.spark.ml.Transformer
-import org.apache.spark.sql.streaming.{GroupState, OutputMode, GroupStateTimeout}
+import org.apache.spark.sql.streaming.{GroupState, GroupStateTimeout, OutputMode}
 import org.apache.spark.sql._
+import org.apache.spark.sql.functions.{col, lit}
+
 import scala.collection.immutable.Queue
-import scala.reflect.{ClassTag}
+import scala.reflect.ClassTag
 import org.apache.spark.ml.param._
+import org.apache.spark.sql.types.TimestampType
+
 import scala.reflect.runtime.universe.TypeTag
 
 /**
@@ -42,10 +46,14 @@ private[ml] abstract class StatefulTransformer[
   StateType <: KeyedState[GroupKeyType, RowType, OutType] : ClassTag,
   OutType <: Product : TypeTag,
   ImplType <: StatefulTransformer[GroupKeyType, RowType, StateType, OutType, ImplType]] extends Transformer
-  with HasStateTimeoutMode {
+  with HasStateTimeoutMode with HasWatermarkCol with HasWatermarkDuration {
 
   def setStateTimeoutMode(value: String): ImplType = set(timeoutMode, value).asInstanceOf[ImplType]
   setDefault(timeoutMode, "none")
+
+  def setWatermarkCol(value: String): ImplType = set(watermarkCol, value).asInstanceOf[ImplType]
+
+  def setWatermarkDuration(value: String): ImplType = set(watermarkDuration, value).asInstanceOf[ImplType]
 
   /* Function to pass to flatMapGroupsWithState */
   protected def stateUpdateFunc: StateUpdateFunction[GroupKeyType, RowType, StateType, OutType]
@@ -64,13 +72,40 @@ private[ml] abstract class StatefulTransformer[
 
   protected def transformWithState(
     in: DataFrame)(
-    implicit keyEncoder: Encoder[GroupKeyType]): Dataset[OutType] = in
+    implicit keyEncoder: Encoder[GroupKeyType]): Dataset[OutType] = {
+
+    val watermarkColumn = if (isSet(watermarkCol)) col($(watermarkCol)) else lit(null).cast(TimestampType)
+
+    in.withColumn("eventTime", watermarkColumn)
       .select(rowFields.head, rowFields.tail: _*)
       .as(rowEncoder)
       .groupByKey(keyFunc)
       .flatMapGroupsWithState(
         OutputMode.Append,
         getTimeoutConf)(stateUpdateFunc)
+  }
+}
+
+
+trait HasWatermarkCol extends Params {
+  final val watermarkCol: Param[String] = new Param[String](
+    this,
+    "watermarkCol",
+    "Watermark column name for event time"
+  )
+
+  def getWatermarkCol: String = $(watermarkCol)
+}
+
+
+trait HasWatermarkDuration extends Params {
+  final val watermarkDuration: Param[String] = new Param[String](
+    this,
+    "watermarkDuration",
+    "Watermark duration"
+  )
+
+  def getWatermarkDuration: String = $(watermarkDuration)
 }
 
 

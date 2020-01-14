@@ -18,6 +18,7 @@
 package com.ozancicek.artan.ml.state
 
 import org.apache.spark.ml.linalg.{Vector, Matrix}
+import java.sql.Timestamp
 
 /**
  * Case class representing the output state of an RLS filter.
@@ -28,13 +29,18 @@ import org.apache.spark.ml.linalg.{Vector, Matrix}
  */
 case class RLSOutput(stateKey: String, stateIndex: Long, state: Vector, covariance: Matrix)
 
+
 /**
  * Case class for the inputs of an RLS filter
  * @param stateKey Key of the filter.
  * @param label Label corresponding to the features
  * @param features Features vector
  */
-case class RLSInput(stateKey: String, label: Double, features: Vector) extends KeyedInput[String]
+case class RLSInput(
+    stateKey: String,
+    label: Double,
+    features: Vector,
+    eventTime: Option[Timestamp]) extends KeyedInput[String]
 
 
 /**

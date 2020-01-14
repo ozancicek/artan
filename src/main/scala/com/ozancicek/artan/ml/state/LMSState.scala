@@ -18,6 +18,7 @@
 package com.ozancicek.artan.ml.state
 
 import org.apache.spark.ml.linalg.{Vector}
+import java.sql.Timestamp
 
 /**
  * Case class for the inputs of a least mean squares filter.
@@ -25,7 +26,11 @@ import org.apache.spark.ml.linalg.{Vector}
  * @param label Label corresponding to the features.
  * @param features Features vector.
  */
-case class LMSInput(stateKey: String, label: Double, features: Vector) extends KeyedInput[String]
+case class LMSInput(
+    stateKey: String,
+    label: Double,
+    features: Vector,
+    eventTime: Option[Timestamp]) extends KeyedInput[String]
 
 
 /**
