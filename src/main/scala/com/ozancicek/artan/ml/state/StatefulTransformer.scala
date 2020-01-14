@@ -46,7 +46,9 @@ private[ml] abstract class StatefulTransformer[
   StateType <: KeyedState[GroupKeyType, RowType, OutType] : ClassTag,
   OutType <: Product : TypeTag,
   ImplType <: StatefulTransformer[GroupKeyType, RowType, StateType, OutType, ImplType]] extends Transformer
-  with HasStateTimeoutMode with HasWatermarkCol with HasWatermarkDuration {
+  with HasStateTimeoutMode with HasWatermarkCol with HasWatermarkDuration with HasStateKeyCol {
+
+  def setStateKeyCol(value: String): ImplType = set(stateKeyCol, value).asInstanceOf[ImplType]
 
   def setStateTimeoutMode(value: String): ImplType = set(timeoutMode, value).asInstanceOf[ImplType]
   setDefault(timeoutMode, "none")
@@ -74,12 +76,19 @@ private[ml] abstract class StatefulTransformer[
     in: DataFrame)(
     implicit keyEncoder: Encoder[GroupKeyType]): Dataset[OutType] = {
 
-    val watermarkColumn = if (isSet(watermarkCol)) col($(watermarkCol)) else lit(null).cast(TimestampType)
+    val withStateKey = in.withColumn("stateKey", col(getStateKeyCol))
 
-    in.withColumn("eventTime", watermarkColumn)
-      .select(rowFields.head, rowFields.tail: _*)
-      .as(rowEncoder)
-      .groupByKey(keyFunc)
+    val toTyped = (df: DataFrame) => df
+      .select(rowFields.head, rowFields.tail: _*).as(rowEncoder)
+
+    val inputDS = if (isSet(watermarkCol)) {
+      val typed = toTyped(withStateKey.withColumn("eventTime", col($(watermarkCol))))
+      typed.withWatermark("eventTime", $(watermarkDuration))
+    } else {
+      toTyped(withStateKey.withColumn("eventTime", lit(null).cast(TimestampType)))
+    }
+
+    inputDS.groupByKey(keyFunc)
       .flatMapGroupsWithState(
         OutputMode.Append,
         getTimeoutConf)(stateUpdateFunc)
@@ -87,6 +96,21 @@ private[ml] abstract class StatefulTransformer[
 }
 
 
+/**
+ * Param for state key column
+ */
+trait HasStateKeyCol extends Params {
+
+  final val stateKeyCol: Param[String] = new Param[String](
+    this, "stateKeyCol", "state key column name")
+
+  final def getStateKeyCol: String = $(stateKeyCol)
+}
+
+
+/**
+ * Param for watermark column name
+ */
 trait HasWatermarkCol extends Params {
   final val watermarkCol: Param[String] = new Param[String](
     this,
@@ -98,6 +122,9 @@ trait HasWatermarkCol extends Params {
 }
 
 
+/**
+ * Param for watermark duration
+ */
 trait HasWatermarkDuration extends Params {
   final val watermarkDuration: Param[String] = new Param[String](
     this,

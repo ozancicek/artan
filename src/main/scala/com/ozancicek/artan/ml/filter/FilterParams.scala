@@ -266,18 +266,6 @@ private[filter] trait HasMeasurementNoiseJacobian extends Params {
 
 
 /**
- * Param for state key column
- */
-private[filter] trait HasStateKeyCol extends Params {
-
-  final val stateKeyCol: Param[String] = new Param[String](
-    this, "stateKeyCol", "state key column name")
-
-  final def getStateKeyCol: String = $(stateKeyCol)
-}
-
-
-/**
  * Param for measurement column
  */
 private[filter] trait HasMeasurementCol extends Params {

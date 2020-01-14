@@ -33,14 +33,12 @@ import org.apache.spark.sql.types._
 /**
  * Base trait for kalman input parameters & columns
  */
-private[filter] trait KalmanUpdateParams extends HasStateKeyCol with HasMeasurementCol
+private[filter] trait KalmanUpdateParams extends HasMeasurementCol
   with HasMeasurementModelCol with HasMeasurementNoiseCol
   with HasProcessModelCol with HasProcessNoiseCol with HasControlCol
   with HasControlFunctionCol with HasProcessModel with HasMeasurementModel
   with HasProcessNoise with HasMeasurementNoise
   with HasCalculateMahalanobis with HasCalculateLoglikelihood {
-
-  protected def getStateKeyExpr = col($(stateKeyCol)).cast(StringType)
 
   protected def getMeasurementExpr = col($(measurementCol)).cast(SQLDataTypes.VectorType)
 
@@ -101,8 +99,6 @@ private[filter] trait KalmanUpdateParams extends HasStateKeyCol with HasMeasurem
   }
 
   protected def validateSchema(schema: StructType): Unit = {
-    require(isSet(stateKeyCol), "Group key column must be set")
-    require(schema($(stateKeyCol)).dataType == StringType, "Group key column must be StringType")
 
     if (isSet(measurementModelCol)) {
       require(
@@ -143,8 +139,6 @@ private[filter] abstract class KalmanTransformer[
     with KalmanUpdateParams with HasInitialState with HasInitialCovariance with HasFadingFactor {
 
   implicit val stateKeyEncoder = Encoders.STRING
-
-  def setStateKeyCol(value: String): ImplType = set(stateKeyCol, value).asInstanceOf[ImplType]
 
   def setInitialState(value: Vector): ImplType = set(initialState, value).asInstanceOf[ImplType]
 
@@ -216,7 +210,6 @@ private[filter] abstract class KalmanTransformer[
   private def toKalmanInput(dataset: Dataset[_]): DataFrame = {
     /* Get the column expressions and convert to Dataset[KalmanInput]*/
     dataset
-      .withColumn("stateKey", getStateKeyExpr)
       .withColumn("measurement", getMeasurementExpr)
       .withColumn("measurementModel", getMeasurementModelExpr)
       .withColumn("measurementNoise", getMeasurementNoiseExpr)

@@ -48,7 +48,7 @@ class RecursiveLeastSquaresFilter(
     val stateSize: Int,
     override val uid: String)
   extends StatefulTransformer[String, RLSInput, RLSState, RLSOutput, RecursiveLeastSquaresFilter]
-  with HasStateKeyCol with HasLabelCol with HasFeaturesCol with HasForgettingFactor
+  with HasLabelCol with HasFeaturesCol with HasForgettingFactor
   with HasInitialState with HasInitialCovariance {
 
   implicit val stateKeyEncoder = Encoders.STRING
@@ -62,8 +62,6 @@ class RecursiveLeastSquaresFilter(
 
   def setFeaturesCol(value: String): this.type = set(featuresCol, value)
   setDefault(featuresCol, "features")
-
-  def setStateKeyCol(value: String): this.type = set(stateKeyCol, value)
 
   def setForgettingFactor(value: Double): this.type = set(forgettingFactor, value)
 
@@ -93,7 +91,6 @@ class RecursiveLeastSquaresFilter(
   def filter(dataset: Dataset[_]): Dataset[RLSOutput] = {
     transformSchema(dataset.schema)
     val rlsUpdateDS = dataset
-      .withColumn("stateKey", col($(stateKeyCol)))
       .withColumn("label", col($(labelCol)))
       .withColumn("features", col($(featuresCol)))
     transformWithState(rlsUpdateDS)

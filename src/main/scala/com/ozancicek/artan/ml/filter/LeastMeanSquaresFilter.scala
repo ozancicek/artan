@@ -35,7 +35,7 @@ class LeastMeanSquaresFilter(
     val stateSize: Int,
     override val uid: String)
   extends StatefulTransformer[String, LMSInput, LMSState, LMSOutput, LeastMeanSquaresFilter]
-  with HasStateKeyCol with HasLabelCol with HasFeaturesCol with HasInitialState {
+  with HasLabelCol with HasFeaturesCol with HasInitialState {
 
   implicit val stateKeyEncoder = Encoders.STRING
 
@@ -48,8 +48,6 @@ class LeastMeanSquaresFilter(
 
   def setFeaturesCol(value: String): this.type = set(featuresCol, value)
   setDefault(featuresCol, "features")
-
-  def setStateKeyCol(value: String): this.type = set(stateKeyCol, value)
 
   private def validateSchema(schema: StructType): Unit = {
     require(isSet(stateKeyCol), "Group key column must be set")
@@ -66,7 +64,6 @@ class LeastMeanSquaresFilter(
   def filter(dataset: Dataset[_]): Dataset[LMSOutput] = {
     transformSchema(dataset.schema)
     val lmsUpdateDS = dataset
-      .withColumn("stateKey", col($(stateKeyCol)))
       .withColumn("label", col($(labelCol)))
       .withColumn("features", col($(featuresCol)))
     transformWithState(lmsUpdateDS)
