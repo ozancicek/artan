@@ -38,7 +38,7 @@ import scala.reflect.runtime.universe.TypeTag
  */
 private[ml] abstract class StatefulTransformer[
   GroupKeyType,
-  RowType <: KeyedInput[GroupKeyType] : TypeTag,
+  RowType <: KeyedInput[GroupKeyType] : TypeTag : Manifest,
   StateType <: KeyedState[GroupKeyType, RowType, OutType] : ClassTag,
   OutType <: Product : TypeTag,
   ImplType <: StatefulTransformer[GroupKeyType, RowType, StateType, OutType, ImplType]] extends Transformer
@@ -58,13 +58,19 @@ private[ml] abstract class StatefulTransformer[
   protected implicit val rowEncoder = Encoders.product[RowType]
   protected implicit val outEncoder = Encoders.product[OutType]
 
+  /* Get input case class fields with reflection*/
+  private def rowFields: List[String] = implicitly[Manifest[RowType]]
+    .runtimeClass.getDeclaredFields.map(_.getName).toList
+
   protected def transformWithState(
-    in: Dataset[RowType])(
+    in: DataFrame)(
     implicit keyEncoder: Encoder[GroupKeyType]): Dataset[OutType] = in
-    .groupByKey(keyFunc)
-    .flatMapGroupsWithState(
-      OutputMode.Append,
-      getTimeoutConf)(stateUpdateFunc)
+      .select(rowFields.head, rowFields.tail: _*)
+      .as(rowEncoder)
+      .groupByKey(keyFunc)
+      .flatMapGroupsWithState(
+        OutputMode.Append,
+        getTimeoutConf)(stateUpdateFunc)
 }
 
 

@@ -96,8 +96,6 @@ class RecursiveLeastSquaresFilter(
       .withColumn("stateKey", col($(stateKeyCol)))
       .withColumn("label", col($(labelCol)))
       .withColumn("features", col($(featuresCol)))
-      .select("stateKey", "label", "features")
-      .as(rowEncoder)
     transformWithState(rlsUpdateDS)
   }
 

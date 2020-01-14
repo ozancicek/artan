@@ -213,7 +213,7 @@ private[filter] abstract class KalmanTransformer[
     transformWithState(kalmanInputDS)
   }
 
-  private def toKalmanInput(dataset: Dataset[_]): Dataset[KalmanInput] = {
+  private def toKalmanInput(dataset: Dataset[_]): DataFrame = {
     /* Get the column expressions and convert to Dataset[KalmanInput]*/
     dataset
       .withColumn("stateKey", getStateKeyExpr)
@@ -224,11 +224,6 @@ private[filter] abstract class KalmanTransformer[
       .withColumn("processNoise", getProcessNoiseExpr)
       .withColumn("control", getControlExpr)
       .withColumn("controlFunction", getControlFunctionExpr)
-      .select(
-        "stateKey", "measurement", "measurementModel",
-        "measurementNoise", "processModel", "processNoise",
-        "control", "controlFunction")
-      .as(rowEncoder)
   }
 
   protected def stateUpdateFunc: StateUpdate
