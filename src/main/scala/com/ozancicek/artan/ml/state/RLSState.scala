@@ -44,9 +44,9 @@ private[ml] case class RLSState(
     stateKey: String,
     stateIndex: Long,
     state: Vector,
-    covariance: Matrix) extends KeyedState[String, RLSOutput] {
+    covariance: Matrix) extends KeyedState[String, RLSInput, RLSOutput] {
 
-  def asOut: RLSOutput = {
+  def asOut(in: RLSInput): RLSOutput = {
     RLSOutput(
       stateKey,
       stateIndex,

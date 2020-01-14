@@ -45,9 +45,9 @@ case class LMSOutput(stateKey: String, stateIndex: Long, state: Vector)
 private[ml] case class LMSState(
     stateKey: String,
     stateIndex: Long,
-    state: Vector) extends KeyedState[String, LMSOutput] {
+    state: Vector) extends KeyedState[String, LMSInput, LMSOutput] {
 
-  def asOut: LMSOutput = {
+  def asOut(in: LMSInput): LMSOutput = {
     LMSOutput(
       stateKey,
       stateIndex,

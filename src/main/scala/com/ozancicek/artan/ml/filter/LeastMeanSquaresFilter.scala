@@ -34,7 +34,7 @@ import org.apache.spark.sql.types._
 class LeastMeanSquaresFilter(
     val stateSize: Int,
     override val uid: String)
-  extends StatefulTransformer[String, LMSInput, LMSState, LMSOutput]
+  extends StatefulTransformer[String, LMSInput, LMSState, LMSOutput, LeastMeanSquaresFilter]
   with HasStateKeyCol with HasLabelCol with HasFeaturesCol with HasInitialState {
 
   implicit val stateKeyEncoder = Encoders.STRING

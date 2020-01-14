@@ -34,8 +34,8 @@ class UnscentedKalmanFilter(
     override val uid: String)
   extends KalmanTransformer[
     UnscentedKalmanStateCompute,
-    UnscentedKalmanStateEstimator]
-  with KalmanUpdateParams with HasInitialState with HasInitialCovariance with HasFadingFactor
+    UnscentedKalmanStateEstimator,
+    UnscentedKalmanFilter]
   with HasProcessFunction with HasMeasurementFunction with SigmaPointsParams {
 
   def this(
@@ -44,43 +44,9 @@ class UnscentedKalmanFilter(
     this(measurementSize, stateSize, Identifiable.randomUID("unscentedKalmanFilter"))
   }
 
-  def setInitialState(value: Vector): this.type = set(initialState, value)
-
-  def setInitialCovariance(value: Matrix): this.type = set(initialCovariance, value)
-
-  def setFadingFactor(value: Double): this.type = set(fadingFactor, value)
-
-  def setProcessModel(value: Matrix): this.type = set(processModel, value)
-
-  def setProcessNoise(value: Matrix): this.type = set(processNoise, value)
-
-  def setMeasurementModel(value: Matrix): this.type = set(measurementModel, value)
-
-  def setMeasurementNoise(value: Matrix): this.type = set(measurementNoise, value)
-
-  def setStateKeyCol(value: String): this.type = set(stateKeyCol, value)
-
-  def setMeasurementCol(value: String): this.type = set(measurementCol, value)
-
-  def setProcessModelCol(value: String): this.type = set(processModelCol, value)
-
-  def setProcessNoiseCol(value: String): this.type = set(processNoiseCol, value)
-
-  def setMeasurementModelCol(value: String): this.type = set(measurementModelCol, value)
-
-  def setMeasurementNoiseCol(value: String): this.type = set(measurementNoiseCol, value)
-
-  def setControlCol(value: String): this.type = set(controlCol, value)
-
-  def setControlFunctionCol(value: String): this.type = set(controlFunctionCol, value)
-
   def setProcessFunction(value: (Vector, Matrix) => Vector): this.type = set(processFunction, value)
 
   def setMeasurementFunction(value: (Vector, Matrix) => Vector): this.type = set(measurementFunction, value)
-
-  def setCalculateLoglikelihood: this.type = set(calculateLoglikelihood, true)
-
-  def setCalculateMahalanobis: this.type = set(calculateMahalanobis, true)
 
   def setSigmaPoints(value: String): this.type = set(sigmaPoints, value)
 

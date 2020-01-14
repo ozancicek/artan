@@ -33,12 +33,14 @@ import scala.reflect.runtime.universe.TypeTag
  * @tparam RowType Input type
  * @tparam StateType State type
  * @tparam OutType Output type
+ * @tparam ImplType Implementing class type
  */
 private[ml] abstract class StatefulTransformer[
   GroupKeyType,
   RowType <: KeyedInput[GroupKeyType] : TypeTag,
-  StateType <: KeyedState[GroupKeyType, OutType] : ClassTag,
-  OutType <: Product : TypeTag] extends Transformer {
+  StateType <: KeyedState[GroupKeyType, RowType, OutType] : ClassTag,
+  OutType <: Product : TypeTag,
+  ImplType <: StatefulTransformer[GroupKeyType, RowType, StateType, OutType, ImplType]] extends Transformer {
 
   /* Function to pass to flatMapGroupsWithState */
   protected def stateUpdateFunc: StateUpdateFunction[GroupKeyType, RowType, StateType, OutType]
@@ -57,7 +59,7 @@ private[ml] abstract class StatefulTransformer[
     .groupByKey(keyFunc)
     .flatMapGroupsWithState(
       OutputMode.Append,
-      GroupStateTimeout.NoTimeout())(stateUpdateFunc)
+      GroupStateTimeout.EventTimeTimeout())(stateUpdateFunc)
 }
 
 /**
@@ -72,7 +74,7 @@ private[ml] abstract class StatefulTransformer[
 private[ml] trait StateUpdateFunction[
   GroupKeyType,
   RowType <: Product,
-  StateType <: KeyedState[GroupKeyType, OutType],
+  StateType <: KeyedState[GroupKeyType, RowType, OutType],
   OutType <: Product] extends Function3[GroupKeyType, Iterator[RowType], GroupState[StateType], Iterator[OutType]]
   with Serializable {
 
@@ -98,7 +100,7 @@ private[ml] trait StateUpdateFunction[
       case ((q, (_, currentState)), row) => {
         val nextState = updateGroupState(key, row, currentState)
         nextState.foreach(s => groupState.update(s))
-        (q :+ nextState.map(_.asOut), (currentState, nextState))
+        (q :+ nextState.map(_.asOut(row)), (currentState, nextState))
       }
     }._1.flatten.toIterator
   }

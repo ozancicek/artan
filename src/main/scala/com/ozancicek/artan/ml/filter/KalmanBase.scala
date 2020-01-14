@@ -133,13 +133,50 @@ private[filter] trait KalmanUpdateParams extends HasStateKeyCol with HasMeasurem
  *
  * @tparam Compute Type responsible for calculating the next state
  * @tparam StateUpdate Type responsible for progressing the state with a compute instance
+ * @tparam ImplType Implementing class type
  */
 private[filter] abstract class KalmanTransformer[
-Compute <: KalmanStateCompute,
-StateUpdate <: KalmanStateUpdateFunction[Compute]]
-  extends StatefulTransformer[String, KalmanInput, KalmanState, KalmanOutput] with KalmanUpdateParams {
+  Compute <: KalmanStateCompute,
+  StateUpdate <: KalmanStateUpdateFunction[Compute],
+  ImplType <: KalmanTransformer[Compute, StateUpdate, ImplType]]
+  extends StatefulTransformer[String, KalmanInput, KalmanState, KalmanOutput, ImplType]
+    with KalmanUpdateParams with HasInitialState with HasInitialCovariance with HasFadingFactor {
 
   implicit val stateKeyEncoder = Encoders.STRING
+
+  def setStateKeyCol(value: String): ImplType = set(stateKeyCol, value).asInstanceOf[ImplType]
+
+  def setInitialState(value: Vector): ImplType = set(initialState, value).asInstanceOf[ImplType]
+
+  def setInitialCovariance(value: Matrix): ImplType = set(initialCovariance, value).asInstanceOf[ImplType]
+
+  def setFadingFactor(value: Double): ImplType = set(fadingFactor, value).asInstanceOf[ImplType]
+
+  def setProcessModel(value: Matrix): ImplType = set(processModel, value).asInstanceOf[ImplType]
+
+  def setProcessNoise(value: Matrix): ImplType = set(processNoise, value).asInstanceOf[ImplType]
+
+  def setMeasurementModel(value: Matrix): ImplType = set(measurementModel, value).asInstanceOf[ImplType]
+
+  def setMeasurementNoise(value: Matrix): ImplType = set(measurementNoise, value).asInstanceOf[ImplType]
+
+  def setMeasurementCol(value: String): ImplType = set(measurementCol, value).asInstanceOf[ImplType]
+
+  def setProcessModelCol(value: String): ImplType = set(processModelCol, value).asInstanceOf[ImplType]
+
+  def setProcessNoiseCol(value: String): ImplType = set(processNoiseCol, value).asInstanceOf[ImplType]
+
+  def setMeasurementModelCol(value: String): ImplType = set(measurementModelCol, value).asInstanceOf[ImplType]
+
+  def setMeasurementNoiseCol(value: String): ImplType = set(measurementNoiseCol, value).asInstanceOf[ImplType]
+
+  def setControlCol(value: String): ImplType = set(controlCol, value).asInstanceOf[ImplType]
+
+  def setControlFunctionCol(value: String): ImplType = set(controlFunctionCol, value).asInstanceOf[ImplType]
+
+  def setCalculateLoglikelihood: ImplType = set(calculateLoglikelihood, true).asInstanceOf[ImplType]
+
+  def setCalculateMahalanobis: ImplType = set(calculateMahalanobis, true).asInstanceOf[ImplType]
 
   def transformSchema(schema: StructType): StructType = {
     validateSchema(schema)

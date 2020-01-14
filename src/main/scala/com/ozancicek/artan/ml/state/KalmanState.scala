@@ -93,9 +93,9 @@ private[ml] case class KalmanState(
     state: Vector,
     stateCovariance: Matrix,
     residual: Vector,
-    residualCovariance: Matrix) extends KeyedState[String, KalmanOutput] {
+    residualCovariance: Matrix) extends KeyedState[String, KalmanInput, KalmanOutput] {
 
-  def asOut: KalmanOutput = {
+  def asOut(in: KalmanInput): KalmanOutput = {
     KalmanOutput(
       stateKey,
       stateIndex,

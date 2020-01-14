@@ -30,48 +30,13 @@ class LinearKalmanFilter(
     val stateSize: Int,
     val measurementSize: Int,
     override val uid: String)
-  extends KalmanTransformer[LinearKalmanStateCompute, LinearKalmanStateEstimator]
-  with KalmanUpdateParams with HasInitialState with HasInitialCovariance with HasFadingFactor {
+  extends KalmanTransformer[LinearKalmanStateCompute, LinearKalmanStateEstimator, LinearKalmanFilter] {
 
   def this(
     measurementSize: Int,
     stateSize: Int) = {
     this(measurementSize, stateSize, Identifiable.randomUID("linearKalmanFilter"))
   }
-
-  def setInitialState(value: Vector): this.type = set(initialState, value)
-
-  def setInitialCovariance(value: Matrix): this.type = set(initialCovariance, value)
-
-  def setFadingFactor(value: Double): this.type = set(fadingFactor, value)
-
-  def setProcessModel(value: Matrix): this.type = set(processModel, value)
-
-  def setProcessNoise(value: Matrix): this.type = set(processNoise, value)
-
-  def setMeasurementModel(value: Matrix): this.type = set(measurementModel, value)
-
-  def setMeasurementNoise(value: Matrix): this.type = set(measurementNoise, value)
-
-  def setStateKeyCol(value: String): this.type = set(stateKeyCol, value)
-
-  def setMeasurementCol(value: String): this.type = set(measurementCol, value)
-
-  def setProcessModelCol(value: String): this.type = set(processModelCol, value)
-
-  def setProcessNoiseCol(value: String): this.type = set(processNoiseCol, value)
-
-  def setMeasurementModelCol(value: String): this.type = set(measurementModelCol, value)
-
-  def setMeasurementNoiseCol(value: String): this.type = set(measurementNoiseCol, value)
-
-  def setControlCol(value: String): this.type = set(controlCol, value)
-
-  def setControlFunctionCol(value: String): this.type = set(controlFunctionCol, value)
-
-  def setCalculateLoglikelihood: this.type = set(calculateLoglikelihood, true)
-
-  def setCalculateMahalanobis: this.type = set(calculateMahalanobis, true)
 
   override def copy(extra: ParamMap): LinearKalmanFilter = defaultCopy(extra)
 

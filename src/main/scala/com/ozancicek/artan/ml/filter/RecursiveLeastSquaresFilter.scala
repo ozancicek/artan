@@ -47,7 +47,7 @@ private[filter] trait HasForgettingFactor extends Params {
 class RecursiveLeastSquaresFilter(
     val stateSize: Int,
     override val uid: String)
-  extends StatefulTransformer[String, RLSInput, RLSState, RLSOutput]
+  extends StatefulTransformer[String, RLSInput, RLSState, RLSOutput, RecursiveLeastSquaresFilter]
   with HasStateKeyCol with HasLabelCol with HasFeaturesCol with HasForgettingFactor
   with HasInitialState with HasInitialCovariance {
 
