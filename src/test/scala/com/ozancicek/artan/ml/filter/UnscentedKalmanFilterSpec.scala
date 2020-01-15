@@ -48,8 +48,8 @@ class UnscentedKalmanFilterSpec
         case(x,y)=> (x, y, a*x + b*y + c + dist.draw())
       }
       val df = zs.map {
-        case (x, y, z) => ("1", new DenseVector(Array(z)), new DenseMatrix(1, 3, Array(x, y, 1)))
-      }.toSeq.toDF("modelId", "measurement", "measurementModel")
+        case (x, y, z) => (new DenseVector(Array(z)), new DenseMatrix(1, 3, Array(x, y, 1)))
+      }.toSeq.toDF( "measurement", "measurementModel")
 
       val measurementFunc = (in: Vector, model: Matrix) => {
         val measurement = model.multiply(in)
@@ -58,7 +58,6 @@ class UnscentedKalmanFilterSpec
       }
 
       val filter = new UnscentedKalmanFilter(3, 1)
-        .setStateKeyCol("modelId")
         .setInitialCovariance(
           new DenseMatrix(3, 3, Array(10.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 10.0)))
         .setMeasurementCol("measurement")
@@ -103,8 +102,8 @@ class UnscentedKalmanFilterSpec
     }
 
     val df = zs.map {
-      case (x, y, z) => ("1", new DenseVector(Array(z)), new DenseMatrix(1, 3, Array(x, y, 1)))
-    }.toSeq.toDF("modelId", "measurement", "measurementModel")
+      case (x, y, z) => (new DenseVector(Array(z)), new DenseMatrix(1, 3, Array(x, y, 1)))
+    }.toSeq.toDF("measurement", "measurementModel")
 
     val measurementFunc = (in: Vector, model: Matrix) => {
       val measurement = model.multiply(in)
@@ -113,7 +112,6 @@ class UnscentedKalmanFilterSpec
     }
 
     val filter = new UnscentedKalmanFilter(3, 1)
-      .setStateKeyCol("modelId")
       .setInitialCovariance(
         new DenseMatrix(3, 3, Array(0.1, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.1)))
       .setMeasurementCol("measurement")

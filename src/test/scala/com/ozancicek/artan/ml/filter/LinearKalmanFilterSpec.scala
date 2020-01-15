@@ -86,11 +86,10 @@ class LinearKalmanFilterSpec
         case(x,y)=> (x, y, a*x + b*y + c + dist.draw())
       }
       val df = zs.map {
-        case (x, y, z) => ("1", new DenseVector(Array(z)), new DenseMatrix(1, 3, Array(x, y, 1)))
-      }.toSeq.toDF("modelId", "measurement", "measurementModel")
+        case (x, y, z) => (new DenseVector(Array(z)), new DenseMatrix(1, 3, Array(x, y, 1)))
+      }.toSeq.toDF("measurement", "measurementModel")
 
       val filter = new LinearKalmanFilter(3, 1)
-        .setStateKeyCol("modelId")
         .setInitialCovariance(
           new DenseMatrix(3, 3, Array(10.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 10.0)))
         .setMeasurementCol("measurement")
@@ -140,16 +139,14 @@ class LinearKalmanFilterSpec
       }.toArray
 
       val df = (1 until n).map { i=>
-        val modelID = "1"
         val dx = xs(i) - xs(i - 1)
         val measurement = new DenseVector(Array(zs(i)))
         val processModel = new DenseMatrix(
           2, 2, Array(1.0, 0.0, dx, 1.0))
-        (modelID, measurement, processModel)
-      }.toSeq.toDF("modelID", "measurement", "processModel")
+        (measurement, processModel)
+      }.toSeq.toDF( "measurement", "processModel")
 
       val filter = new LinearKalmanFilter(2, 1)
-        .setStateKeyCol("modelID")
         .setInitialCovariance(
           new DenseMatrix(2, 2, Array(10.0, 0.0, 0.0, 10.0)))
         .setMeasurementCol("measurement")

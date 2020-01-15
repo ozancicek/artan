@@ -77,8 +77,9 @@ class RecursiveLeastSquaresFilter(
   }
 
   private def validateSchema(schema: StructType): Unit = {
-    require(isSet(stateKeyCol), "Group key column must be set")
-    require(schema($(stateKeyCol)).dataType == StringType, "Group key column must be StringType")
+    if (isSet(stateKeyCol)) {
+      require(schema($(stateKeyCol)).dataType == StringType, "Group key column must be StringType")
+    }
     require(schema($(labelCol)).dataType == DoubleType)
     require(schema($(featuresCol)).dataType == SQLDataTypes.VectorType)
   }
@@ -111,6 +112,15 @@ private[filter] class RecursiveLeastSquaresUpdateFunction(
     val forgettingFactor: Double)
   extends StateUpdateFunction[String, RLSInput, RLSState, RLSOutput] {
 
+  protected def stateToOutput(key: String, row: RLSInput, state: RLSState): RLSOutput = {
+    RLSOutput(
+      key,
+      state.stateIndex,
+      state.state,
+      state.covariance,
+      row.eventTime)
+  }
+
   def updateGroupState(
     key: String,
     row: RLSInput,
@@ -120,7 +130,7 @@ private[filter] class RecursiveLeastSquaresUpdateFunction(
     val label = row.label
 
     val currentState = state
-      .getOrElse(RLSState(key, 0L, stateMean, stateCov))
+      .getOrElse(RLSState(0L, stateMean, stateCov))
 
     val model = currentState.covariance.transpose.multiply(features)
     val gain = currentState.covariance.multiply(features)
@@ -139,7 +149,7 @@ private[filter] class RecursiveLeastSquaresUpdateFunction(
     val estCov = DenseMatrix.zeros(covUpdate.numRows, covUpdate.numCols)
     BLAS.axpy(1.0/forgettingFactor, covUpdate, estCov)
 
-    val newState = RLSState(key, currentState.stateIndex + 1L, estMean, estCov)
+    val newState = RLSState(currentState.stateIndex + 1L, estMean, estCov)
     Some(newState)
   }
 }

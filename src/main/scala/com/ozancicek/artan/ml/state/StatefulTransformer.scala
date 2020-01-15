@@ -26,6 +26,7 @@ import scala.collection.immutable.Queue
 import scala.reflect.ClassTag
 import org.apache.spark.ml.param._
 import org.apache.spark.sql.types.TimestampType
+import java.sql.Timestamp
 
 import scala.reflect.runtime.universe.TypeTag
 
@@ -43,8 +44,8 @@ import scala.reflect.runtime.universe.TypeTag
 private[ml] abstract class StatefulTransformer[
   GroupKeyType,
   RowType <: KeyedInput[GroupKeyType] : TypeTag : Manifest,
-  StateType <: KeyedState[GroupKeyType, RowType, OutType] : ClassTag,
-  OutType <: Product : TypeTag,
+  StateType <: State : ClassTag,
+  OutType <: KeyedOutput[GroupKeyType] : TypeTag,
   ImplType <: StatefulTransformer[GroupKeyType, RowType, StateType, OutType, ImplType]] extends Transformer
   with HasStateTimeoutMode with HasWatermarkCol with HasWatermarkDuration with HasStateKeyCol {
 
@@ -76,7 +77,7 @@ private[ml] abstract class StatefulTransformer[
     in: DataFrame)(
     implicit keyEncoder: Encoder[GroupKeyType]): Dataset[OutType] = {
 
-    val withStateKey = in.withColumn("stateKey", col(getStateKeyCol))
+    val withStateKey = in.withColumn("stateKey", getStateKeyColumn)
 
     val toTyped = (df: DataFrame) => df
       .select(rowFields.head, rowFields.tail: _*).as(rowEncoder)
@@ -101,10 +102,14 @@ private[ml] abstract class StatefulTransformer[
  */
 trait HasStateKeyCol extends Params {
 
+  private val defaultStateKey = "defaultStateKey"
+
   final val stateKeyCol: Param[String] = new Param[String](
     this, "stateKeyCol", "state key column name")
 
-  final def getStateKeyCol: String = $(stateKeyCol)
+  final def getStateKeyColname: String = $(stateKeyCol)
+
+  final def getStateKeyColumn: Column = if (isSet(stateKeyCol)) col($(stateKeyCol)) else lit(defaultStateKey)
 }
 
 
@@ -168,15 +173,28 @@ trait HasStateTimeoutMode extends Params {
  */
 private[ml] trait StateUpdateFunction[
   GroupKeyType,
-  RowType <: Product,
-  StateType <: KeyedState[GroupKeyType, RowType, OutType],
-  OutType <: Product] extends Function3[GroupKeyType, Iterator[RowType], GroupState[StateType], Iterator[OutType]]
+  RowType <: KeyedInput[GroupKeyType],
+  StateType <: State,
+  OutType <: KeyedOutput[GroupKeyType]]
+  extends Function3[GroupKeyType, Iterator[RowType], GroupState[StateType], Iterator[OutType]]
   with Serializable {
+
+  protected def stateToOutput(
+    key: GroupKeyType,
+    row: RowType,
+    state: StateType): OutType
 
   protected def updateGroupState(
     key: GroupKeyType,
     row: RowType,
     state: Option[StateType]): Option[StateType]
+
+  private implicit def orderedIfSet: Ordering[Option[Timestamp]] = new Ordering[Option[Timestamp]] {
+    def compare(left: Option[Timestamp], right: Option[Timestamp]): Int =  (left, right) match {
+      case (Some(l), Some(r)) => l.compareTo(r)
+      case _ => 0
+    }
+  }
 
   def apply(
     key: GroupKeyType,
@@ -191,11 +209,15 @@ private[ml] trait StateUpdateFunction[
     val outputQueue = Queue[Option[OutType]]()
     val statePair = (groupState.getOption, groupState.getOption)
 
-    rows.foldLeft((outputQueue, statePair)) {
+    rows.toSeq.sortBy(_.eventTime).foldLeft((outputQueue, statePair)) {
       case ((q, (_, currentState)), row) => {
+        // Calculate the next state and update if Some(state)
         val nextState = updateGroupState(key, row, currentState)
         nextState.foreach(s => groupState.update(s))
-        (q :+ nextState.map(_.asOut(row)), (currentState, nextState))
+
+        // Convert state to out type, push to output queue
+        val out = nextState.map(s => stateToOutput(key, row, s))
+        (q :+ out, (currentState, nextState))
       }
     }._1.flatten.toIterator
   }

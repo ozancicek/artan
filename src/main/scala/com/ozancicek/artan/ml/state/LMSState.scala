@@ -25,6 +25,7 @@ import java.sql.Timestamp
  * @param stateKey Key of the filter
  * @param label Label corresponding to the features.
  * @param features Features vector.
+ * @param eventTime event time of the input
  */
 case class LMSInput(
     stateKey: String,
@@ -35,29 +36,21 @@ case class LMSInput(
 
 /**
  * Case class for the output state of a least mean squares filter.
- * @param stateKey Key of the filter.
+ *
+ * @param stateKey   Key of the filter.
  * @param stateIndex Index of state.
- * @param state State vector.
+ * @param state      State vector.
+ * @param eventTime  event time of the of the output
  */
-case class LMSOutput(stateKey: String, stateIndex: Long, state: Vector)
+case class LMSOutput(
+    stateKey: String,
+    stateIndex: Long,
+    state: Vector,
+    eventTime: Option[Timestamp]) extends KeyedOutput[String]
 
 /**
  * Internal representation of the state of a least mean squares filter.
- * @param stateKey Key of the filter.
- * @param stateIndex Index of the state.
- * @param state State vector.
  */
 private[ml] case class LMSState(
-    stateKey: String,
     stateIndex: Long,
-    state: Vector) extends KeyedState[String, LMSInput, LMSOutput] {
-
-  def asOut(in: LMSInput): LMSOutput = {
-    LMSOutput(
-      stateKey,
-      stateIndex,
-      state
-    )
-  }
-}
-
+    state: Vector) extends State

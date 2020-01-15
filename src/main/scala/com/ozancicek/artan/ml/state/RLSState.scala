@@ -26,8 +26,14 @@ import java.sql.Timestamp
  * @param stateIndex Index of the filter state.
  * @param state The state vector.
  * @param covariance Covariance of the state.
+ * @param eventTime event time of input
  */
-case class RLSOutput(stateKey: String, stateIndex: Long, state: Vector, covariance: Matrix)
+case class RLSOutput(
+    stateKey: String,
+    stateIndex: Long,
+    state: Vector,
+    covariance: Matrix,
+    eventTime: Option[Timestamp]) extends KeyedOutput[String]
 
 
 /**
@@ -35,6 +41,7 @@ case class RLSOutput(stateKey: String, stateIndex: Long, state: Vector, covarian
  * @param stateKey Key of the filter.
  * @param label Label corresponding to the features
  * @param features Features vector
+ * @param eventTime event time of input
  */
 case class RLSInput(
     stateKey: String,
@@ -47,18 +54,7 @@ case class RLSInput(
  * Internal representation of the state of an RLS filter
  */
 private[ml] case class RLSState(
-    stateKey: String,
     stateIndex: Long,
     state: Vector,
-    covariance: Matrix) extends KeyedState[String, RLSInput, RLSOutput] {
-
-  def asOut(in: RLSInput): RLSOutput = {
-    RLSOutput(
-      stateKey,
-      stateIndex,
-      state,
-      covariance
-    )
-  }
-}
+    covariance: Matrix) extends State
 

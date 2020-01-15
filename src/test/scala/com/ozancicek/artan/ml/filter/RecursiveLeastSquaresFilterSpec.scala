@@ -48,12 +48,10 @@ class RecursiveLeastSquaresFilterSpec
         case(x,y)=> (x, y, a*x + b*y + c + dist.draw())
       }
       val df = zs.map {
-        case (x, y, z) => ("1", z, new DenseVector(Array(x, y, 1)))
-      }.toSeq.toDF("modelId", "label", "features")
+        case (x, y, z) => (z, new DenseVector(Array(x, y, 1)))
+      }.toSeq.toDF("label", "features")
 
       val filter = new RecursiveLeastSquaresFilter(3)
-        .setStateKeyCol("modelId")
-        .setInverseCovarianceDiag(10000)
 
       val modelState = filter.transform(df)
 

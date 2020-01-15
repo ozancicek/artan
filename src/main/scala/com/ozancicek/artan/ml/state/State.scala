@@ -20,27 +20,31 @@ package com.ozancicek.artan.ml.state
 import java.sql.Timestamp
 
 /**
- * Base trait for state case classes to be used in flatMapGroupsWithState function. Such case classes
- * should be keyed and indexed, and provide a function to convert to an output case class.
+ * Base trait for state case classes to be used in flatMapGroupsWithState function.
  *
- * @tparam KeyType Type of key
- * @tparam InType Type of input case class representing measurements
- * @tparam OutType Type of output case class
  */
-private[state] trait KeyedState[KeyType, InType <: Product, OutType <: Product] extends Product {
-
-  val stateKey: KeyType
+private[state] trait State extends Product {
   val stateIndex: Long
-
-  def asOut(in: InType): OutType
 }
 
 /**
  * Base trait for input case classes for flatMapGroupsWithState function. Such case classes should be keyed
+ *
  * @tparam KeyType Type of key
  */
 private[state] trait KeyedInput[KeyType] extends Product {
-
   val stateKey: KeyType
+  val eventTime: Option[Timestamp]
+}
+
+/**
+ * Base trait for output case classes after transformation with flatMapGroupsWithState. Such case classes should
+ * be keyed
+ *
+ * @tparam KeyType Type of key
+ */
+private[state] trait KeyedOutput[KeyType] extends Product {
+  val stateKey: KeyType
+  val stateIndex: Long
   val eventTime: Option[Timestamp]
 }

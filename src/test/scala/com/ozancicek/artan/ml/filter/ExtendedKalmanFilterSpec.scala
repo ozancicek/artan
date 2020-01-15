@@ -48,8 +48,8 @@ class ExtendedKalmanFilterSpec
         case(x,y)=> (x, y, scala.math.exp(a*x + b*y + c) + dist.draw())
       }
       val df = zs.map {
-        case (x, y, z) => ("1", new DenseVector(Array(z)), new DenseMatrix(1, 3, Array(x, y, 1)))
-      }.toSeq.toDF("modelId", "measurement", "measurementModel")
+        case (x, y, z) => (new DenseVector(Array(z)), new DenseMatrix(1, 3, Array(x, y, 1)))
+      }.toSeq.toDF("measurement", "measurementModel")
 
       val measurementFunc = (in: Vector, model: Matrix) => {
         val measurement = model.multiply(in)
@@ -69,7 +69,6 @@ class ExtendedKalmanFilterSpec
       }
 
       val filter = new ExtendedKalmanFilter(3, 1)
-        .setStateKeyCol("modelId")
         .setInitialCovariance(
           new DenseMatrix(3, 3, Array(10.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 10.0)))
         .setMeasurementCol("measurement")
@@ -118,15 +117,14 @@ class ExtendedKalmanFilterSpec
           2, 2, Array(0, 0, 1, 0))
         val measurement = new DenseVector(Array(z))
         val measurementModel = new DenseMatrix(1, 2, Array(1, 0))
-        ("1", measurement, measurementModel, processModel)
-      }.toDF("modelID", "measurement", "measurementModel", "processModel")
+        (measurement, measurementModel, processModel)
+      }.toDF("measurement", "measurementModel", "processModel")
 
       val processNoiseJac = (in: Vector, model: Matrix) => {
         new DenseMatrix(2, 1, Array(1.0, 0.8))
       }
 
       val filter = new ExtendedKalmanFilter(2, 1)
-        .setStateKeyCol("modelID")
         .setMeasurementCol("measurement")
         .setMeasurementModelCol("measurementModel")
         .setProcessModelCol("processModel")

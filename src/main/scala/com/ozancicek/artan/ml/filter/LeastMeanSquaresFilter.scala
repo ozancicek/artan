@@ -50,8 +50,9 @@ class LeastMeanSquaresFilter(
   setDefault(featuresCol, "features")
 
   private def validateSchema(schema: StructType): Unit = {
-    require(isSet(stateKeyCol), "Group key column must be set")
-    require(schema($(stateKeyCol)).dataType == StringType, "Group key column must be StringType")
+    if (isSet(stateKeyCol)) {
+      require(schema($(stateKeyCol)).dataType == StringType, "Group key column must be StringType")
+    }
     require(schema($(labelCol)).dataType == DoubleType)
     require(schema($(featuresCol)).dataType == SQLDataTypes.VectorType)
   }
@@ -81,13 +82,21 @@ private[filter] class LeastMeanSquaresUpdateFunction(
     val stateMean: Vector)
   extends StateUpdateFunction[String, LMSInput, LMSState, LMSOutput] {
 
+  protected def stateToOutput(key: String, row: LMSInput, state: LMSState): LMSOutput = {
+    LMSOutput(
+      key,
+      state.stateIndex,
+      state.state,
+      row.eventTime)
+  }
+
   def updateGroupState(
     key: String,
     row: LMSInput,
     state: Option[LMSState]): Option[LMSState] = {
 
     val currentState = state
-      .getOrElse(LMSState(key, 0L, stateMean))
+      .getOrElse(LMSState(0L, stateMean))
 
     val features = row.features
     val gain = features.copy
@@ -96,7 +105,7 @@ private[filter] class LeastMeanSquaresUpdateFunction(
 
     val estMean = currentState.state.copy
     BLAS.axpy(residual, gain, estMean)
-    val newState = LMSState(key, currentState.stateIndex + 1, estMean)
+    val newState = LMSState(currentState.stateIndex + 1, estMean)
     Some(newState)
   }
 }

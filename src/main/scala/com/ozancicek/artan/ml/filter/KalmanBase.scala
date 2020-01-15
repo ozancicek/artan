@@ -99,7 +99,6 @@ private[filter] trait KalmanUpdateParams extends HasMeasurementCol
   }
 
   protected def validateSchema(schema: StructType): Unit = {
-
     if (isSet(measurementModelCol)) {
       require(
         schema($(measurementModelCol)).dataType == SQLDataTypes.MatrixType,
@@ -118,7 +117,8 @@ private[filter] trait KalmanUpdateParams extends HasMeasurementCol
   private def validateColParamType(schema: StructType, col: Param[String], t: DataType): Unit = {
     if (isSet(col)) {
       val colname = $(col)
-      require(schema(colname).dataType == t, s"$colname must be of $t")
+      val colType = schema(colname).dataType
+      require(colType == t, s"$colname must be of $t, found $colType")
     }
   }
 
@@ -239,6 +239,20 @@ private[filter] trait KalmanStateUpdateFunction[+Compute <: KalmanStateCompute]
   /* Initial covariance matrix*/
   def stateCov: Matrix
 
+  protected def stateToOutput(
+    key: String,
+    row: KalmanInput,
+    state: KalmanState): KalmanOutput = {
+    KalmanOutput(
+      key,
+      state.stateIndex,
+      state.state,
+      stateCov,
+      state.residual,
+      state.residualCovariance,
+      row.eventTime)
+  }
+
   def updateGroupState(
     key: String,
     row: KalmanInput,
@@ -247,7 +261,6 @@ private[filter] trait KalmanStateUpdateFunction[+Compute <: KalmanStateCompute]
     /* If state is empty, create initial state from input parameters*/
     val currentState = state
       .getOrElse(KalmanState(
-        key,
         0L,
         stateMean.toDense,
         stateCov.toDense,

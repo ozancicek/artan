@@ -123,7 +123,6 @@ private[ml] class UnscentedKalmanStateCompute(
       fadingFactorSquare)
 
     KalmanState(
-      state.stateKey,
       state.stateIndex + 1,
       stateMean,
       stateCov,
@@ -175,7 +174,7 @@ private[ml] class UnscentedKalmanStateCompute(
     BLAS.axpy(-1.0, covUpdate, newCov)
 
     KalmanState(
-      state.stateKey, state.stateIndex, newMean, newCov, residual, estimateCov)
+      state.stateIndex, newMean, newCov, residual, estimateCov)
   }
 }
 

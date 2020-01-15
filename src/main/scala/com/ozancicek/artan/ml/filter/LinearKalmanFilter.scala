@@ -118,7 +118,6 @@ private[filter] class LinearKalmanStateCompute(
     val newCov = getProcessNoise(state.state.toDense, process.processNoise.get.copy.toDense)
     BLAS.gemm(1.0, covUpdate, pModel.transpose, 1.0, newCov)
     KalmanState(
-      state.stateKey,
       state.stateIndex + 1L,
       newMean, newCov,
       state.residual,
@@ -163,7 +162,6 @@ private[filter] class LinearKalmanStateCompute(
     BLAS.gemm(1.0, noiseUpdate, gain.transpose, 1.0, estCov)
 
     KalmanState(
-      state.stateKey,
       state.stateIndex,
       estMean,
       estCov,

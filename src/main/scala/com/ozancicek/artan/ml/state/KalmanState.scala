@@ -41,6 +41,7 @@ import com.ozancicek.artan.ml.stats.MultivariateGaussian
  * @param processNoise w_k, Matrix with dimensions (n_state, n_state)
  * @param control u_k, Vector with length n_state
  * @param controlFunction B_k, Matrix with dimensions (n_state, n_state)
+ * @param eventTime event time of input
  */
 private[ml] case class KalmanInput(
     stateKey: String,
@@ -67,6 +68,7 @@ private[ml] case class KalmanInput(
  * @param stateCovariance state covariance matrix with dimensions n_state, n_stae
  * @param residual residual of x_k and z_k, vector with length n_obs
  * @param residualCovariance covariance of residual, matrix with dimensions n_obs, n_obs
+ * @param eventTime event time of input
  */
 case class KalmanOutput(
     stateKey: String,
@@ -74,7 +76,8 @@ case class KalmanOutput(
     state: Vector,
     stateCovariance: Matrix,
     residual: Vector,
-    residualCovariance: Matrix) {
+    residualCovariance: Matrix,
+    eventTime: Option[Timestamp]) extends KeyedOutput[String]{
 
   def loglikelihood: Double = {
     val zeroMean = new DenseVector(Array.fill(residual.size) {0.0})
@@ -91,22 +94,8 @@ case class KalmanOutput(
  * Internal representation of the state of a kalman filter.
  */
 private[ml] case class KalmanState(
-    stateKey: String,
     stateIndex: Long,
     state: Vector,
     stateCovariance: Matrix,
     residual: Vector,
-    residualCovariance: Matrix) extends KeyedState[String, KalmanInput, KalmanOutput] {
-
-  def asOut(in: KalmanInput): KalmanOutput = {
-    KalmanOutput(
-      stateKey,
-      stateIndex,
-      state,
-      stateCovariance,
-      residual,
-      residualCovariance
-    )
-  }
-}
-
+    residualCovariance: Matrix) extends State
