@@ -34,7 +34,7 @@ class UnscentedKalmanFilter(
     override val uid: String)
   extends KalmanTransformer[
     UnscentedKalmanStateCompute,
-    UnscentedKalmanStateEstimator,
+    UnscentedKalmanStateSpec,
     UnscentedKalmanFilter]
   with HasProcessFunction with HasMeasurementFunction with SigmaPointsParams {
 
@@ -62,7 +62,7 @@ class UnscentedKalmanFilter(
 
   def transform(dataset: Dataset[_]): DataFrame = withExtraColumns(filter(dataset))
 
-  protected def stateUpdateFunc: UnscentedKalmanStateEstimator = new UnscentedKalmanStateEstimator(
+  protected def stateUpdateSpec: UnscentedKalmanStateSpec = new UnscentedKalmanStateSpec(
     getInitialState,
     getInitialCovariance,
     getFadingFactor,
@@ -73,14 +73,14 @@ class UnscentedKalmanFilter(
 }
 
 
-private[ml] class UnscentedKalmanStateEstimator(
+private[ml] class UnscentedKalmanStateSpec(
     val stateMean: Vector,
     val stateCov: Matrix,
     val fadingFactor: Double,
     val sigma: SigmaPoints,
     val processFunction: Option[(Vector, Matrix) => Vector],
     val measurementFunction: Option[(Vector, Matrix) => Vector])
-  extends KalmanStateUpdateFunction[UnscentedKalmanStateCompute] {
+  extends KalmanStateUpdateSpec[UnscentedKalmanStateCompute] {
 
   val kalmanCompute = new UnscentedKalmanStateCompute(
     fadingFactor,
@@ -179,7 +179,7 @@ private[ml] class UnscentedKalmanStateCompute(
 }
 
 
-trait SigmaPoints extends Serializable {
+private[filter] trait SigmaPoints extends Serializable {
 
   val stateSize: Int
 

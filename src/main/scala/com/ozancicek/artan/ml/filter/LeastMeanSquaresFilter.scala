@@ -18,7 +18,7 @@
 package com.ozancicek.artan.ml.filter
 
 import com.ozancicek.artan.ml.state.{LMSState, LMSInput, LMSOutput}
-import com.ozancicek.artan.ml.state.{StateUpdateFunction, StatefulTransformer}
+import com.ozancicek.artan.ml.state.{StateUpdateSpec, StatefulTransformer}
 import org.apache.spark.ml.linalg.SQLDataTypes
 import org.apache.spark.ml.linalg.{Vector}
 import org.apache.spark.ml.param._
@@ -72,15 +72,15 @@ class LeastMeanSquaresFilter(
 
   def transform(dataset: Dataset[_]): DataFrame = filter(dataset).toDF
 
-  protected def stateUpdateFunc: LeastMeanSquaresUpdateFunction = new LeastMeanSquaresUpdateFunction(
+  protected def stateUpdateSpec: LeastMeanSquaresUpdateSpec = new LeastMeanSquaresUpdateSpec(
     getInitialState)
 
 }
 
 
-private[filter] class LeastMeanSquaresUpdateFunction(
+private[filter] class LeastMeanSquaresUpdateSpec(
     val stateMean: Vector)
-  extends StateUpdateFunction[String, LMSInput, LMSState, LMSOutput] {
+  extends StateUpdateSpec[String, LMSInput, LMSState, LMSOutput] {
 
   protected def stateToOutput(key: String, row: LMSInput, state: LMSState): LMSOutput = {
     LMSOutput(

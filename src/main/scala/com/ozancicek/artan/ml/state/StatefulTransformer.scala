@@ -32,7 +32,7 @@ import scala.reflect.runtime.universe.TypeTag
 
 /**
  * Base class for a stateful [[org.apache.spark.ml.Transformer]]. Performs a stateful transformation
- * using flatMapGroupsWithState function, which is specified with a [[StateUpdateFunction]]. Currently, only
+ * using flatMapGroupsWithState function, which is specified with a [[StateUpdateSpec]]. Currently, only
  * append output mode is supported.
  *
  * @tparam GroupKeyType Key type of groups.
@@ -47,7 +47,8 @@ private[ml] abstract class StatefulTransformer[
   StateType <: State : ClassTag,
   OutType <: KeyedOutput[GroupKeyType] : TypeTag,
   ImplType <: StatefulTransformer[GroupKeyType, RowType, StateType, OutType, ImplType]] extends Transformer
-  with HasStateTimeoutMode with HasWatermarkCol with HasWatermarkDuration with HasStateKeyCol {
+  with HasStateTimeoutMode with HasWatermarkCol with HasWatermarkDuration with HasStateKeyCol
+  with HasStateTimeoutDuration {
 
   def setStateKeyCol(value: String): ImplType = set(stateKeyCol, value).asInstanceOf[ImplType]
 
@@ -59,7 +60,7 @@ private[ml] abstract class StatefulTransformer[
   def setWatermarkDuration(value: String): ImplType = set(watermarkDuration, value).asInstanceOf[ImplType]
 
   /* Function to pass to flatMapGroupsWithState */
-  protected def stateUpdateFunc: StateUpdateFunction[GroupKeyType, RowType, StateType, OutType]
+  protected def stateUpdateSpec: StateUpdateSpec[GroupKeyType, RowType, StateType, OutType]
 
   /* Keying function for groupByKey*/
   protected def keyFunc: RowType => GroupKeyType = (in: RowType) => in.stateKey
@@ -89,10 +90,12 @@ private[ml] abstract class StatefulTransformer[
       toTyped(withStateKey.withColumn("eventTime", lit(null).cast(TimestampType)))
     }
 
+    val ops = StateSpecOps(getTimeoutMode, getStateTimeoutDuration)
+
     inputDS.groupByKey(keyFunc)
       .flatMapGroupsWithState(
         OutputMode.Append,
-        getTimeoutConf)(stateUpdateFunc)
+        getTimeoutMode.conf)(stateUpdateSpec.stateFunc(ops))
   }
 }
 
@@ -100,7 +103,7 @@ private[ml] abstract class StatefulTransformer[
 /**
  * Param for state key column
  */
-trait HasStateKeyCol extends Params {
+private[state] trait HasStateKeyCol extends Params {
 
   private val defaultStateKey = "defaultStateKey"
 
@@ -116,7 +119,7 @@ trait HasStateKeyCol extends Params {
 /**
  * Param for watermark column name
  */
-trait HasWatermarkCol extends Params {
+private[state] trait HasWatermarkCol extends Params {
   final val watermarkCol: Param[String] = new Param[String](
     this,
     "watermarkCol",
@@ -130,7 +133,7 @@ trait HasWatermarkCol extends Params {
 /**
  * Param for watermark duration
  */
-trait HasWatermarkDuration extends Params {
+private[state] trait HasWatermarkDuration extends Params {
   final val watermarkDuration: Param[String] = new Param[String](
     this,
     "watermarkDuration",
@@ -141,7 +144,26 @@ trait HasWatermarkDuration extends Params {
 }
 
 
-trait HasStateTimeoutMode extends Params {
+/**
+ * Param for state timeout duration
+ */
+private[state] trait HasStateTimeoutDuration extends Params {
+  final val stateTimeoutDuration: Param[String] = new Param[String](
+    this,
+    "stateTimeoutDuration",
+    "State timeout duration"
+  )
+
+  def getStateTimeoutDuration: Option[String] = {
+    if (isSet(stateTimeoutDuration)) Some($(stateTimeoutDuration)) else None
+  }
+}
+
+
+/**
+ * Param for timeout mode
+ */
+private[state] trait HasStateTimeoutMode extends Params {
 
   private val supportedTimeoutMods = Set("none", "process", "event")
 
@@ -152,18 +174,45 @@ trait HasStateTimeoutMode extends Params {
     s"${supportedTimeoutMods.mkString(", ")} . (Default none)"
   )
 
-  def getTimeoutMode: String = $(timeoutMode)
-
-  def getTimeoutConf: GroupStateTimeout = getTimeoutMode match {
-    case "none" => GroupStateTimeout.NoTimeout()
-    case "process" => GroupStateTimeout.ProcessingTimeTimeout()
-    case "event" => GroupStateTimeout.EventTimeTimeout()
+  def getTimeoutMode: TimeoutMode = $(timeoutMode) match {
+    case "none" => NoTimeout
+    case "process" => ProcessingTimeTimeout
+    case "event" => EventTimeTimeout
     case _ => throw new Exception("Unsupported mode")
   }
+
 }
 
+
 /**
- * Base trait for a function to be used in flatMapGroupsWithState. Performs a stateful transformation
+ *  Enumeration for timeout mode
+ */
+private[state] sealed trait TimeoutMode {
+  def conf: GroupStateTimeout
+}
+
+
+private[state] case object NoTimeout extends TimeoutMode {
+  def conf: GroupStateTimeout = GroupStateTimeout.NoTimeout
+}
+
+
+private[state] case object ProcessingTimeTimeout extends TimeoutMode {
+  def conf: GroupStateTimeout = GroupStateTimeout.ProcessingTimeTimeout
+}
+
+
+private[state] case object EventTimeTimeout extends TimeoutMode {
+  def conf: GroupStateTimeout = GroupStateTimeout.EventTimeTimeout
+}
+
+
+private[state] case class StateSpecOps(
+    timeoutMode: TimeoutMode,
+    timeoutDuration: Option[String])
+
+/**
+ * Base spec for creating function to be used in flatMapGroupsWithState. Performs a stateful transformation
  * from [[RowType]] to [[OutType]], while storing [[StateType]] for each group denoted by key [[GroupKeyType]].
  *
  * @tparam GroupKeyType Key type of groups.
@@ -171,13 +220,12 @@ trait HasStateTimeoutMode extends Params {
  * @tparam StateType State type
  * @tparam OutType Output type
  */
-private[ml] trait StateUpdateFunction[
+private[ml] trait StateUpdateSpec[
   GroupKeyType,
   RowType <: KeyedInput[GroupKeyType],
   StateType <: State,
   OutType <: KeyedOutput[GroupKeyType]]
-  extends Function3[GroupKeyType, Iterator[RowType], GroupState[StateType], Iterator[OutType]]
-  with Serializable {
+  extends Serializable {
 
   protected def stateToOutput(
     key: GroupKeyType,
@@ -189,36 +237,55 @@ private[ml] trait StateUpdateFunction[
     row: RowType,
     state: Option[StateType]): Option[StateType]
 
+
   private implicit def orderedIfSet: Ordering[Option[Timestamp]] = new Ordering[Option[Timestamp]] {
-    def compare(left: Option[Timestamp], right: Option[Timestamp]): Int =  (left, right) match {
+    def compare(left: Option[Timestamp], right: Option[Timestamp]): Int = (left, right) match {
       case (Some(l), Some(r)) => l.compareTo(r)
-      case _ => 0
+      case (None, Some(r)) => -1
+      case (Some(l), None) => 1
+      case (None, None) => 0
     }
   }
 
-  def apply(
-    key: GroupKeyType,
-    rows: Iterator[RowType],
-    groupState: GroupState[StateType]
-  ): Iterator[OutType] = {
-
-    if (groupState.hasTimedOut) {
-      groupState.remove()
+  private def setStateTimeout(
+    groupState: GroupState[StateType],
+    eventTime: Option[Timestamp],
+    ops: StateSpecOps): Unit = {
+    (ops.timeoutMode, ops.timeoutDuration) match {
+      case (EventTimeTimeout, Some(duration))=> eventTime
+        .foreach(ts => groupState.setTimeoutTimestamp(ts.getTime, duration))
+      case (ProcessingTimeTimeout, Some(duration)) => groupState.setTimeoutDuration(duration)
+      case _ =>
     }
+  }
 
-    val outputQueue = Queue[Option[OutType]]()
-    val statePair = (groupState.getOption, groupState.getOption)
+  def stateFunc(ops: StateSpecOps): (GroupKeyType, Iterator[RowType], GroupState[StateType]) => Iterator[OutType] = {
+    (key: GroupKeyType, rows: Iterator[RowType], groupState: GroupState[StateType]) => {
 
-    rows.toSeq.sortBy(_.eventTime).foldLeft((outputQueue, statePair)) {
-      case ((q, (_, currentState)), row) => {
-        // Calculate the next state and update if Some(state)
-        val nextState = updateGroupState(key, row, currentState)
-        nextState.foreach(s => groupState.update(s))
-
-        // Convert state to out type, push to output queue
-        val out = nextState.map(s => stateToOutput(key, row, s))
-        (q :+ out, (currentState, nextState))
+      if (groupState.hasTimedOut) {
+        groupState.remove()
       }
-    }._1.flatten.toIterator
+
+      val outputQueue = Queue[Option[OutType]]()
+      val statePair = (groupState.getOption, groupState.getOption)
+
+      rows.toSeq.sortBy(_.eventTime).foldLeft((outputQueue, statePair)) {
+        case ((q, (_, currentState)), row) => {
+          // Calculate the next state
+          val nextState = updateGroupState(key, row, currentState)
+
+          // Update the state and set timeout if Some(state)
+          nextState.foreach { s =>
+            groupState.update(s)
+            setStateTimeout(groupState, row.eventTime, ops)
+          }
+
+          // Convert state to out type, push to output queue
+          val out = nextState.map(s => stateToOutput(key, row, s))
+          (q :+ out, (currentState, nextState))
+        }
+      }._1.flatten.toIterator
+    }
   }
+
 }

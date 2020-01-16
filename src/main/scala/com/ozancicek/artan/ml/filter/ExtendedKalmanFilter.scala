@@ -30,7 +30,7 @@ class ExtendedKalmanFilter(
     override val uid: String)
   extends KalmanTransformer[
     ExtendedKalmanStateCompute,
-    ExtendedKalmanStateEstimator,
+    ExtendedKalmanStateSpec,
     ExtendedKalmanFilter]
   with HasProcessFunction with HasProcessStateJacobian with HasProcessNoiseJacobian
   with HasMeasurementFunction with HasMeasurementStateJacobian with HasMeasurementNoiseJacobian {
@@ -58,7 +58,7 @@ class ExtendedKalmanFilter(
 
   def transform(dataset: Dataset[_]): DataFrame = withExtraColumns(filter(dataset))
 
-  protected def stateUpdateFunc: ExtendedKalmanStateEstimator = new ExtendedKalmanStateEstimator(
+  protected def stateUpdateSpec: ExtendedKalmanStateSpec = new ExtendedKalmanStateSpec(
     getInitialState,
     getInitialCovariance,
     getFadingFactor,
@@ -72,7 +72,7 @@ class ExtendedKalmanFilter(
 }
 
 
-private[filter] class ExtendedKalmanStateEstimator(
+private[filter] class ExtendedKalmanStateSpec(
     val stateMean: Vector,
     val stateCov: Matrix,
     val fadingFactor: Double,
@@ -82,7 +82,7 @@ private[filter] class ExtendedKalmanStateEstimator(
     val measurementFunction: Option[(Vector, Matrix) => Vector],
     val measurementStateJacobian: Option[(Vector, Matrix) => Matrix],
     val measurementNoiseJacobian: Option[(Vector, Matrix) => Matrix])
-  extends KalmanStateUpdateFunction[ExtendedKalmanStateCompute] {
+  extends KalmanStateUpdateSpec[ExtendedKalmanStateCompute] {
 
   val kalmanCompute = new ExtendedKalmanStateCompute(
     fadingFactor,

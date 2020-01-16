@@ -18,7 +18,7 @@
 package com.ozancicek.artan.ml.filter
 
 import com.ozancicek.artan.ml.state.{KalmanState, KalmanInput, KalmanOutput}
-import com.ozancicek.artan.ml.state.{StateUpdateFunction, StatefulTransformer}
+import com.ozancicek.artan.ml.state.{StateUpdateSpec, StatefulTransformer}
 import com.ozancicek.artan.ml.stats.{MultivariateGaussian}
 import com.ozancicek.artan.ml.linalg.{LinalgUtils}
 import org.apache.spark.ml.linalg.SQLDataTypes
@@ -128,13 +128,13 @@ private[filter] trait KalmanUpdateParams extends HasMeasurementCol
  * Base trait for kalman filter transformers.
  *
  * @tparam Compute Type responsible for calculating the next state
- * @tparam StateUpdate Type responsible for progressing the state with a compute instance
+ * @tparam SpecType Type responsible for progressing the state with a compute instance
  * @tparam ImplType Implementing class type
  */
 private[filter] abstract class KalmanTransformer[
   Compute <: KalmanStateCompute,
-  StateUpdate <: KalmanStateUpdateFunction[Compute],
-  ImplType <: KalmanTransformer[Compute, StateUpdate, ImplType]]
+  SpecType <: KalmanStateUpdateSpec[Compute],
+  ImplType <: KalmanTransformer[Compute, SpecType, ImplType]]
   extends StatefulTransformer[String, KalmanInput, KalmanState, KalmanOutput, ImplType]
     with KalmanUpdateParams with HasInitialState with HasInitialCovariance with HasFadingFactor {
 
@@ -219,16 +219,16 @@ private[filter] abstract class KalmanTransformer[
       .withColumn("controlFunction", getControlFunctionExpr)
   }
 
-  protected def stateUpdateFunc: StateUpdate
+  protected def stateUpdateSpec: SpecType
 }
 
 
 /**
- * Base trait for kalman state update function & progressing to next state.
+ * Base trait for kalman state update spec to progress to next state.
  * @tparam Compute Type responsible for calculating the next state
  */
-private[filter] trait KalmanStateUpdateFunction[+Compute <: KalmanStateCompute]
-  extends StateUpdateFunction[String, KalmanInput, KalmanState, KalmanOutput] {
+private[filter] trait KalmanStateUpdateSpec[+Compute <: KalmanStateCompute]
+  extends StateUpdateSpec[String, KalmanInput, KalmanState, KalmanOutput] {
 
   /* Member responsible for calculating next state update*/
   val kalmanCompute: Compute

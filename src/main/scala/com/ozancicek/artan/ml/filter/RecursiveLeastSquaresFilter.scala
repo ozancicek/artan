@@ -17,7 +17,7 @@
 
 package com.ozancicek.artan.ml.filter
 
-import com.ozancicek.artan.ml.state.{RLSOutput, RLSState, RLSInput, StateUpdateFunction, StatefulTransformer}
+import com.ozancicek.artan.ml.state.{RLSOutput, RLSState, RLSInput, StateUpdateSpec, StatefulTransformer}
 import org.apache.spark.ml.linalg.SQLDataTypes
 import org.apache.spark.ml.linalg.{DenseMatrix, Matrix, Vector}
 import org.apache.spark.ml.param._
@@ -99,18 +99,18 @@ class RecursiveLeastSquaresFilter(
 
   def transform(dataset: Dataset[_]): DataFrame = filter(dataset).toDF
 
-  protected def stateUpdateFunc: RecursiveLeastSquaresUpdateFunction = new RecursiveLeastSquaresUpdateFunction(
+  protected def stateUpdateSpec: RecursiveLeastSquaresUpdateSpec = new RecursiveLeastSquaresUpdateSpec(
     getInitialState,
     getInitialCovariance,
     getForgettingFactor)
 }
 
 
-private[filter] class RecursiveLeastSquaresUpdateFunction(
+private[filter] class RecursiveLeastSquaresUpdateSpec(
     val stateMean: Vector,
     val stateCov: Matrix,
     val forgettingFactor: Double)
-  extends StateUpdateFunction[String, RLSInput, RLSState, RLSOutput] {
+  extends StateUpdateSpec[String, RLSInput, RLSState, RLSOutput] {
 
   protected def stateToOutput(key: String, row: RLSInput, state: RLSState): RLSOutput = {
     RLSOutput(

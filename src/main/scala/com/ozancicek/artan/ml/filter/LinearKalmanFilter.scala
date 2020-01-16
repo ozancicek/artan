@@ -30,7 +30,7 @@ class LinearKalmanFilter(
     val stateSize: Int,
     val measurementSize: Int,
     override val uid: String)
-  extends KalmanTransformer[LinearKalmanStateCompute, LinearKalmanStateEstimator, LinearKalmanFilter] {
+  extends KalmanTransformer[LinearKalmanStateCompute, LinearKalmanStateSpec, LinearKalmanFilter] {
 
   def this(
     measurementSize: Int,
@@ -42,7 +42,7 @@ class LinearKalmanFilter(
 
   def transform(dataset: Dataset[_]): DataFrame = withExtraColumns(filter(dataset))
 
-  protected def stateUpdateFunc: LinearKalmanStateEstimator = new LinearKalmanStateEstimator(
+  protected def stateUpdateSpec: LinearKalmanStateSpec = new LinearKalmanStateSpec(
     getInitialState,
     getInitialCovariance,
     getFadingFactor
@@ -50,11 +50,11 @@ class LinearKalmanFilter(
 }
 
 
-private[filter] class LinearKalmanStateEstimator(
+private[filter] class LinearKalmanStateSpec(
     val stateMean: Vector,
     val stateCov: Matrix,
     val fadingFactor: Double)
-  extends KalmanStateUpdateFunction[LinearKalmanStateCompute] {
+  extends KalmanStateUpdateSpec[LinearKalmanStateCompute] {
 
   val kalmanCompute = new LinearKalmanStateCompute(fadingFactor)
 }
