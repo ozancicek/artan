@@ -44,6 +44,8 @@ class UnscentedKalmanFilter(
     this(measurementSize, stateSize, Identifiable.randomUID("unscentedKalmanFilter"))
   }
 
+  protected val defaultStateKey: String = "filter.unscentedKalmanFilter"
+
   def setProcessFunction(value: (Vector, Matrix) => Vector): this.type = set(processFunction, value)
 
   def setMeasurementFunction(value: (Vector, Matrix) => Vector): this.type = set(measurementFunction, value)

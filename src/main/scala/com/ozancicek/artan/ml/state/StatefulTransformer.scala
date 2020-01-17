@@ -47,7 +47,7 @@ private[ml] abstract class StatefulTransformer[
   StateType <: State : ClassTag,
   OutType <: KeyedOutput[GroupKeyType] : TypeTag,
   ImplType <: StatefulTransformer[GroupKeyType, RowType, StateType, OutType, ImplType]] extends Transformer
-  with HasStateTimeoutMode with HasWatermarkCol with HasWatermarkDuration with HasStateKeyCol
+  with HasStateTimeoutMode with HasWatermarkCol with HasWatermarkDuration with HasStateKeyCol[GroupKeyType]
   with HasStateTimeoutDuration {
 
   def setStateKeyCol(value: String): ImplType = set(stateKeyCol, value).asInstanceOf[ImplType]
@@ -103,9 +103,9 @@ private[ml] abstract class StatefulTransformer[
 /**
  * Param for state key column
  */
-private[state] trait HasStateKeyCol extends Params {
+private[state] trait HasStateKeyCol[KeyType] extends Params {
 
-  private val defaultStateKey = "defaultStateKey"
+  protected val defaultStateKey: KeyType
 
   final val stateKeyCol: Param[String] = new Param[String](
     this, "stateKeyCol", "state key column name")
@@ -266,9 +266,12 @@ private[ml] trait StateUpdateSpec[
         groupState.remove()
       }
 
+      /* Need access to previous state while creating an output from measurement. Gather output in a queue
+      while keeping the state in a pair*/
       val outputQueue = Queue[Option[OutType]]()
       val statePair = (groupState.getOption, groupState.getOption)
 
+      /* If state times out input rows will be empty, resulting in empty output iterator */
       rows.toSeq.sortBy(_.eventTime).foldLeft((outputQueue, statePair)) {
         case ((q, (_, currentState)), row) => {
           // Calculate the next state

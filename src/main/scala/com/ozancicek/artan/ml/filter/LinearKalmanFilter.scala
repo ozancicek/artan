@@ -38,6 +38,8 @@ class LinearKalmanFilter(
     this(measurementSize, stateSize, Identifiable.randomUID("linearKalmanFilter"))
   }
 
+  protected val defaultStateKey: String = "filter.linearKalmanFilter"
+
   override def copy(extra: ParamMap): LinearKalmanFilter = defaultCopy(extra)
 
   def transform(dataset: Dataset[_]): DataFrame = withExtraColumns(filter(dataset))

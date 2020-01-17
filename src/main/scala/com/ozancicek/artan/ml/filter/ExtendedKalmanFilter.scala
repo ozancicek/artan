@@ -40,6 +40,7 @@ class ExtendedKalmanFilter(
     stateSize: Int) = {
     this(measurementSize, stateSize, Identifiable.randomUID("extendedKalmanFilter"))
   }
+  protected val defaultStateKey: String = "filter.extendedKalmanFilter"
 
   def setProcessFunction(value: (Vector, Matrix) => Vector): this.type = set(processFunction, value)
 
