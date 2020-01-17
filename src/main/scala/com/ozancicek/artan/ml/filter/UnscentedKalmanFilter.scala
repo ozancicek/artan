@@ -176,7 +176,7 @@ private[ml] class UnscentedKalmanStateCompute(
     BLAS.axpy(-1.0, covUpdate, newCov)
 
     KalmanState(
-      state.stateIndex, newMean, newCov, residual, estimateCov)
+      state.stateIndex, newMean, newCov, Some(residual), Some(estimateCov))
   }
 }
 

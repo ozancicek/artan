@@ -264,8 +264,8 @@ private[filter] trait KalmanStateUpdateSpec[+Compute <: KalmanStateCompute]
         0L,
         stateMean.toDense,
         stateCov.toDense,
-        new DenseVector(Array(0.0)),
-        DenseMatrix.zeros(1, 1)))
+        None,
+        None))
 
     /* Calculate next state from kalmanCompute. If there is a measurement, progress to next state with
      * predict + estimate. If the measurement is missing, progress to the next state with just predict */

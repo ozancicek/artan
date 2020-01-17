@@ -200,7 +200,7 @@ private[filter] class LinearKalmanStateCompute(
       state.stateIndex,
       estMean,
       estCov,
-      residual,
-      noiseCov)
+      Some(residual),
+      Some(noiseCov))
   }
 }

@@ -75,18 +75,18 @@ case class KalmanOutput(
     stateIndex: Long,
     state: Vector,
     stateCovariance: Matrix,
-    residual: Vector,
-    residualCovariance: Matrix,
+    residual: Option[Vector],
+    residualCovariance: Option[Matrix],
     eventTime: Option[Timestamp]) extends KeyedOutput[String]{
 
   def loglikelihood: Double = {
     val zeroMean = new DenseVector(Array.fill(residual.size) {0.0})
-    MultivariateGaussian.logpdf(residual.toDense, zeroMean, residualCovariance.toDense)
+    MultivariateGaussian.logpdf(residual.get.toDense, zeroMean, residualCovariance.get.toDense)
   }
 
   def mahalanobis: Double = {
     val zeroMean = new DenseVector(Array.fill(residual.size) {0.0})
-    LinalgUtils.mahalanobis(residual.toDense, zeroMean, residualCovariance.toDense)
+    LinalgUtils.mahalanobis(residual.get.toDense, zeroMean, residualCovariance.get.toDense)
   }
 }
 
@@ -97,5 +97,5 @@ private[ml] case class KalmanState(
     stateIndex: Long,
     state: Vector,
     stateCovariance: Matrix,
-    residual: Vector,
-    residualCovariance: Matrix) extends State
+    residual: Option[Vector],
+    residualCovariance: Option[Matrix]) extends State
