@@ -54,10 +54,9 @@ class ExtendedKalmanFilter(
 
   def setMeasurementNoiseJacobian(value: (Vector, Matrix) => Matrix): this.type = set(measurementNoiseJacobian, value)
 
-
   override def copy(extra: ParamMap): ExtendedKalmanFilter = defaultCopy(extra)
 
-  def transform(dataset: Dataset[_]): DataFrame = withExtraColumns(filter(dataset))
+  def transform(dataset: Dataset[_]): DataFrame = filter(dataset)
 
   protected def stateUpdateSpec: ExtendedKalmanStateSpec = new ExtendedKalmanStateSpec(
     getInitialState,
@@ -68,7 +67,8 @@ class ExtendedKalmanFilter(
     getProcessNoiseJacobianOpt,
     getMeasurementFunctionOpt,
     getMeasurementStateJacobianOpt,
-    getMeasurementNoiseJacobianOpt
+    getMeasurementNoiseJacobianOpt,
+    outputResiduals
   )
 }
 
@@ -82,7 +82,8 @@ private[filter] class ExtendedKalmanStateSpec(
     val processNoiseJacobian: Option[(Vector, Matrix) => Matrix],
     val measurementFunction: Option[(Vector, Matrix) => Vector],
     val measurementStateJacobian: Option[(Vector, Matrix) => Matrix],
-    val measurementNoiseJacobian: Option[(Vector, Matrix) => Matrix])
+    val measurementNoiseJacobian: Option[(Vector, Matrix) => Matrix],
+    val storeResidual: Boolean)
   extends KalmanStateUpdateSpec[ExtendedKalmanStateCompute] {
 
   val kalmanCompute = new ExtendedKalmanStateCompute(

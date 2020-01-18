@@ -75,12 +75,13 @@ class LinearKalmanFilter(
 
   override def copy(extra: ParamMap): LinearKalmanFilter = defaultCopy(extra)
 
-  def transform(dataset: Dataset[_]): DataFrame = withExtraColumns(filter(dataset))
+  def transform(dataset: Dataset[_]): DataFrame = filter(dataset)
 
   protected def stateUpdateSpec: LinearKalmanStateSpec = new LinearKalmanStateSpec(
     getInitialState,
     getInitialCovariance,
-    getFadingFactor
+    getFadingFactor,
+    outputResiduals
   )
 }
 
@@ -88,7 +89,8 @@ class LinearKalmanFilter(
 private[filter] class LinearKalmanStateSpec(
     val stateMean: Vector,
     val stateCov: Matrix,
-    val fadingFactor: Double)
+    val fadingFactor: Double,
+    val storeResidual: Boolean)
   extends KalmanStateUpdateSpec[LinearKalmanStateCompute] {
 
   val kalmanCompute = new LinearKalmanStateCompute(fadingFactor)
@@ -161,7 +163,8 @@ private[filter] class LinearKalmanStateCompute(
 
   def estimate(
     state: KalmanState,
-    process: KalmanInput): KalmanState = {
+    process: KalmanInput,
+    storeResidual: Boolean): KalmanState = {
 
     val residual = calculateResidual(
       state.state.toDense,
@@ -177,10 +180,10 @@ private[filter] class LinearKalmanStateCompute(
       process.measurementNoise.get.toDense)
 
     val speed = state.stateCovariance.multiply(mModel.transpose)
-    val noiseCov = mNoise.copy
-    BLAS.gemm(1.0, mModel, speed, 1.0, noiseCov)
+    val residualCovariance = mNoise.copy
+    BLAS.gemm(1.0, mModel, speed, 1.0, residualCovariance)
 
-    val inverseUpdate = LinalgUtils.pinv(noiseCov)
+    val inverseUpdate = LinalgUtils.pinv(residualCovariance)
     val gain = DenseMatrix.zeros(speed.numRows, inverseUpdate.numCols)
     BLAS.gemm(1.0, speed, inverseUpdate, 1.0, gain)
 
@@ -196,11 +199,13 @@ private[filter] class LinearKalmanStateCompute(
 
     BLAS.gemm(1.0, noiseUpdate, gain.transpose, 1.0, estCov)
 
+    val (res, resCov) = if (storeResidual) (Some(residual), Some(residualCovariance)) else (None, None)
+
     KalmanState(
       state.stateIndex,
       estMean,
       estCov,
-      Some(residual),
-      Some(noiseCov))
+      res,
+      resCov)
   }
 }

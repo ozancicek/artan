@@ -62,7 +62,7 @@ class UnscentedKalmanFilter(
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)
 
-  def transform(dataset: Dataset[_]): DataFrame = withExtraColumns(filter(dataset))
+  def transform(dataset: Dataset[_]): DataFrame = filter(dataset)
 
   protected def stateUpdateSpec: UnscentedKalmanStateSpec = new UnscentedKalmanStateSpec(
     getInitialState,
@@ -70,7 +70,8 @@ class UnscentedKalmanFilter(
     getFadingFactor,
     getSigmaPoints,
     getProcessFunctionOpt,
-    getMeasurementFunctionOpt
+    getMeasurementFunctionOpt,
+    outputResiduals
   )
 }
 
@@ -81,7 +82,8 @@ private[ml] class UnscentedKalmanStateSpec(
     val fadingFactor: Double,
     val sigma: SigmaPoints,
     val processFunction: Option[(Vector, Matrix) => Vector],
-    val measurementFunction: Option[(Vector, Matrix) => Vector])
+    val measurementFunction: Option[(Vector, Matrix) => Vector],
+    val storeResidual: Boolean)
   extends KalmanStateUpdateSpec[UnscentedKalmanStateCompute] {
 
   val kalmanCompute = new UnscentedKalmanStateCompute(
@@ -125,17 +127,14 @@ private[ml] class UnscentedKalmanStateCompute(
       fadingFactorSquare)
 
     KalmanState(
-      state.stateIndex + 1,
-      stateMean,
-      stateCov,
-      state.residual,
-      state.residualCovariance)
+      state.stateIndex + 1, stateMean, stateCov, state.residual, state.residualCovariance)
   }
 
 
   def estimate(
     state: KalmanState,
-    process: KalmanInput): KalmanState = {
+    process: KalmanInput,
+    storeResidual: Boolean): KalmanState = {
 
     val (stateMean, stateCov) = (state.state.toDense, state.stateCovariance.toDense)
     val stateSigmaPoints = sigma.sigmaPoints(stateMean, stateCov)
@@ -175,8 +174,10 @@ private[ml] class UnscentedKalmanStateCompute(
     BLAS.axpy(fadingFactorSquare, stateCov, newCov)
     BLAS.axpy(-1.0, covUpdate, newCov)
 
+    val (res, resCov) = if (storeResidual) (Some(residual), Some(estimateCov)) else (None, None)
+
     KalmanState(
-      state.stateIndex, newMean, newCov, Some(residual), Some(estimateCov))
+      state.stateIndex, newMean, newCov, res, resCov)
   }
 }
 

@@ -25,7 +25,7 @@ import org.apache.spark.sql.functions.{col, lit}
 import scala.collection.immutable.Queue
 import scala.reflect.ClassTag
 import org.apache.spark.ml.param._
-import org.apache.spark.sql.types.TimestampType
+import org.apache.spark.sql.types.{StructType, TimestampType}
 import java.sql.Timestamp
 
 import scala.reflect.runtime.universe.TypeTag
@@ -55,6 +55,8 @@ private[ml] abstract class StatefulTransformer[
   def setStateTimeoutMode(value: String): ImplType = set(timeoutMode, value).asInstanceOf[ImplType]
   setDefault(timeoutMode, "none")
 
+  def setStateTimeoutDuration(value: String): ImplType = set(stateTimeoutDuration, value).asInstanceOf[ImplType]
+
   def setWatermarkCol(value: String): ImplType = set(watermarkCol, value).asInstanceOf[ImplType]
 
   def setWatermarkDuration(value: String): ImplType = set(watermarkDuration, value).asInstanceOf[ImplType]
@@ -74,9 +76,19 @@ private[ml] abstract class StatefulTransformer[
   private def rowFields: List[String] = implicitly[Manifest[RowType]]
     .runtimeClass.getDeclaredFields.map(_.getName).toList
 
+  protected def validateWatermarkColumns(schema: StructType): Unit = {
+    if (isSet(watermarkCol) || isSet(watermarkDuration)) {
+      val watermarkWarningMessage = "Watermark column and duration must be set at the same time"
+      require(isSet(watermarkCol), watermarkWarningMessage)
+      require(isSet(watermarkDuration), watermarkWarningMessage)
+      require(schema($(watermarkCol)).dataType == TimestampType)
+    }
+  }
+
+
   protected def transformWithState(
     in: DataFrame)(
-    implicit keyEncoder: Encoder[GroupKeyType]): Dataset[OutType] = {
+    implicit keyEncoder: Encoder[GroupKeyType]): DataFrame = {
 
     val withStateKey = in.withColumn("stateKey", getStateKeyColumn)
 
@@ -92,10 +104,16 @@ private[ml] abstract class StatefulTransformer[
 
     val ops = StateSpecOps(getTimeoutMode, getStateTimeoutDuration)
 
-    inputDS.groupByKey(keyFunc)
+    val outDS = inputDS.groupByKey(keyFunc)
       .flatMapGroupsWithState(
         OutputMode.Append,
         getTimeoutMode.conf)(stateUpdateSpec.stateFunc(ops))
+
+    if(isSet(watermarkCol)) {
+      outDS.withColumnRenamed("eventTime", $(watermarkCol))
+    } else {
+      outDS.drop("eventTime")
+    }
   }
 }
 

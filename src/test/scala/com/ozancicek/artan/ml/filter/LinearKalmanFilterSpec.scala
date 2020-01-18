@@ -17,32 +17,40 @@
 
 package com.ozancicek.artan.ml.filter
 
-import breeze.stats.distributions.{RandBasis}
-import com.ozancicek.artan.ml.testutils.SparkSessionTestWrapper
+import breeze.stats.distributions.RandBasis
+import com.ozancicek.artan.ml.testutils.StructuredStreamingTestWrapper
 import org.apache.spark.ml.linalg._
 import org.apache.spark.ml.stat.Summarizer
-import org.apache.spark.ml.{LAPACK}
+import org.apache.spark.ml.LAPACK
+import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.functions._
 import org.scalatest.{FunSpec, Matchers}
+
+
+case class LocalLinearMeasurement(modelID: String, measurement: DenseVector)
+
+case class LinearRegressionMeasurement(measurement: DenseVector, measurementModel: DenseMatrix)
+
+case class DynamicLinearModel(measurement: DenseVector, processModel: DenseMatrix)
 
 
 class LinearKalmanFilterSpec
   extends FunSpec
   with Matchers
-  with SparkSessionTestWrapper {
+  with StructuredStreamingTestWrapper {
 
   import spark.implicits._
   implicit val basis: RandBasis = RandBasis.withSeed(0)
 
-  describe("Batch linear kalman filter tests") {
-    it("should filter local linear trend") {
+  describe("Linear kalman filter tests") {
+    describe("local linear trend") {
+
       val n = 100
       val dist = breeze.stats.distributions.Gaussian(0, 20)
 
       val ts = (0 until n).map(_.toDouble).toArray
       val zs = ts.map(t =>  t + dist.draw())
-      val df = zs.toSeq.map(z => ("1", new DenseVector(Array(z))))
-        .toDF("modelID", "measurement")
+      val measurements = zs.toSeq.map(z => LocalLinearMeasurement("1", new DenseVector(Array(z))))
 
       val filter = new LinearKalmanFilter(2, 1)
         .setStateKeyCol("modelID")
@@ -59,19 +67,28 @@ class LinearKalmanFilterSpec
           new DenseMatrix(1, 2, Array(1, 0)))
         .setCalculateMahalanobis
 
-      val modelState = filter.transform(df)
-      val stats = modelState.groupBy($"stateKey")
-        .agg(
-          avg($"mahalanobis").alias("mahalanobis"),
-          Summarizer.mean($"state").alias("avg"))
-        .head
+      val query = (in: Dataset[LocalLinearMeasurement]) => filter.transform(in)
 
-      assert(stats.getAs[Double]("mahalanobis") < 6.0)
-      assert(scala.math.abs(stats.getAs[DenseVector]("avg")(0) - n/2) < 1.0)
-      assert(scala.math.abs(stats.getAs[DenseVector]("avg")(1) - 1.0) < 1.0)
+      it("should obtain the trend") {
+        val batchState = query(measurements.toDS)
+
+        val stats = batchState.groupBy($"stateKey")
+          .agg(
+            avg($"mahalanobis").alias("mahalanobis"),
+            Summarizer.mean($"state").alias("avg"))
+          .head
+
+        assert(stats.getAs[Double]("mahalanobis") < 6.0)
+        assert(scala.math.abs(stats.getAs[DenseVector]("avg")(0) - n / 2) < 1.0)
+        assert(scala.math.abs(stats.getAs[DenseVector]("avg")(1) - 1.0) < 1.0)
+      }
+
+      it("should have same result for batch & stream mode") {
+        testAppendQueryAgainstBatch(measurements, query, "localLinearTrend")
+      }
     }
 
-    it("should be equivalent to ols") {
+    describe("Ordinary least squares") {
       // Ols problem
       // z = a*x + b*y + c + N(0, R)
       val n = 40
@@ -85,9 +102,11 @@ class LinearKalmanFilterSpec
       val zs = xs.zip(ys).map {
         case(x,y)=> (x, y, a*x + b*y + c + dist.draw())
       }
-      val df = zs.map {
-        case (x, y, z) => (new DenseVector(Array(z)), new DenseMatrix(1, 3, Array(x, y, 1)))
-      }.toSeq.toDF("measurement", "measurementModel")
+      val measurements = zs.map { case (x, y, z) =>
+        LinearRegressionMeasurement(
+          new DenseVector(Array(z)),
+          new DenseMatrix(1, 3, Array(x, y, 1)))
+      }.toSeq
 
       val filter = new LinearKalmanFilter(3, 1)
         .setInitialCovariance(
@@ -98,28 +117,35 @@ class LinearKalmanFilterSpec
         .setProcessNoise(DenseMatrix.zeros(3, 3))
         .setMeasurementNoise(new DenseMatrix(1, 1, Array(0.0001)))
 
-      val modelState = filter.transform(df)
+      val query = (in: Dataset[LinearRegressionMeasurement]) => filter.transform(in)
 
-      val lastState = modelState.collect
-        .filter(row=>row.getAs[Long]("stateIndex") == n)(0)
-        .getAs[DenseVector]("state")
+      it("should have same solution with lapack dgels routine") {
+        val modelState = query(measurements.toDS())
+        val lastState = modelState.collect
+          .filter(row=>row.getAs[Long]("stateIndex") == n)(0)
+          .getAs[DenseVector]("state")
 
-      // find least squares solution with dgels
-      val features = new DenseMatrix(n, 3, xs ++ ys ++ Array.fill(n) {1.0})
-      val target = new DenseVector(zs.map {case (x, y, z) => z}.toArray)
-      val coeffs = LAPACK.dgels(features, target)
-      // Error is mean absolute difference of kalman and least squares solutions
-      val mae = (0 until coeffs.size).foldLeft(0.0) {
-        case(s, i) => s + scala.math.abs(lastState(i) - coeffs(i))
-      } / coeffs.size
-      // Error should be smaller than a certain threshold. The threshold is
-      // tuned to some arbitrary small value depending on noise, cov and true coefficients.
-      val threshold = 1E-4
+        // find least squares solution with dgels
+        val features = new DenseMatrix(n, 3, xs ++ ys ++ Array.fill(n) {1.0})
+        val target = new DenseVector(zs.map {case (x, y, z) => z})
+        val coeffs = LAPACK.dgels(features, target)
+        // Error is mean absolute difference of kalman and least squares solutions
+        val mae = (0 until coeffs.size).foldLeft(0.0) {
+          case(s, i) => s + scala.math.abs(lastState(i) - coeffs(i))
+        } / coeffs.size
+        // Error should be smaller than a certain threshold. The threshold is
+        // tuned to some arbitrary small value depending on noise, cov and true coefficients.
+        val threshold = 1E-4
 
-      assert(mae < threshold)
+        assert(mae < threshold)
+      }
+
+      it("should have same result for batch & stream mode") {
+        testAppendQueryAgainstBatch(measurements, query, "ols")
+      }
     }
 
-    it("linear regression with time varying params") {
+    describe("linear regression with time varying params") {
       // Linear regression where params perform a random walk
       // z = a*x + b + N(0, R)
       // [a, b] = [a, b] + N(0, Q)
@@ -136,15 +162,15 @@ class LinearKalmanFilterSpec
         b += Q2.draw()
         val z = a*x + b + R.draw()
         z
-      }.toArray
+      }
 
-      val df = (1 until n).map { i=>
+      val measurements = (1 until n).map { i=>
         val dx = xs(i) - xs(i - 1)
         val measurement = new DenseVector(Array(zs(i)))
         val processModel = new DenseMatrix(
           2, 2, Array(1.0, 0.0, dx, 1.0))
-        (measurement, processModel)
-      }.toSeq.toDF( "measurement", "processModel")
+        DynamicLinearModel(measurement, processModel)
+      }
 
       val filter = new LinearKalmanFilter(2, 1)
         .setInitialCovariance(
@@ -158,17 +184,25 @@ class LinearKalmanFilterSpec
         .setCalculateMahalanobis
         .setCalculateLoglikelihood
 
-      val modelState = filter.transform(df).cache()
+      val query = (in: Dataset[DynamicLinearModel]) => filter.transform(in)
 
-      val lastState = modelState.collect
-        .filter(row=>row.getAs[Long]("stateIndex") == n - 1)(0)
-        .getAs[DenseVector]("state")
+      it("should filter the measurements") {
+        val modelState = query(measurements.toDS())
 
-      val stats = modelState.groupBy($"stateKey")
-        .agg(
-          Summarizer.mean($"state").alias("avg"))
-        .head
-      assert(scala.math.abs(stats.getAs[DenseVector]("avg")(0) - zs.reduce(_ + _)/zs.size) < 1.0)
+        val lastState = modelState.collect
+          .filter(row=>row.getAs[Long]("stateIndex") == n - 1)(0)
+          .getAs[DenseVector]("state")
+
+        val stats = modelState.groupBy($"stateKey")
+          .agg(
+            Summarizer.mean($"state").alias("avg"))
+          .head
+        assert(scala.math.abs(stats.getAs[DenseVector]("avg")(0) - zs.reduce(_ + _)/zs.size) < 1.0)
+      }
+
+      it("should have same result for batch & stream mode") {
+        testAppendQueryAgainstBatch(measurements, query, "dynamicLinearModel")
+      }
     }
   }
 }

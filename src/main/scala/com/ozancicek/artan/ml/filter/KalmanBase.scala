@@ -173,7 +173,7 @@ private[filter] abstract class KalmanTransformer[
   def setCalculateMahalanobis: ImplType = set(calculateMahalanobis, true).asInstanceOf[ImplType]
 
   def transformSchema(schema: StructType): StructType = {
-    validateSchema(schema)
+    validateWatermarkColumns(schema)
     outEncoder.schema
   }
 
@@ -187,24 +187,26 @@ private[filter] abstract class KalmanTransformer[
     LinalgUtils.mahalanobis(residual.toDense, zeroMean, covariance.toDense)
   })
 
-  /* Calculate optional statistics*/
-  protected def withExtraColumns(dataset: Dataset[KalmanOutput]): DataFrame = {
-    val df = dataset.toDF
-    val withLoglikelihood = if (getCalculateLoglikelihood) {
-      df.withColumn("loglikelihood", loglikelihoodUDF(col("residual"), col("residualCovariance")))
-    } else {df}
+  private def withLoglikelihood(df: DataFrame): DataFrame = df
+    .withColumn("loglikelihood", loglikelihoodUDF(col("residual"), col("residualCovariance")))
 
-    val withMahalanobis = if (getCalculateMahalanobis) {
-      withLoglikelihood.withColumn("mahalanobis", mahalanobisUDF(col("residual"), col("residualCovariance")))
-    } else {withLoglikelihood}
+  private def withMahalanobis(df: DataFrame): DataFrame = df
+    .withColumn("mahalanobis", mahalanobisUDF(col("residual"), col("residualCovariance")))
 
-    withMahalanobis
-  }
+  protected def outputResiduals: Boolean = getCalculateLoglikelihood || getCalculateMahalanobis
 
-  def filter(dataset: Dataset[_]): Dataset[KalmanOutput] = {
+  def filter(dataset: Dataset[_]): DataFrame = {
     transformSchema(dataset.schema)
-    val kalmanInputDS = toKalmanInput(dataset)
-    transformWithState(kalmanInputDS)
+    val inDF = toKalmanInput(dataset)
+    val outDF = transformWithState(inDF)
+    if (outputResiduals) {
+      val dfWithMahalanobis = if (getCalculateMahalanobis) withMahalanobis(outDF) else outDF
+      val dfWithLoglikelihood = if (getCalculateLoglikelihood) withLoglikelihood(dfWithMahalanobis) else dfWithMahalanobis
+      dfWithLoglikelihood
+    }
+    else {
+      outDF.drop("residual", "residualCovariance")
+    }
   }
 
   private def toKalmanInput(dataset: Dataset[_]): DataFrame = {
@@ -239,6 +241,9 @@ private[filter] trait KalmanStateUpdateSpec[+Compute <: KalmanStateCompute]
   /* Initial covariance matrix*/
   def stateCov: Matrix
 
+  /* Whether to store residual in the state */
+  def storeResidual: Boolean
+
   protected def stateToOutput(
     key: String,
     row: KalmanInput,
@@ -270,7 +275,7 @@ private[filter] trait KalmanStateUpdateSpec[+Compute <: KalmanStateCompute]
     /* Calculate next state from kalmanCompute. If there is a measurement, progress to next state with
      * predict + estimate. If the measurement is missing, progress to the next state with just predict */
     val nextState = row.measurement match {
-      case Some(m) => kalmanCompute.predictAndEstimate(currentState, row)
+      case Some(m) => kalmanCompute.predictAndEstimate(currentState, row, storeResidual)
       case None => kalmanCompute.predict(currentState, row)
     }
     Some(nextState)
@@ -286,7 +291,8 @@ private[filter] trait KalmanStateCompute extends Serializable {
   /* Function for incorporating new measurement*/
   def estimate(
     state: KalmanState,
-    process: KalmanInput): KalmanState
+    process: KalmanInput,
+    storeResidual: Boolean): KalmanState
 
   /* Function for predicting the next state*/
   def predict(
@@ -296,5 +302,6 @@ private[filter] trait KalmanStateCompute extends Serializable {
   /* Apply predict + estimate */
   def predictAndEstimate(
     state: KalmanState,
-    process: KalmanInput): KalmanState = estimate(predict(state, process), process)
+    process: KalmanInput,
+    storeResidual: Boolean): KalmanState = estimate(predict(state, process), process, storeResidual)
 }

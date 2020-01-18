@@ -43,7 +43,6 @@ class LeastMeanSquaresFilter(
 
   protected val defaultStateKey: String = "filter.leastMeanSquaresFilter"
 
-
   override def copy(extra: ParamMap): LeastMeanSquaresFilter = defaultCopy(extra)
 
   def setLabelCol(value: String): this.type = set(labelCol, value)
@@ -53,6 +52,7 @@ class LeastMeanSquaresFilter(
   setDefault(featuresCol, "features")
 
   private def validateSchema(schema: StructType): Unit = {
+    validateWatermarkColumns(schema)
     if (isSet(stateKeyCol)) {
       require(schema($(stateKeyCol)).dataType == StringType, "Group key column must be StringType")
     }
@@ -65,7 +65,7 @@ class LeastMeanSquaresFilter(
     outEncoder.schema
   }
 
-  def filter(dataset: Dataset[_]): Dataset[LMSOutput] = {
+  def filter(dataset: Dataset[_]): DataFrame = {
     transformSchema(dataset.schema)
     val lmsUpdateDS = dataset
       .withColumn("label", col($(labelCol)))
@@ -73,7 +73,7 @@ class LeastMeanSquaresFilter(
     transformWithState(lmsUpdateDS)
   }
 
-  def transform(dataset: Dataset[_]): DataFrame = filter(dataset).toDF
+  def transform(dataset: Dataset[_]): DataFrame = filter(dataset)
 
   protected def stateUpdateSpec: LeastMeanSquaresUpdateSpec = new LeastMeanSquaresUpdateSpec(
     getInitialState)

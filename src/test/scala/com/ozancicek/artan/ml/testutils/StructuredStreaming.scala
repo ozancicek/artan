@@ -21,10 +21,21 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.execution.streaming._
 
 trait StructuredStreamingTestWrapper extends SparkSessionTestWrapper {
+
+  def testAppendQueryAgainstBatch[T: Encoder](
+    input: Seq[T],
+    queryStream: Dataset[T] => DataFrame,
+    queryName: String): Unit = {
+    import spark.implicits._
+    val streamingResults = runQueryStream(input, "append", queryStream, queryName)
+    val batchResults = queryStream(input.toDS()).collect
+    streamingResults.zip(batchResults).foreach { case (streamRow, batchRow) => assert(streamRow == batchRow) }
+  }
+
   def runQueryStream[T: Encoder](
-    input: Seq[Seq[T]],
+    input: Seq[T],
     mode: String,
-    queryStream: (Dataset[T]) => DataFrame,
+    queryStream: Dataset[T] => DataFrame,
     queryName: String): Seq[Row] = {
   import spark.implicits._
   implicit val sqlContext = spark.sqlContext
@@ -36,8 +47,8 @@ trait StructuredStreamingTestWrapper extends SparkSessionTestWrapper {
     .queryName(queryName)
     .start()
 
-  input.foreach(d => inputStream.addData(d))
-  query.awaitTermination(5000)
+  inputStream.addData(input)
+  query.processAllAvailable()
   val table = spark.table(queryName)
   table.collect.toSeq
   }

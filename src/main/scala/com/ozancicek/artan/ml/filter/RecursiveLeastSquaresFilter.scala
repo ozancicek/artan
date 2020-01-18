@@ -79,6 +79,7 @@ class RecursiveLeastSquaresFilter(
   }
 
   private def validateSchema(schema: StructType): Unit = {
+    validateWatermarkColumns(schema)
     if (isSet(stateKeyCol)) {
       require(schema($(stateKeyCol)).dataType == StringType, "Group key column must be StringType")
     }
@@ -91,7 +92,7 @@ class RecursiveLeastSquaresFilter(
     outEncoder.schema
   }
 
-  def filter(dataset: Dataset[_]): Dataset[RLSOutput] = {
+  def filter(dataset: Dataset[_]): DataFrame = {
     transformSchema(dataset.schema)
     val rlsUpdateDS = dataset
       .withColumn("label", col($(labelCol)))
@@ -99,7 +100,7 @@ class RecursiveLeastSquaresFilter(
     transformWithState(rlsUpdateDS)
   }
 
-  def transform(dataset: Dataset[_]): DataFrame = filter(dataset).toDF
+  def transform(dataset: Dataset[_]): DataFrame = filter(dataset)
 
   protected def stateUpdateSpec: RecursiveLeastSquaresUpdateSpec = new RecursiveLeastSquaresUpdateSpec(
     getInitialState,
