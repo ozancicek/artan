@@ -252,7 +252,7 @@ private[filter] trait KalmanStateUpdateSpec[+Compute <: KalmanStateCompute]
       key,
       state.stateIndex,
       state.state,
-      stateCov,
+      state.stateCovariance,
       state.residual,
       state.residualCovariance,
       row.eventTime)

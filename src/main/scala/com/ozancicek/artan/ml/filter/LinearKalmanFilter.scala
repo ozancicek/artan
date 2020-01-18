@@ -55,7 +55,6 @@ import org.apache.spark.sql._
  * be specified with a dataframe column which will allow you to have different value across measurements/filters,
  * or you can specify a constant value across all measurements/filters.
  *
- *
  * @param stateSize size of the state vector
  * @param measurementSize size of the measurement vector
  */
@@ -85,7 +84,14 @@ class LinearKalmanFilter(
   )
 }
 
-
+/**
+ * Function spec for updating linear kalman state
+ *
+ * @param stateMean Initial state vector for all keys & filters
+ * @param stateCov Initial state covariance matrix for all keys & filters
+ * @param fadingFactor Factor weighting for recent measurements, >= 1.0
+ * @param storeResidual Boolean flag to store residuals in the state
+ */
 private[filter] class LinearKalmanStateSpec(
     val stateMean: Vector,
     val stateCov: Matrix,
@@ -96,10 +102,36 @@ private[filter] class LinearKalmanStateSpec(
   val kalmanCompute = new LinearKalmanStateCompute(fadingFactor)
 }
 
-
+/**
+ * Implements the prediction & estimation cycle of linear kalman filter. Assuming the state at time step
+ * k-1 is defined by state vector x_k-1 and covariance matrix P_k-1;
+ *
+ * State prediction equations:
+ *  x_k = F * x_k-1 + B * u
+ *  P_k = a * F * P_k-1 * F.T + Q
+ *
+ * Measurement update equations:
+ *  r = z_k - H * x_k
+ *  K = P_k * H.T * inv(H * P_k * H.T + R)
+ *  x_k = x_k + K * r
+ *  P_k = (I - K * H) * P_k * (I - K * H).T + K * R * K.T
+ *
+ * Where;
+ *
+ * F: processModel
+ * B: controlFunction
+ * u: control
+ * Q: processNoise
+ * H: measurementModel
+ * R: measurementNoise
+ * a: fading factor squared
+ *
+ * @param fadingFactor Factor weighting for recent measurements, >= 1.0
+ */
 private[filter] class LinearKalmanStateCompute(
     val fadingFactor: Double) extends KalmanStateCompute {
 
+  /* Apply the process model & predict the next state. */
   protected def progressStateMean(
     stateMean: DenseVector,
     processModel: DenseMatrix): DenseVector = {
@@ -108,6 +140,7 @@ private[filter] class LinearKalmanStateCompute(
     mean
   }
 
+  /* Apply the measurement model & calculate the residual*/
   protected def calculateResidual(
     stateMean: DenseVector,
     measurement: DenseVector,
@@ -137,23 +170,28 @@ private[filter] class LinearKalmanStateCompute(
     state: KalmanState,
     process: KalmanInput): KalmanState = {
 
+    // x_k = F * x_k-1
     val newMean = progressStateMean(
       state.state.toDense, process.processModel.get.toDense)
 
     val pModel = getProcessModel(
       state.state.toDense, process.processModel.get.toDense)
 
+    // x_k += B * u
     (process.control, process.controlFunction) match {
       case (Some(vec), Some(func)) => BLAS.gemv(1.0, func, vec, 1.0, newMean)
       case _ =>
     }
 
+    // covUpdate = a * F * P_k-1
     val covUpdate = DenseMatrix.zeros(pModel.numRows, state.stateCovariance.numCols)
     val fadingFactorSquare = scala.math.pow(fadingFactor, 2)
     BLAS.gemm(fadingFactorSquare, pModel, state.stateCovariance.toDense, 1.0, covUpdate)
 
+    // P_k = covUpdate * F.T + Q
     val newCov = getProcessNoise(state.state.toDense, process.processNoise.get.copy.toDense)
     BLAS.gemm(1.0, covUpdate, pModel.transpose, 1.0, newCov)
+
     KalmanState(
       state.stateIndex + 1L,
       newMean, newCov,
@@ -166,6 +204,7 @@ private[filter] class LinearKalmanStateCompute(
     process: KalmanInput,
     storeResidual: Boolean): KalmanState = {
 
+    // r = z_k - H * x_k
     val residual = calculateResidual(
       state.state.toDense,
       process.measurement.get.toDense,
@@ -179,24 +218,28 @@ private[filter] class LinearKalmanStateCompute(
       state.state.toDense,
       process.measurementNoise.get.toDense)
 
+    // speed = P * H.T
     val speed = state.stateCovariance.multiply(mModel.transpose)
+    // rCov = H * speed + R
     val residualCovariance = mNoise.copy
     BLAS.gemm(1.0, mModel, speed, 1.0, residualCovariance)
 
+    // K = speed * inv(speed)
     val inverseUpdate = LinalgUtils.pinv(residualCovariance)
     val gain = DenseMatrix.zeros(speed.numRows, inverseUpdate.numCols)
     BLAS.gemm(1.0, speed, inverseUpdate, 1.0, gain)
 
+    // x_k += K * r
     val estMean = state.state.copy.toDense
     BLAS.gemv(1.0, gain, residual, 1.0, estMean)
 
+    // ident = I - K * H
     val ident = DenseMatrix.eye(estMean.size)
     BLAS.gemm(-1.0, gain, mModel, 1.0, ident)
 
+    // P_k = ident * P_k * ident.T + K * R
     val estCov = ident.multiply(state.stateCovariance.toDense).multiply(ident.transpose)
-
     val noiseUpdate = gain.multiply(mNoise.toDense)
-
     BLAS.gemm(1.0, noiseUpdate, gain.transpose, 1.0, estCov)
 
     val (res, resCov) = if (storeResidual) (Some(residual), Some(residualCovariance)) else (None, None)
