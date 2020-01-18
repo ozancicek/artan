@@ -17,23 +17,25 @@
 
 package com.ozancicek.artan.ml.filter
 
-import breeze.stats.distributions.{RandBasis}
-import com.ozancicek.artan.ml.testutils.SparkSessionTestWrapper
+import breeze.stats.distributions.RandBasis
+import com.ozancicek.artan.ml.testutils.StructuredStreamingTestWrapper
 import org.apache.spark.ml.linalg._
-import org.apache.spark.ml.{LAPACK}
+import org.apache.spark.ml.LAPACK
+import org.apache.spark.sql.Dataset
 import org.scalatest.{FunSpec, Matchers}
 
+case class RLSMeasurement(label: Double, features: DenseVector)
 
 class RecursiveLeastSquaresFilterSpec
   extends FunSpec
   with Matchers
-  with SparkSessionTestWrapper {
+  with StructuredStreamingTestWrapper {
 
   import spark.implicits._
   implicit val basis: RandBasis = RandBasis.withSeed(0)
 
   describe("Batch RLS tests") {
-    it("should be equivalent to ols") {
+    describe("should be equivalent to ols") {
       // Ols problem
       // z = a*x + b*y + c + N(0, R)
       val n = 100
@@ -47,31 +49,39 @@ class RecursiveLeastSquaresFilterSpec
       val zs = xs.zip(ys).map {
         case(x,y)=> (x, y, a*x + b*y + c + dist.draw())
       }
-      val df = zs.map {
-        case (x, y, z) => (z, new DenseVector(Array(x, y, 1)))
-      }.toSeq.toDF("label", "features")
+      val measurements = zs.map {
+        case (x, y, z) => RLSMeasurement(z, new DenseVector(Array(x, y, 1)))
+      }.toSeq
 
       val filter = new RecursiveLeastSquaresFilter(3)
 
-      val modelState = filter.transform(df)
+      val query = (in: Dataset[RLSMeasurement]) => filter.transform(in)
 
-      val lastState = modelState.collect
-        .filter(row=>row.getAs[Long]("stateIndex") == n)(0)
-        .getAs[DenseVector]("state")
+      it("should have same solution with lapack dgels routine") {
+        val modelState = query(measurements.toDS)
 
-      // find least squares solution with dgels
-      val features = new DenseMatrix(n, 3, xs ++ ys ++ Array.fill(n) {1.0})
-      val target = new DenseVector(zs.map {case (x, y, z) => z}.toArray)
-      val coeffs = LAPACK.dgels(features, target)
-      // Error is mean absolute difference of kalman and least squares solutions
-      val mae = (0 until coeffs.size).foldLeft(0.0) {
-        case(s, i) => s + scala.math.abs(lastState(i) - coeffs(i))
-      } / coeffs.size
-      // Error should be smaller than a certain threshold. The threshold is
-      // tuned to some arbitrary small value depending on noise, cov and true coefficients.
-      val threshold = 1E-4
+        val lastState = modelState.collect
+          .filter(row=>row.getAs[Long]("stateIndex") == n)(0)
+          .getAs[DenseVector]("state")
 
-      assert(mae < threshold)
+        // find least squares solution with dgels
+        val features = new DenseMatrix(n, 3, xs ++ ys ++ Array.fill(n) {1.0})
+        val target = new DenseVector(zs.map {case (x, y, z) => z}.toArray)
+        val coeffs = LAPACK.dgels(features, target)
+        // Error is mean absolute difference of kalman and least squares solutions
+        val mae = (0 until coeffs.size).foldLeft(0.0) {
+          case(s, i) => s + scala.math.abs(lastState(i) - coeffs(i))
+        } / coeffs.size
+        // Error should be smaller than a certain threshold. The threshold is
+        // tuned to some arbitrary small value depending on noise, cov and true coefficients.
+        val threshold = 1E-4
+
+        assert(mae < threshold)
+      }
+
+      it("should have same result for batch & stream mode") {
+        testAppendQueryAgainstBatch(measurements, query, "RLSModel")
+      }
     }
   }
 }

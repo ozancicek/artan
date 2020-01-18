@@ -17,24 +17,30 @@
 
 package com.ozancicek.artan.ml.filter
 
-import breeze.stats.distributions.{RandBasis}
-import com.ozancicek.artan.ml.testutils.SparkSessionTestWrapper
+import breeze.stats.distributions.RandBasis
+import com.ozancicek.artan.ml.testutils.StructuredStreamingTestWrapper
 import org.apache.spark.ml.linalg._
 import org.apache.spark.ml.stat.Summarizer
+import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.functions._
 import org.scalatest.{FunSpec, Matchers}
+
+
+case class EKFGLMMeasurement(measurement: DenseVector, measurementModel: DenseMatrix)
+
+case class EKFMAMeasurement(measurement: DenseVector, measurementModel: DenseMatrix, processModel: DenseMatrix)
 
 
 class ExtendedKalmanFilterSpec
   extends FunSpec
   with Matchers
-  with SparkSessionTestWrapper {
+  with StructuredStreamingTestWrapper {
 
   import spark.implicits._
   implicit val basis: RandBasis = RandBasis.withSeed(0)
 
-  describe("Batch extended kalman filter tests") {
-    it("should estimate generalized linear regression model parameters") {
+  describe("Extended kalman filter tests") {
+    describe("GLM with gaussian noise and log link") {
       // generalized linear regression with log link
       // z = exp(a*x + b*y + c) + N(0, 1)
       val a = 0.5
@@ -47,9 +53,10 @@ class ExtendedKalmanFilterSpec
       val zs = xs.zip(ys).map {
         case(x,y)=> (x, y, scala.math.exp(a*x + b*y + c) + dist.draw())
       }
-      val df = zs.map {
-        case (x, y, z) => (new DenseVector(Array(z)), new DenseMatrix(1, 3, Array(x, y, 1)))
-      }.toSeq.toDF("measurement", "measurementModel")
+
+      val measurements = zs.map { case (x, y, z) =>
+        EKFGLMMeasurement(new DenseVector(Array(z)), new DenseMatrix(1, 3, Array(x, y, 1)))
+      }.toSeq
 
       val measurementFunc = (in: Vector, model: Matrix) => {
         val measurement = model.multiply(in)
@@ -79,23 +86,33 @@ class ExtendedKalmanFilterSpec
         .setMeasurementFunction(measurementFunc)
         .setMeasurementStateJacobian(measurementJac)
 
-      val modelState = filter.transform(df)
+      val query = (in: Dataset[EKFGLMMeasurement]) => filter.transform(in)
 
-      val lastState = modelState.collect
-        .filter(row=>row.getAs[Long]("stateIndex") == n)(0)
-        .getAs[DenseVector]("state")
+      it("should estimate model parameters") {
+        val modelState = query(measurements.toDS())
 
-      val coeffs = new DenseVector(Array(a, b, c))
-      val mae = (0 until coeffs.size).foldLeft(0.0) {
-        case(s, i) => s + scala.math.abs(lastState(i) - coeffs(i))
-      } / coeffs.size
-      // Error should be smaller than a certain threshold. The threshold is
-      // tuned to some arbitrary small value depending on noise, cov and true coefficients.
-      val threshold = 1E-4
-      assert(mae < threshold)
+        val lastState = modelState.collect
+          .filter(row=>row.getAs[Long]("stateIndex") == n)(0)
+          .getAs[DenseVector]("state")
+
+        val coeffs = new DenseVector(Array(a, b, c))
+        val mae = (0 until coeffs.size).foldLeft(0.0) {
+          case(s, i) => s + scala.math.abs(lastState(i) - coeffs(i))
+        } / coeffs.size
+        // Error should be smaller than a certain threshold. The threshold is
+        // tuned to some arbitrary small value depending on noise, cov and true coefficients.
+        val threshold = 1E-4
+        assert(mae < threshold)
+
+      }
+
+      it("should have same result for batch & stream mode") {
+        testAppendQueryAgainstBatch(measurements, query, "EKFGLMLogLink")
+      }
+
     }
 
-    it("should filter ma model") {
+    describe("ma model") {
       // ma(1) model
       // z(t) = b*eps(t-1) + eps(t)
       // eps(t) ~ N(0, R)
@@ -112,13 +129,13 @@ class ExtendedKalmanFilterSpec
         z
       }
 
-      val df = zs.map { z=>
+      val measurements = zs.map { z=>
         val processModel = new DenseMatrix(
           2, 2, Array(0, 0, 1, 0))
         val measurement = new DenseVector(Array(z))
         val measurementModel = new DenseMatrix(1, 2, Array(1, 0))
-        (measurement, measurementModel, processModel)
-      }.toDF("measurement", "measurementModel", "processModel")
+        EKFMAMeasurement(measurement, measurementModel, processModel)
+      }
 
       val processNoiseJac = (in: Vector, model: Matrix) => {
         new DenseMatrix(2, 1, Array(1.0, 0.8))
@@ -134,24 +151,31 @@ class ExtendedKalmanFilterSpec
         .setCalculateMahalanobis
         .setCalculateLoglikelihood
 
-      val modelState = filter.transform(df)
+      val query = (in: Dataset[EKFMAMeasurement]) => filter.transform(in)
 
-      val covExtract = udf((in: Matrix) => in(0, 0))
+      it("should filter ma state") {
+        val modelState = query(measurements.toDS())
 
-      val stats = modelState
-        .withColumn("residualCovariance", covExtract($"residualCovariance"))
-        .groupBy($"stateKey")
-        .agg(
-          avg($"mahalanobis").alias("mahalanobis"),
-          avg($"loglikelihood").alias("loglikelihood"),
-          avg($"residualCovariance").alias("residualCovariance"),
-          Summarizer.mean($"state").alias("avg"))
-        .head
+        val covExtract = udf((in: Matrix) => in(0, 0))
 
-      assert(scala.math.abs(stats.getAs[DenseVector]("avg")(0) - zs.reduce(_ + _)/zs.size) < 1.0)
-      assert(stats.getAs[Double]("mahalanobis") < 2.0)
-      assert(scala.math.abs(stats.getAs[Double]("residualCovariance") - 1.0) < 0.1)
+        val stats = modelState
+          .withColumn("residualCovariance", covExtract($"residualCovariance"))
+          .groupBy($"stateKey")
+          .agg(
+            avg($"mahalanobis").alias("mahalanobis"),
+            avg($"loglikelihood").alias("loglikelihood"),
+            avg($"residualCovariance").alias("residualCovariance"),
+            Summarizer.mean($"state").alias("avg"))
+          .head
+
+        assert(scala.math.abs(stats.getAs[DenseVector]("avg")(0) - zs.reduce(_ + _)/zs.size) < 1.0)
+        assert(stats.getAs[Double]("mahalanobis") < 2.0)
+        assert(scala.math.abs(stats.getAs[Double]("residualCovariance") - 1.0) < 0.1)
+      }
+
+      it("should have same result for batch & stream mode") {
+        testAppendQueryAgainstBatch(measurements, query, "EKFMAmodel")
+      }
     }
-
   }
 }

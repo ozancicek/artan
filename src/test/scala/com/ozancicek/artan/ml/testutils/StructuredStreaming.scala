@@ -37,7 +37,7 @@ trait StructuredStreamingTestWrapper extends SparkSessionTestWrapper {
     mode: String,
     queryStream: Dataset[T] => DataFrame,
     queryName: String): Seq[Row] = {
-  import spark.implicits._
+
   implicit val sqlContext = spark.sqlContext
   val inputStream = MemoryStream[T]
   val transformed = queryStream(inputStream.toDS())

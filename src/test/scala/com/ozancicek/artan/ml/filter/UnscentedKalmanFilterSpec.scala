@@ -17,24 +17,31 @@
 
 package com.ozancicek.artan.ml.filter
 
-import com.ozancicek.artan.ml.testutils.SparkSessionTestWrapper
+import com.ozancicek.artan.ml.testutils.StructuredStreamingTestWrapper
 import org.scalatest.{FunSpec, Matchers}
 import org.apache.spark.ml.linalg._
-import breeze.stats.distributions.{RandBasis}
-import org.apache.spark.ml.{LAPACK}
-import scala.math.{exp, abs, sqrt}
+import breeze.stats.distributions.RandBasis
+import org.apache.spark.ml.LAPACK
+import org.apache.spark.sql.Dataset
+
+import scala.math.{abs, exp, sqrt}
+
+
+case class UKFOLSMeasurement(measurement: DenseVector, measurementModel: DenseMatrix)
+
+case class UKFGLMMeasurement(measurement: DenseVector, measurementModel: DenseMatrix)
 
 
 class UnscentedKalmanFilterSpec
   extends FunSpec
   with Matchers
-  with SparkSessionTestWrapper {
+  with StructuredStreamingTestWrapper {
 
   import spark.implicits._
   implicit val basis: RandBasis = RandBasis.withSeed(0)
 
-  describe("Batch unscented kalman filter tests") {
-    it("should estimate linear regression model parameters") {
+  describe("Unscented kalman filter tests") {
+    describe("should estimate linear regression model parameters") {
       // linear regression
       // z = a*x + b*y + c + N(0, 1)
       val a = 0.5
@@ -47,9 +54,9 @@ class UnscentedKalmanFilterSpec
       val zs = xs.zip(ys).map {
         case(x,y)=> (x, y, a*x + b*y + c + dist.draw())
       }
-      val df = zs.map {
-        case (x, y, z) => (new DenseVector(Array(z)), new DenseMatrix(1, 3, Array(x, y, 1)))
-      }.toSeq.toDF( "measurement", "measurementModel")
+      val measurements = zs.map { case (x, y, z) =>
+        UKFOLSMeasurement(new DenseVector(Array(z)), new DenseMatrix(1, 3, Array(x, y, 1)))
+      }.toSeq
 
       val measurementFunc = (in: Vector, model: Matrix) => {
         val measurement = model.multiply(in)
@@ -67,25 +74,33 @@ class UnscentedKalmanFilterSpec
         .setMeasurementNoise(new DenseMatrix(1, 1, Array(0.0001)))
         .setMeasurementFunction(measurementFunc)
 
-      val modelState = filter.transform(df)
-      val lastState = modelState.collect
-        .filter(row => row.getAs[Long]("stateIndex") == n)(0)
-        .getAs[DenseVector]("state")
+      val query = (in: Dataset[UKFOLSMeasurement]) => filter.transform(in)
 
-      val features = new DenseMatrix(n, 3, xs ++ ys ++ Array.fill(n) {1.0})
-      val target = new DenseVector(zs.map {case (x, y, z) => z}.toArray)
-      val coeffs = LAPACK.dgels(features, target)
-      val mae = (0 until coeffs.size).foldLeft(0.0) {
-        case(s, i) => s + scala.math.abs(lastState(i) - coeffs(i))
-      } / coeffs.size
-      // Error should be smaller than a certain threshold. The threshold is
-      // tuned to some arbitrary small value depending on noise, cov and true coefficients.
-      val threshold = 1E-4
-      assert(mae < threshold)
+      it("should have same solution with lapack dgels routine") {
+        val modelState = query(measurements.toDS)
+        val lastState = modelState.collect
+          .filter(row => row.getAs[Long]("stateIndex") == n)(0)
+          .getAs[DenseVector]("state")
+
+        val features = new DenseMatrix(n, 3, xs ++ ys ++ Array.fill(n) {1.0})
+        val target = new DenseVector(zs.map {case (x, y, z) => z})
+        val coeffs = LAPACK.dgels(features, target)
+        val mae = (0 until coeffs.size).foldLeft(0.0) {
+          case(s, i) => s + scala.math.abs(lastState(i) - coeffs(i))
+        } / coeffs.size
+        // Error should be smaller than a certain threshold. The threshold is
+        // tuned to some arbitrary small value depending on noise, cov and true coefficients.
+        val threshold = 1E-4
+        assert(mae < threshold)
+      }
+
+      it("should have same result for batch & stream mode") {
+        testAppendQueryAgainstBatch(measurements, query, "UKFOLSmodel")
+      }
     }
   }
 
-  it("should estimate glm with logit link") {
+  describe("GLM with logit link") {
     // glm with gaussian noise & logit link
     // z = logit(a*x + b*y + c) + N(0, R)
 
@@ -101,9 +116,9 @@ class UnscentedKalmanFilterSpec
       case(x,y)=> (x, y, logit(a*x + b*y + c) + dist.draw())
     }
 
-    val df = zs.map {
-      case (x, y, z) => (new DenseVector(Array(z)), new DenseMatrix(1, 3, Array(x, y, 1)))
-    }.toSeq.toDF("measurement", "measurementModel")
+    val measurements = zs.map { case (x, y, z) =>
+      UKFGLMMeasurement(new DenseVector(Array(z)), new DenseMatrix(1, 3, Array(x, y, 1)))
+    }.toSeq
 
     val measurementFunc = (in: Vector, model: Matrix) => {
       val measurement = model.multiply(in)
@@ -123,17 +138,25 @@ class UnscentedKalmanFilterSpec
       .setSigmaPoints("merwe")
       .setMerweKappa(-0.7)
 
-    val modelState = filter.transform(df)
+    val query = (in: Dataset[UKFGLMMeasurement]) => filter.transform(in)
 
-    val lastState = modelState.collect
-      .filter(row=>row.getAs[Long]("stateIndex") == n)(0)
-      .getAs[DenseVector]("state")
+    it("should estimate model parameters") {
+      val modelState = query(measurements.toDS)
 
-    val coeffs = new DenseVector(Array(a, b, c))
-    val mae = (0 until coeffs.size).foldLeft(0.0) {
-      case(s, i) => s + abs(lastState(i) - coeffs(i))
-    } / coeffs.size
-    val threshold = 0.1
-    assert(mae < threshold)
+      val lastState = modelState.collect
+        .filter(row=>row.getAs[Long]("stateIndex") == n)(0)
+        .getAs[DenseVector]("state")
+
+      val coeffs = new DenseVector(Array(a, b, c))
+      val mae = (0 until coeffs.size).foldLeft(0.0) {
+        case(s, i) => s + abs(lastState(i) - coeffs(i))
+      } / coeffs.size
+      val threshold = 0.1
+      assert(mae < threshold)
+    }
+
+    it("should have same result for batch & stream mode") {
+      testAppendQueryAgainstBatch(measurements, query, "UKFGLMModel")
+    }
   }
 }
