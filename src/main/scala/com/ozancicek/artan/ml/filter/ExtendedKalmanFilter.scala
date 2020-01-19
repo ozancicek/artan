@@ -25,7 +25,7 @@ import org.apache.spark.sql._
 
 
 /**
- * Extended kalman filter, implemented with a stateful spark Transformer for running parallel filters /w spark
+ * Extended Kalman Filter (EKF), implemented with a stateful spark Transformer for running parallel filters /w spark
  * dataframes. Transforms an input dataframe of noisy measurements to dataframe of state estimates using stateful
  * spark transormations, which can be used in both streaming and batch applications.
  *
@@ -33,8 +33,8 @@ import org.apache.spark.sql._
  * differentiable functions instead of matrices. It also allows speciying non-additive noise covariances for
  * state transition and measurements with noise jacobian matrices depending on state.
  *
- * All linear kalman filter parameters are also valid for extended kalman filter. So on top of linear kalman
- * filter parameters,following functions can be specified assuming a state (x_k) with size n_s,
+ * All Linear Kalman Filter parameters are also valid for EKF. In addition to Linear Kalman
+ * Filter parameters,following functions can be specified assuming a state (x_k) with size n_s,
  * and measurements (z_k) with size n_m;
  *
  * - f(x_k, F_k), process function for state transition. x_k is state vector and F_k is process model.
@@ -56,7 +56,7 @@ import org.apache.spark.sql._
  *   of q_j * Q_k * q_j.T transformation should be (n_s, n_s)
  *
  *
- * Extended kalman filter will predict & estimate the state according to following equations
+ * EKF will predict & estimate the state according to following equations
  *
  * State prediction:
  *  x_k = f(x_k-1, F_k) + B_k * u_k + w_k

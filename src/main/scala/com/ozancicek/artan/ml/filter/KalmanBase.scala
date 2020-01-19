@@ -140,36 +140,140 @@ private[filter] abstract class KalmanTransformer[
 
   implicit val stateKeyEncoder = Encoders.STRING
 
+  /**
+   * Set the initial state vector with size (stateSize).
+   *
+   * It will be applied to all states. If the state timeouts and starts receiving
+   * measurements after timeout, it will again start from this initial state vector. Default is zero.
+   */
   def setInitialState(value: Vector): ImplType = set(initialState, value).asInstanceOf[ImplType]
 
+  /**
+   * Set the initial covariance matrix with dimensions (stateSize, stateSize)
+   *
+   * It will be applied to all states. If the state timeouts and starts receiving
+   * measurements after timeout, it will again start from this initial covariance vector. Default is identity matrix.
+   */
   def setInitialCovariance(value: Matrix): ImplType = set(initialCovariance, value).asInstanceOf[ImplType]
 
+  /**
+   * Fading factor for giving more weights to more recent measurements. If needed, it should be greater than one.
+   * Typically set around 1.01 ~ 1.05. Default is 1.0, which will result in equally weighted measurements.
+   */
   def setFadingFactor(value: Double): ImplType = set(fadingFactor, value).asInstanceOf[ImplType]
 
+  /**
+   * Set default value for process model matrix with dimensions (stateSize, stateSize) which governs state transition.
+   *
+   * Note that if this parameter is set through here, it will result in same process model for all filters &
+   * measurements. For different process models across filters or measurements, set a dataframe column for process
+   * model from setProcessModelCol.
+   *
+   * Default is identity matrix.
+   */
   def setProcessModel(value: Matrix): ImplType = set(processModel, value).asInstanceOf[ImplType]
 
+  /**
+   * Set default value for process noise matrix with dimensions (stateSize, stateSize).
+   *
+   * Note that if this parameter is set through here, it will result in same process noise for all filters &
+   * measurements. For different process noise values across filters or measurements, set a dataframe column
+   * for process noise from setProcessNoiseCol.
+   *
+   * Default is identity matrix.
+   */
   def setProcessNoise(value: Matrix): ImplType = set(processNoise, value).asInstanceOf[ImplType]
 
+  /**
+   * Set default value for measurement model matrix with dimensions (stateSize, measurementSize)
+   * which maps states to measurement.
+   *
+   * Note that if this parameter is set through here, it will result in same measurement model for all filters &
+   * measurements. For different measurement models across filters or measurements, set a dataframe column for
+   * measurement model from setMeasurementModelCol.
+   *
+   * Default value maps the first state value to measurements.
+   */
   def setMeasurementModel(value: Matrix): ImplType = set(measurementModel, value).asInstanceOf[ImplType]
 
+  /**
+   * Set default value for measurement noise matrix with dimensions (measurementSize, measurementSize).
+   *
+   * Note that if this parameter is set through here, it will result in same measurement noise for all filters &
+   * measurements. For different measurement noise values across filters or measurements,
+   * set a dataframe column for measurement noise from setMeasurementNoiseCol.
+   *
+   * Default is identity matrix.
+   */
   def setMeasurementNoise(value: Matrix): ImplType = set(measurementNoise, value).asInstanceOf[ImplType]
 
+  /**
+   * Set the column corresponding to measurements.
+   *
+   * The vectors in the column should be of size (stateSize). null values are allowed,
+   * which will result in only state prediction step.
+   */
   def setMeasurementCol(value: String): ImplType = set(measurementCol, value).asInstanceOf[ImplType]
 
+  /**
+   * Set the column for input process model matrices.
+   *
+   * Process model matrices should have dimensions (stateSize, stateSize)
+   */
   def setProcessModelCol(value: String): ImplType = set(processModelCol, value).asInstanceOf[ImplType]
 
+  /**
+   * Set the column for input process noise matrices.
+   *
+   * Process noise matrices should have dimensions (stateSize, stateSize)
+   */
   def setProcessNoiseCol(value: String): ImplType = set(processNoiseCol, value).asInstanceOf[ImplType]
 
+  /**
+   * Set the column for input measurement model matrices
+   *
+   * Measurement model matrices should have dimensions (stateSize, measurementSize)
+   */
   def setMeasurementModelCol(value: String): ImplType = set(measurementModelCol, value).asInstanceOf[ImplType]
 
+  /**
+   * Set the column for input measurement noise matrices.
+   *
+   * Measurement noise matrices should have dimensions (measurementSize, measurementSize)
+   */
   def setMeasurementNoiseCol(value: String): ImplType = set(measurementNoiseCol, value).asInstanceOf[ImplType]
 
-  def setControlCol(value: String): ImplType = set(controlCol, value).asInstanceOf[ImplType]
-
+  /**
+   * Set the column for input control matrices.
+   *
+   * Control matrices should have dimensions (stateSize, controlVectorSize). null values are allowed, which will
+   * result in state transition without control input
+   */
   def setControlFunctionCol(value: String): ImplType = set(controlFunctionCol, value).asInstanceOf[ImplType]
 
+  /**
+   * Set the column for input control vectors.
+   *
+   * Control vectors should have compatible size with control function (controlVectorSize). The product of
+   * control matrix & vector should produce a vector with stateSize. null values are allowed,
+   * which will result in state transition without control input.
+   */
+  def setControlCol(value: String): ImplType = set(controlCol, value).asInstanceOf[ImplType]
+
+  /**
+   * Optionally calculate loglikelihood of each measurement & add it to output dataframe. Loglikelihood is calculated
+   * from residual vector & residual covariance matrix.
+   *
+   * Not enabled by default.
+   */
   def setCalculateLoglikelihood: ImplType = set(calculateLoglikelihood, true).asInstanceOf[ImplType]
 
+  /**
+   * Optinally calculate mahalanobis distance metric of each measuremenet & add it to output dataframe.
+   * Mahalanobis distance is calculated from residual vector & residual covariance matrix.
+   *
+   * Not enabled by default.
+   */
   def setCalculateMahalanobis: ImplType = set(calculateMahalanobis, true).asInstanceOf[ImplType]
 
   def transformSchema(schema: StructType): StructType = {

@@ -271,7 +271,9 @@ private[filter] trait HasMeasurementNoiseJacobian extends Params {
 private[filter] trait HasMeasurementCol extends Params {
 
   final val measurementCol: Param[String] = new Param[String](
-    this, "measurementCol", "Column name for measurement vector")
+    this,
+    "measurementCol",
+    "Column name for measurement vector. Missing measurements are allowed with nulls in the data")
 
   setDefault(measurementCol, "measurement")
 

@@ -27,7 +27,43 @@ import org.apache.spark.ml.BLAS
 import org.apache.spark.sql._
 import scala.math.pow
 
-
+/**
+ * Unscented Kalman Filter (UKF), implemented with a stateful spark Transformer for running parallel filters /w spark
+ * dataframes. Transforms an input dataframe of noisy measurements to dataframe of state estimates using stateful
+ * spark transormations, which can be used in both streaming and batch applications.
+ *
+ * Similar to Extended Kalman Filter (EKF), UKF is aimed for filtering nonlinear systems. With deterministic sampling
+ * techniques, it picks up a minimal sample points and propogates them through state transition and measurement
+ * functions. It doesn't need specifying jacobian functions. Instead, sampling algorithms with their hyperparameters
+ * can be selected from available implementations. All linear kalman filter parameters are also valid
+ * for UKF. In addition to Linear Kalman Filter parameters, following functions
+ * can be specified assuming a state (x_k) with size n_s, and measurements (z_k) with size n_m;
+ *
+ * - f(x_k, F_k), process function for state transition. x_k is state vector and F_k is process model.
+ *   Should output a vector with size (n_s)
+ *
+ * - h(x_k, H_k), measurement function. Should output a vector with size (n_m)
+ *
+ *
+ * UKF will predict & estimate the state according to following equations;
+ *
+ * State prediction:
+ *  x_k = f(x_k-1, F_k) + B_k * u_k + w_k
+ *
+ * Measurement incorporation:
+ *  z_k = h(x_k, H_k) + v_k
+ *
+ * Where v_k and w_k are noise vectors drawn from zero mean, Q_k and R_k covariance
+ * distributions.
+ *
+ * The default values of system matrices will not give you a functioning filter, but they will be initialized
+ * with reasonable values given the state and measurement sizes. All of the inputs to the filter can
+ * be specified with a dataframe column which will allow you to have different value across measurements/filters,
+ * or you can specify a constant value across all measurements/filters.
+ *
+ * @param stateSize size of the state vector
+ * @param measurementSize size of the measurement vector
+ */
 class UnscentedKalmanFilter(
     val stateSize: Int,
     val measurementSize: Int,
@@ -130,7 +166,6 @@ private[ml] class UnscentedKalmanStateCompute(
       state.stateIndex + 1, stateMean, stateCov, state.residual, state.residualCovariance)
   }
 
-
   def estimate(
     state: KalmanState,
     process: KalmanInput,
@@ -187,6 +222,7 @@ private[filter] trait SigmaPoints extends Serializable {
   val stateSize: Int
 
   val meanWeights: DenseVector
+
   val covWeights: DenseVector
 
   def sigmaPoints(mean: DenseVector, cov: DenseMatrix): List[DenseVector]
@@ -215,6 +251,7 @@ private[filter] trait SigmaPoints extends Serializable {
 
 
 private[filter] trait HasMerweAlpha extends Params {
+
   final val merweAlpha: DoubleParam = new DoubleParam(
     this,
     "merweAlpha",
@@ -228,6 +265,7 @@ private[filter] trait HasMerweAlpha extends Params {
 
 
 private[filter] trait HasMerweBeta extends Params {
+
   final val merweBeta: DoubleParam = new DoubleParam(
     this,
     "merweBeta",
@@ -241,6 +279,7 @@ private[filter] trait HasMerweBeta extends Params {
 
 
 private[filter] trait HasMerweKappa extends Params {
+
   final val merweKappa: DoubleParam = new DoubleParam(
     this,
     "merweKappa",
@@ -254,6 +293,7 @@ private[filter] trait HasMerweKappa extends Params {
 
 
 private[filter] trait HasJulierKappa extends Params {
+
   final val julierKappa: DoubleParam = new DoubleParam(
     this,
     "julierKappa",
@@ -294,6 +334,7 @@ private[filter] class MerweSigmaPoints(
     val kappa: Double) extends SigmaPoints {
 
   private val lambda = pow(alpha, 2) * (stateSize + kappa) - stateSize
+
   private val initConst = 0.5 / (stateSize + lambda)
 
   val meanWeights: DenseVector = {

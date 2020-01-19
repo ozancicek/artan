@@ -27,7 +27,7 @@ import org.apache.spark.sql._
 
 
 /**
- * Linear kalman filter, implemented with a stateful spark Transformer for running parallel filters /w spark
+ * Linear Kalman Filter, implemented with a stateful spark Transformer for running parallel filters /w spark
  * dataframes. Transforms an input dataframe of noisy measurements to dataframe of state estimates using stateful
  * spark transormations, which can be used in both streaming and batch applications.
  *
@@ -40,7 +40,7 @@ import org.apache.spark.sql._
  * - B_k, optional control model, matrix with dimensions (n_s, n_control)
  * - u_k, optional control vector, vector with size (n_control)
  *
- * The kalman filter will predict & estimate the state according to following equations
+ * Linear Kalman Filter will predict & estimate the state according to following equations
  *
  * State prediction:
  *  x_k = F_k * x_k-1 + B_k * u_k + w_k
