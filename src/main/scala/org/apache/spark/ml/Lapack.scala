@@ -117,7 +117,7 @@ object LAPACK {
     val lda = if (!a.isTransposed) m else n
     val ldu = if (!u.isTransposed) u.numRows else u.numCols
     val ldv = if (!v.isTransposed) v.numRows else v.numCols
-    
+
     val iwork = new Array[Int](8 * (m.min(n)))
     val workSize = (
       3L * scala.math.min(m, n) * scala.math.min(m, n) + scala.math.max(

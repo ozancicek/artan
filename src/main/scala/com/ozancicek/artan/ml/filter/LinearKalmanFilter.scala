@@ -237,7 +237,7 @@ private[filter] class LinearKalmanStateCompute(
     val ident = DenseMatrix.eye(estMean.size)
     BLAS.gemm(-1.0, gain, mModel, 1.0, ident)
 
-    // P_k = ident * P_k * ident.T + K * R
+    // P_k = ident * P_k * ident.T + K * R * K.T
     val estCov = ident.multiply(state.stateCovariance.toDense).multiply(ident.transpose)
     val noiseUpdate = gain.multiply(mNoise.toDense)
     BLAS.gemm(1.0, noiseUpdate, gain.transpose, 1.0, estCov)

@@ -195,7 +195,7 @@ private[filter] abstract class KalmanTransformer[
 
   protected def outputResiduals: Boolean = getCalculateLoglikelihood || getCalculateMahalanobis
 
-  def filter(dataset: Dataset[_]): DataFrame = {
+  private[filter] def filter(dataset: Dataset[_]): DataFrame = {
     transformSchema(dataset.schema)
     val inDF = toKalmanInput(dataset)
     val outDF = transformWithState(inDF)
