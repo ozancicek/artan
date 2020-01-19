@@ -47,7 +47,7 @@ private[ml] abstract class StatefulTransformer[
   StateType <: State : ClassTag,
   OutType <: KeyedOutput[GroupKeyType] : TypeTag,
   ImplType <: StatefulTransformer[GroupKeyType, RowType, StateType, OutType, ImplType]] extends Transformer
-  with HasStateTimeoutMode with HasWatermarkCol with HasWatermarkDuration with HasStateKeyCol[GroupKeyType]
+  with HasStateTimeoutMode with HasEventTimeCol with HasWatermarkDuration with HasStateKeyCol[GroupKeyType]
   with HasStateTimeoutDuration {
 
   def setStateKeyCol(value: String): ImplType = set(stateKeyCol, value).asInstanceOf[ImplType]
@@ -57,7 +57,7 @@ private[ml] abstract class StatefulTransformer[
 
   def setStateTimeoutDuration(value: String): ImplType = set(stateTimeoutDuration, value).asInstanceOf[ImplType]
 
-  def setWatermarkCol(value: String): ImplType = set(watermarkCol, value).asInstanceOf[ImplType]
+  def setEventTimeCol(value: String): ImplType = set(eventTimeCol, value).asInstanceOf[ImplType]
 
   def setWatermarkDuration(value: String): ImplType = set(watermarkDuration, value).asInstanceOf[ImplType]
 
@@ -79,11 +79,11 @@ private[ml] abstract class StatefulTransformer[
     .runtimeClass.getDeclaredFields.map(_.getName).toList
 
   protected def validateWatermarkColumns(schema: StructType): Unit = {
-    if (isSet(watermarkCol) || isSet(watermarkDuration)) {
-      val watermarkWarningMessage = "Watermark column and duration must be set at the same time"
-      require(isSet(watermarkCol), watermarkWarningMessage)
-      require(isSet(watermarkDuration), watermarkWarningMessage)
-      require(schema($(watermarkCol)).dataType == TimestampType)
+    if (isSet(watermarkDuration)) {
+      require(isSet(eventTimeCol), "Event time column must be set when when watermark duration is set")
+    }
+    if (isSet(eventTimeCol)) {
+      require(schema($(eventTimeCol)).dataType == TimestampType)
     }
   }
 
@@ -96,22 +96,29 @@ private[ml] abstract class StatefulTransformer[
     val toTyped = (df: DataFrame) => df
       .select(rowFields.head, rowFields.tail: _*).as(rowEncoder)
 
-    val inputDS = if (isSet(watermarkCol)) {
-      val typed = toTyped(withStateKey.withColumn("eventTime", col($(watermarkCol))))
-      typed.withWatermark("eventTime", $(watermarkDuration))
-    } else {
+    val withEventTime = if (isSet(eventTimeCol)) {
+      toTyped(withStateKey.withColumn("eventTime", col($(eventTimeCol))))
+    }
+    else {
       toTyped(withStateKey.withColumn("eventTime", lit(null).cast(TimestampType)))
+    }
+
+    val withWatermark = if (isSet(watermarkDuration)) {
+      withEventTime.withWatermark("eventTime", $(watermarkDuration))
+    }
+    else {
+      withEventTime
     }
 
     val ops = StateSpecOps(getTimeoutMode, getStateTimeoutDuration)
 
-    val outDS = inputDS.groupByKey(keyFunc)
+    val outDS = withWatermark.groupByKey(keyFunc)
       .flatMapGroupsWithState(
         OutputMode.Append,
         getTimeoutMode.conf)(stateUpdateSpec.stateFunc(ops))
 
-    if(isSet(watermarkCol)) {
-      outDS.withColumnRenamed("eventTime", $(watermarkCol))
+    if(isSet(eventTimeCol)) {
+      outDS.withColumnRenamed("eventTime", $(eventTimeCol))
     } else {
       outDS.drop("eventTime")
     }
@@ -136,16 +143,16 @@ private[state] trait HasStateKeyCol[KeyType] extends Params {
 
 
 /**
- * Param for watermark column name
+ * Param for event time column name
  */
-private[state] trait HasWatermarkCol extends Params {
-  final val watermarkCol: Param[String] = new Param[String](
+private[state] trait HasEventTimeCol extends Params {
+  final val eventTimeCol: Param[String] = new Param[String](
     this,
-    "watermarkCol",
-    "Watermark column name for event time"
+    "eventTimeCol",
+    "Event time column"
   )
 
-  def getWatermarkCol: String = $(watermarkCol)
+  def getEventTimeCol: String = $(eventTimeCol)
 }
 
 

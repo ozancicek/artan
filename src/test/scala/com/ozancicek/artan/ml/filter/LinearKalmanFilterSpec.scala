@@ -25,9 +25,11 @@ import org.apache.spark.ml.LAPACK
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.functions._
 import org.scalatest.{FunSpec, Matchers}
+import java.sql.Timestamp
+import scala.util.Random
 
 
-case class LocalLinearMeasurement(modelID: String, measurement: DenseVector)
+case class LocalLinearMeasurement(measurement: DenseVector, eventTime: Timestamp)
 
 case class LinearRegressionMeasurement(measurement: DenseVector, measurementModel: DenseMatrix)
 
@@ -41,6 +43,7 @@ class LinearKalmanFilterSpec
 
   import spark.implicits._
   implicit val basis: RandBasis = RandBasis.withSeed(0)
+  Random.setSeed(0)
 
   describe("Linear kalman filter tests") {
     describe("local linear trend") {
@@ -50,10 +53,14 @@ class LinearKalmanFilterSpec
 
       val ts = (0 until n).map(_.toDouble).toArray
       val zs = ts.map(t =>  t + dist.draw())
-      val measurements = zs.toSeq.map(z => LocalLinearMeasurement("1", new DenseVector(Array(z))))
+      val startTime = Timestamp.valueOf("2010-01-01 00:00:00.000")
+      val timeDeltaSecs = 60L
+      val measurements = zs.zip(ts).toSeq.map { case (z, t) =>
+        val newTs = new Timestamp(startTime.getTime + t.toLong * timeDeltaSecs * 1000)
+        LocalLinearMeasurement(new DenseVector(Array(z)), newTs)
+      }
 
       val filter = new LinearKalmanFilter(2, 1)
-        .setStateKeyCol("modelID")
         .setMeasurementCol("measurement")
         .setInitialCovariance(
           new DenseMatrix(2, 2, Array(1000, 0, 0, 1000)))
@@ -66,12 +73,23 @@ class LinearKalmanFilterSpec
         .setMeasurementModel(
           new DenseMatrix(1, 2, Array(1, 0)))
         .setCalculateMahalanobis
+        .setEventTimeCol("eventTime")
 
       val query = (in: Dataset[LocalLinearMeasurement]) => filter.transform(in)
 
-      it("should obtain the trend") {
-        val batchState = query(measurements.toDS)
+      it("should have same result for batch & stream mode") {
+        testAppendQueryAgainstBatch(measurements, query, "localLinearTrend")
+      }
 
+      it("should sort by event time") {
+        val ts = query(Random.shuffle(measurements).toDS)
+          .collect.map(_.getAs[Timestamp]("eventTime")).toList
+        val sortedTs = ts.sortWith(_.compareTo(_) < 1)
+        assert(ts == sortedTs)
+      }
+
+      it("should obtain the trend") {
+        val batchState = query(Random.shuffle(measurements).toDS)
         val stats = batchState.groupBy($"stateKey")
           .agg(
             avg($"mahalanobis").alias("mahalanobis"),
@@ -83,9 +101,6 @@ class LinearKalmanFilterSpec
         assert(scala.math.abs(stats.getAs[DenseVector]("avg")(1) - 1.0) < 1.0)
       }
 
-      it("should have same result for batch & stream mode") {
-        testAppendQueryAgainstBatch(measurements, query, "localLinearTrend")
-      }
     }
 
     describe("Ordinary least squares") {
