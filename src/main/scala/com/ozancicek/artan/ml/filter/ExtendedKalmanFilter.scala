@@ -93,16 +93,42 @@ class ExtendedKalmanFilter(
   }
   protected val defaultStateKey: String = "filter.extendedKalmanFilter"
 
+  /**
+   * Set process function which governs state transition. It should accept the current stateVector
+   * and processModel as arguments, and should output a vector of size (stateSize)
+   */
   def setProcessFunction(value: (Vector, Matrix) => Vector): this.type = set(processFunction, value)
 
+  /**
+   * Set process state jacobian function. It should accept the current stateVector
+   * and processModel as arguments, and should output a matrix with dimensions (stateSize, stateSize)
+   */
   def setProcessStateJacobian(value: (Vector, Matrix) => Matrix): this.type = set(processStateJacobian, value)
 
+  /**
+   * Set measurement function which maps state to measurements. It should accept the current state vector
+   * and measurementModel matrix as arguments, and should output a measurement vector of size (measurementSize)
+   */
   def setMeasurementFunction(value: (Vector, Matrix) => Vector): this.type = set(measurementFunction, value)
 
+  /**
+   * Set measurement state jacobian function. It should accept the current stateVector
+   * and processModel as arguments, and should output a matrix with dimensions (stateSize, measurementSize)
+   */
   def setMeasurementStateJacobian(value: (Vector, Matrix) => Matrix): this.type = set(measurementStateJacobian, value)
 
+  /**
+   * Set process noise jacobian function. It should accept the current stateVector
+   * and processNoise as arguments, and should output a matrix with dimensions (stateSize, noiseSize), where noiseSize
+   * is the dimensions of square processNoise matrix.
+   */
   def setProcessNoiseJacobian(value: (Vector, Matrix) => Matrix): this.type = set(processNoiseJacobian, value)
 
+  /**
+   * Set measurement noise jacobian function. It should accept the current stateVector
+   * and measurementNoise as arguments, and should output a matrix with dimensions (measurementSize, noiseSize),
+   * where noiseSize is the dimensions of square measurementNoise matrix.
+   */
   def setMeasurementNoiseJacobian(value: (Vector, Matrix) => Matrix): this.type = set(measurementNoiseJacobian, value)
 
   override def copy(extra: ParamMap): ExtendedKalmanFilter = defaultCopy(extra)

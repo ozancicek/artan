@@ -82,18 +82,52 @@ class UnscentedKalmanFilter(
 
   protected val defaultStateKey: String = "filter.unscentedKalmanFilter"
 
+  /**
+   * Set process function which governs state transition. It should accept the current stateVector
+   * and processModel as arguments, and should output a vector of size (stateSize)
+   */
   def setProcessFunction(value: (Vector, Matrix) => Vector): this.type = set(processFunction, value)
 
+  /**
+   * Set measurement function which maps state to measurements. It should accept the current state vector
+   * and measurementModel matrix as arguments, and should output a measurement vector of size (measurementSize)
+   */
   def setMeasurementFunction(value: (Vector, Matrix) => Vector): this.type = set(measurementFunction, value)
 
+  /**
+   * Set sigma point sampling algorithm for unscented transformation. Allowed values are;
+   *
+   * - 'merwe' (default) - E. Merwe (2000) The Unscented kalman filter for nonlinear estimation
+   * - 'julier' - S. Julier (1997) A new extension to kalman filter to nonlinear systems
+   */
   def setSigmaPoints(value: String): this.type = set(sigmaPoints, value)
 
+  /**
+   * Set alpha parameter for merwe algorithm
+   *
+   * Default is 0.3.
+   */
   def setMerweAlpha(value: Double): this.type = set(merweAlpha, value)
 
+  /**
+   * Set beta parameter for merwe algorithm.
+   *
+   * Default is 2.0, tuned for gaussian noise.
+   */
   def setMerweBeta(value: Double): this.type = set(merweBeta, value)
 
+  /**
+   * Set kappa parameter for merwe algorithm
+   *
+   * Default is 0.1. Suggested value is (3 - stateSize)
+   */
   def setMerweKappa(value: Double): this.type = set(merweKappa, value)
 
+  /**
+   * Set kappa parameter for julier algorithm
+   *
+   * Default is 1.0.
+   */
   def setJulierKappa(value: Double): this.type = set(julierKappa, value)
 
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)
