@@ -31,7 +31,7 @@ import org.apache.spark.sql._
  * dataframes. Transforms an input dataframe of noisy measurements to dataframe of state estimates using stateful
  * spark transormations, which can be used in both streaming and batch applications.
  *
- * Assuming a state (x_k) with size n_s, and measurements (z_k) with size n_m, following matrices must be specified;
+ * Assuming a state (x_k) with size n_s, and measurements (z_k) with size n_m, following parameters should be specified;
  *
  * - F_k, process model, matrix with dimensions (n_s, n_s)
  * - H_k, measurement model, matrix with dimensions (n_s, n_m)

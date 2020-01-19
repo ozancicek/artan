@@ -24,6 +24,57 @@ import org.apache.spark.ml.{BLAS}
 import org.apache.spark.sql._
 
 
+/**
+ * Extended kalman filter, implemented with a stateful spark Transformer for running parallel filters /w spark
+ * dataframes. Transforms an input dataframe of noisy measurements to dataframe of state estimates using stateful
+ * spark transormations, which can be used in both streaming and batch applications.
+ *
+ * Typically for nonlinear systems, it allows either of state transition and observation models to be
+ * differentiable functions instead of matrices. It also allows speciying non-additive noise covariances for
+ * state transition and measurements with noise jacobian matrices depending on state.
+ *
+ * All linear kalman filter parameters are also valid for extended kalman filter. So on top of linear kalman
+ * filter parameters,following functions can be specified assuming a state (x_k) with size n_s,
+ * and measurements (z_k) with size n_m;
+ *
+ * - f(x_k, F_k), process function for state transition. x_k is state vector and F_k is process model.
+ *   Should output a vector with size (n_s)
+ *
+ * - f_j(x_k, F_k), process jacobian function for state transition. x_k is state vector and F_k is process model.
+ *   Should output a matrix with dimensions (n_s, n_s)
+ *
+ * - q_j(x_k, Q_k). process noise jacobian function for non-additive noise. x_k is state vector and Q_k is process
+ *   noise matrix with dimensions (n_noise, n_noise). Should output a matrix with dimensions (n_s, n_noise). The result
+ *   of q_j * Q_k * q_j.T transformation should be (n_s, n_s)
+ *
+ * - h(x_k, H_k), measurement function. Should output a vector with size (n_m)
+ *
+ * - hj(x_j, H_k), measurement jacobian function. Should output a matrix with dimensions (n_s, n_m)
+ *
+ * - r_j(x_k, R_k). measurement noise jacobian function for non-additive noise. x_k is state vector and R_k is process
+ *   noise matrix with dimensions (n_noise, n_noise). Should output a matrix with dimensions (n_s, n_noise). The result
+ *   of q_j * Q_k * q_j.T transformation should be (n_s, n_s)
+ *
+ *
+ * Extended kalman filter will predict & estimate the state according to following equations
+ *
+ * State prediction:
+ *  x_k = f(x_k-1, F_k) + B_k * u_k + w_k
+ *
+ * Measurement incorporation:
+ *  z_k = h(x_k, H_k) + v_k
+ *
+ * Where v_k and w_k are noise vectors drawn from zero mean, q_j * Q_k * q_j.T and r_j * R_k *r_j.T covariance
+ * distributions.
+ *
+ * The default values of system matrices will not give you a functioning filter, but they will be initialized
+ * with reasonable values given the state and measurement sizes. All of the inputs to the filter can
+ * be specified with a dataframe column which will allow you to have different value across measurements/filters,
+ * or you can specify a constant value across all measurements/filters.
+ *
+ * @param stateSize size of the state vector
+ * @param measurementSize size of the measurement vector
+ */
 class ExtendedKalmanFilter(
     val stateSize: Int,
     val measurementSize: Int,

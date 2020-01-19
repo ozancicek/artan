@@ -69,7 +69,9 @@ private[ml] abstract class StatefulTransformer[
 
   /* State is encoded with kyro in order to support schema evolution. Others are encoded with spark encoders. */
   protected implicit val stateEncoder = Encoders.kryo[StateType]
+
   protected implicit val rowEncoder = Encoders.product[RowType]
+
   protected implicit val outEncoder = Encoders.product[OutType]
 
   /* Get input case class fields with reflection*/
@@ -84,7 +86,6 @@ private[ml] abstract class StatefulTransformer[
       require(schema($(watermarkCol)).dataType == TimestampType)
     }
   }
-
 
   protected def transformWithState(
     in: DataFrame)(

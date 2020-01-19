@@ -100,10 +100,11 @@ object LAPACK {
       work.size,
       info)
     if (info.`val` < 0) {
-      throw new ArithmeticException("Not converged")
+      throw new Exception("Not converged")
     }
     new DenseVector(b.values.slice(0, a.numCols))
   }
+
   /* a = u * s * v**T */
   def dgesdd(
     a: DenseMatrix,
@@ -116,8 +117,7 @@ object LAPACK {
     val lda = if (!a.isTransposed) m else n
     val ldu = if (!u.isTransposed) u.numRows else u.numCols
     val ldv = if (!v.isTransposed) v.numRows else v.numCols
-
-
+    
     val iwork = new Array[Int](8 * (m.min(n)))
     val workSize = (
       3L * scala.math.min(m, n) * scala.math.min(m, n) + scala.math.max(
@@ -149,7 +149,7 @@ object LAPACK {
       throw new Exception("Not converged")
     }
     else if (info.`val` < 0) {
-      throw new IllegalArgumentException()
+      throw new Exception("Invalid arguments")
     }
   }
 
