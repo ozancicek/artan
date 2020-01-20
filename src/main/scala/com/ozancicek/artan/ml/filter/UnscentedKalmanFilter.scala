@@ -145,8 +145,10 @@ class UnscentedKalmanFilter(
   )
 }
 
-
-private[ml] class UnscentedKalmanStateSpec(
+/**
+ * Function spec for UKF.
+ */
+private[filter] class UnscentedKalmanStateSpec(
     val stateMean: Vector,
     val stateCov: Matrix,
     val fadingFactor: Double,
@@ -163,8 +165,10 @@ private[ml] class UnscentedKalmanStateSpec(
     measurementFunction)
 }
 
-
-private[ml] class UnscentedKalmanStateCompute(
+/**
+ * Class responsible for calculating UKF updates based on E. Merwe (2000) paper.
+ */
+private[filter] class UnscentedKalmanStateCompute(
     fadingFactor: Double,
     sigma: SigmaPoints,
     processFunc: Option[(Vector, Matrix) => Vector],
@@ -206,11 +210,18 @@ private[ml] class UnscentedKalmanStateCompute(
     storeResidual: Boolean): KalmanState = {
 
     val (stateMean, stateCov) = (state.state.toDense, state.stateCovariance.toDense)
+
+    /* Differently from E. Merwe (2000) paper, sigma points are re-calculated from predicted state rather than
+    estimated state from previous time step. Produces marginally better estimates.*/
     val stateSigmaPoints = sigma.sigmaPoints(stateMean, stateCov)
     val measurementModel = process.measurementModel.get
+
+    // Default measurement function is measurementModel * state
     val measurementFunction = measurementFunc.getOrElse(
       (in: Vector, model: Matrix) => model.multiply(in))
     val measurementNoise = process.measurementNoise.get.toDense
+
+    // Propagate state through measurement function & perform unscented transform
     val measurementSigmaPoints = stateSigmaPoints
       .map(x => measurementFunction(x, measurementModel).toDense)
     val (estimateMean, estimateCov) = sigma
@@ -223,7 +234,6 @@ private[ml] class UnscentedKalmanStateCompute(
 
         val stateResidual = stateSigma.copy
         BLAS.axpy(-1.0, stateMean, stateResidual)
-
         val measurementResidual = measurementSigma.copy
         BLAS.axpy(-1.0, estimateMean, measurementResidual)
 
@@ -250,7 +260,9 @@ private[ml] class UnscentedKalmanStateCompute(
   }
 }
 
-
+/**
+ * Base trait for sigma point algorithms for performing unscented transform
+ */
 private[filter] trait SigmaPoints extends Serializable {
 
   val stateSize: Int
@@ -259,6 +271,7 @@ private[filter] trait SigmaPoints extends Serializable {
 
   val covWeights: DenseVector
 
+  // Not stored as a matrix due to columnwise operations
   def sigmaPoints(mean: DenseVector, cov: DenseMatrix): List[DenseVector]
 
   def unscentedTransform(
@@ -284,81 +297,36 @@ private[filter] trait SigmaPoints extends Serializable {
 }
 
 
-private[filter] trait HasMerweAlpha extends Params {
+private[filter] class JulierSigmaPoints(val stateSize: Int, val kappa: Double) extends SigmaPoints {
 
-  final val merweAlpha: DoubleParam = new DoubleParam(
-    this,
-    "merweAlpha",
-    "merwe alpha"
-  )
+  private val initConst = 0.5/(stateSize + kappa)
 
-  setDefault(merweAlpha, 0.3)
+  val meanWeights: DenseVector = {
+    val weights = Array.fill(2 * stateSize + 1) { initConst }
+    weights(0) = kappa / (kappa + stateSize)
+    new DenseVector(weights)
+  }
 
-  final def getMerweAlpha: Double = $(merweAlpha)
-}
+  val covWeights: DenseVector = meanWeights
 
+  def sigmaPoints(mean: DenseVector, cov: DenseMatrix): List[DenseVector] = {
+    val covUpdate = DenseMatrix.zeros(cov.numRows, cov.numCols)
+    BLAS.axpy(kappa + stateSize, cov, covUpdate)
+    val sqrt = LinalgUtils.sqrt(covUpdate)
 
-private[filter] trait HasMerweBeta extends Params {
-
-  final val merweBeta: DoubleParam = new DoubleParam(
-    this,
-    "merweBeta",
-    "merwe beta"
-  )
-
-  setDefault(merweBeta, 2.0)
-
-  final def getMerweBeta: Double = $(merweBeta)
-}
-
-
-private[filter] trait HasMerweKappa extends Params {
-
-  final val merweKappa: DoubleParam = new DoubleParam(
-    this,
-    "merweKappa",
-    "merwe kappa"
-  )
-
-  setDefault(merweKappa, 0.1)
-
-  final def getMerweKappa: Double = $(merweKappa)
-}
-
-
-private[filter] trait HasJulierKappa extends Params {
-
-  final val julierKappa: DoubleParam = new DoubleParam(
-    this,
-    "julierKappa",
-    "julier kappa"
-  )
-
-  setDefault(julierKappa, 1.0)
-
-  final def getJulierKappa: Double = $(julierKappa)
-}
-
-
-private[filter] trait SigmaPointsParams extends HasMerweAlpha with HasMerweBeta with HasMerweKappa with HasJulierKappa {
-
-  def stateSize: Int
-
-  final val sigmaPoints: Param[String] = new Param[String](
-    this,
-    "sigmaPoints",
-    "sigma pints"
-  )
-  setDefault(sigmaPoints, "merwe")
-
-  final def getSigmaPoints: SigmaPoints = {
-    $(sigmaPoints) match {
-      case "merwe" => new MerweSigmaPoints(stateSize, $(merweAlpha), $(merweBeta), $(merweKappa))
-      case "julier" => new JulierSigmaPoints(stateSize, $(julierKappa))
-      case _ => throw new Exception("Unsupported sigma point option")
+    val (pos, neg) = sqrt.rowIter.foldLeft((List(mean), List[DenseVector]())) {
+      case (coeffs, right) => {
+        val meanPos = mean.copy
+        BLAS.axpy(1.0, right, meanPos)
+        val meanNeg = mean.copy
+        BLAS.axpy(-1.0, right, meanNeg)
+        (meanPos::coeffs._1, meanNeg::coeffs._2)
+      }
     }
+    pos.reverse:::neg.reverse
   }
 }
+
 
 
 private[filter] class MerweSigmaPoints(
@@ -403,32 +371,81 @@ private[filter] class MerweSigmaPoints(
 }
 
 
-private[filter] class JulierSigmaPoints(val stateSize: Int, val kappa: Double) extends SigmaPoints {
+private[filter] trait HasMerweAlpha extends Params {
 
-  private val initConst = 0.5/(stateSize + kappa)
+  final val merweAlpha: DoubleParam = new DoubleParam(
+    this,
+    "merweAlpha",
+    "Alpha parameter for merwe sigma point algorithm. Advised to be between 0 and 1"
+  )
 
-  val meanWeights: DenseVector = {
-    val weights = Array.fill(2 * stateSize + 1) { initConst }
-    weights(0) = kappa / (kappa + stateSize)
-    new DenseVector(weights)
-  }
+  setDefault(merweAlpha, 0.3)
 
-  val covWeights: DenseVector = meanWeights
+  final def getMerweAlpha: Double = $(merweAlpha)
+}
 
-  def sigmaPoints(mean: DenseVector, cov: DenseMatrix): List[DenseVector] = {
-    val covUpdate = DenseMatrix.zeros(cov.numRows, cov.numCols)
-    BLAS.axpy(kappa + stateSize, cov, covUpdate)
-    val sqrt = LinalgUtils.sqrt(covUpdate)
 
-    val (pos, neg) = sqrt.rowIter.foldLeft((List(mean), List[DenseVector]())) {
-      case (coeffs, right) => {
-        val meanPos = mean.copy
-        BLAS.axpy(1.0, right, meanPos)
-        val meanNeg = mean.copy
-        BLAS.axpy(-1.0, right, meanNeg)
-        (meanPos::coeffs._1, meanNeg::coeffs._2)
-      }
+private[filter] trait HasMerweBeta extends Params {
+
+  final val merweBeta: DoubleParam = new DoubleParam(
+    this,
+    "merweBeta",
+    "Beta parameter for merwe sigma point algorithm. 2.0 is advised for gaussian noise"
+  )
+
+  setDefault(merweBeta, 2.0)
+
+  final def getMerweBeta: Double = $(merweBeta)
+}
+
+
+private[filter] trait HasMerweKappa extends Params {
+
+  final val merweKappa: DoubleParam = new DoubleParam(
+    this,
+    "merweKappa",
+    "Kappa parameter for merwe sigma point algorithm. Advised value is (3 - stateSize)"
+  )
+
+  setDefault(merweKappa, 0.1)
+
+  final def getMerweKappa: Double = $(merweKappa)
+}
+
+
+private[filter] trait HasJulierKappa extends Params {
+
+  final val julierKappa: DoubleParam = new DoubleParam(
+    this,
+    "julierKappa",
+    "Kappa parameter for julier sigma point algorithm."
+  )
+
+  setDefault(julierKappa, 1.0)
+
+  final def getJulierKappa: Double = $(julierKappa)
+}
+
+
+/**
+ * Trait for parameters of sigma point algorithms.
+ */
+private[filter] trait SigmaPointsParams extends HasMerweAlpha with HasMerweBeta with HasMerweKappa with HasJulierKappa {
+
+  def stateSize: Int
+
+  final val sigmaPoints: Param[String] = new Param[String](
+    this,
+    "sigmaPoints",
+    "sigma pints"
+  )
+  setDefault(sigmaPoints, "merwe")
+
+  final def getSigmaPoints: SigmaPoints = {
+    $(sigmaPoints) match {
+      case "merwe" => new MerweSigmaPoints(stateSize, $(merweAlpha), $(merweBeta), $(merweKappa))
+      case "julier" => new JulierSigmaPoints(stateSize, $(julierKappa))
+      case _ => throw new Exception("Unsupported sigma point algorithm")
     }
-    pos.reverse:::neg.reverse
   }
 }

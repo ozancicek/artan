@@ -53,7 +53,9 @@ class RecursiveLeastSquaresFilterSpec
         case (x, y, z) => RLSMeasurement(z, new DenseVector(Array(x, y, 1)))
       }.toSeq
 
+      // set large regularization factor to behave like ols
       val filter = new RecursiveLeastSquaresFilter(3)
+        .setRegularizationMatrixFactor(10E5)
 
       val query = (in: Dataset[RLSMeasurement]) => filter.transform(in)
 

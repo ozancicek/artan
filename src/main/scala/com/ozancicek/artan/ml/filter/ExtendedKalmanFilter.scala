@@ -149,7 +149,9 @@ class ExtendedKalmanFilter(
   )
 }
 
-
+/**
+ * Function spec for EKF
+ */
 private[filter] class ExtendedKalmanStateSpec(
     val stateMean: Vector,
     val stateCov: Matrix,
@@ -173,6 +175,10 @@ private[filter] class ExtendedKalmanStateSpec(
     measurementNoiseJacobian)
 }
 
+/**
+ * Class for calculating EKF updates. Extends the Linear Kalman Filter by overriding state transition & measurement
+ * models with functions.
+ */
 private[filter] class ExtendedKalmanStateCompute(
     fadingFactor: Double,
     processFunc: Option[(Vector, Matrix) => Vector],
