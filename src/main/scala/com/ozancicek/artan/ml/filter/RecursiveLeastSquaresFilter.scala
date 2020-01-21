@@ -65,20 +65,45 @@ class RecursiveLeastSquaresFilter(
 
   override def copy(extra: ParamMap): RecursiveLeastSquaresFilter = defaultCopy(extra)
 
+  /**
+   * Set label column. Default is "features"
+   */
   def setLabelCol(value: String): this.type = set(labelCol, value)
   setDefault(labelCol, "label")
 
+  /**
+   * Set features column. Default is "features"
+   */
   def setFeaturesCol(value: String): this.type = set(featuresCol, value)
   setDefault(featuresCol, "features")
 
+  /**
+   * Set forgetting factor, which exponentially weights measurements to have more influence from recent measurements.
+   *
+   * Default value of 1.0 weights all measurements equally. With smaller values, recent measurements will have
+   * more weights. Generally set around 0.95 ~ 0.99
+   */
   def setForgettingFactor(value: Double): this.type = set(forgettingFactor, value)
 
+  /**
+   * Set regularization matrix governing the influence of the initial estimate (prior). Larger values will
+   * remove regularization effect, making the filter behave like OLS.
+   *
+   * Default is 10E5 * I
+   */
   def setRegularizationMatrix(value: Matrix): this.type = set(regularizationMatrix, value)
 
+  /**
+   * Set regularization matrix factor, which results in setting the regularization matrix as
+   * factor * identity matrix.
+   */
   def setRegularizationMatrixFactor(value: Double): this.type = set(regularizationMatrix, getFactoredIdentity(value))
   setDefault(regularizationMatrix, getFactoredIdentity(10E5))
 
-  def setEstimateWeights(value: Vector): this.type = set(initialState, value)
+  /**
+   * Set initial estimate for model parameters. Default is zero vector.
+   */
+  def setInitialEstimate(value: Vector): this.type = set(initialState, value)
 
   private def getFactoredIdentity(value: Double): DenseMatrix = {
     new DenseMatrix(stateSize, stateSize, DenseMatrix.eye(stateSize).values.map(_ * value))

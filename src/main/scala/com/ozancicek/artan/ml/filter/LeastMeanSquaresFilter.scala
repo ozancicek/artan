@@ -31,13 +31,35 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
 
 
+/**
+ * Normalized Least Mean Squares filter, implemented with a stateful spark Transformer for running parallel
+ * filters /w spark dataframes. Transforms an input dataframe of observations to a dataframe of model parameters
+ * using stateful spark transormations, which can be used in both streaming and batch applications.
+ *
+ * Belonging to stochastic gradient descent type of methods, LMS minimizes SSE on each measurement
+ * based on the expectation of steepest descending gradient.
+ *
+ * Let w denote the model parameter vector, u denote the features vector, and d for label corresponding to u.
+ * Normalized LMS computes w at step k recursively by;
+ *
+ * e = d - u.T * w_k-1
+ * w_k = w_k-1 + m * e * u /(c + u.T*u)
+ *
+ * Where
+ *  m: Learning rate
+ *  c: Regularization constant
+ *
+ * @param featuresSize Size of the features vector
+ */
 class LeastMeanSquaresFilter(
-    val stateSize: Int,
+    val featuresSize: Int,
     override val uid: String)
   extends StatefulTransformer[String, LMSInput, LMSState, LMSOutput, LeastMeanSquaresFilter]
-  with HasLabelCol with HasFeaturesCol with HasInitialState {
+  with HasLabelCol with HasFeaturesCol with HasInitialState with HasLearningRate with HasRegularizationConstant {
 
   implicit val stateKeyEncoder = Encoders.STRING
+
+  def stateSize: Int = featuresSize
 
   def this(stateSize: Int) = this(stateSize, Identifiable.randomUID("leastMeanSquaresFilter"))
 
@@ -45,11 +67,39 @@ class LeastMeanSquaresFilter(
 
   override def copy(extra: ParamMap): LeastMeanSquaresFilter = defaultCopy(extra)
 
+  /**
+   * Set label column. Default is "features"
+   */
   def setLabelCol(value: String): this.type = set(labelCol, value)
   setDefault(labelCol, "label")
 
+  /**
+   * Set features column. Default is "features"
+   */
   def setFeaturesCol(value: String): this.type = set(featuresCol, value)
   setDefault(featuresCol, "features")
+
+  /**
+   * Set initial estimate for all states. Must have same size with features vector.
+   *
+   * Default is zero vector
+   */
+  def setInitialEstimate(value: Vector): this.type = set(initialState, value)
+
+  /**
+   * Set learning rate controlling the speed of convergence. Without noise, 1.0 is optimal since filter is normalized.
+   *
+   * Default is 1.0
+   */
+  def setLearningRate(value: Double): this.type = set(learningRate, value)
+
+  /**
+   * Set constant for regularization, controlling the stability. Larger values increase stability but
+   * degrade convergence performance. Generally set to a small constant.
+   *
+   * Default is 1.0
+   */
+  def setRegularization(value: Double): this.type = set(regularizationConstant, value)
 
   private def validateSchema(schema: StructType): Unit = {
     validateWatermarkColumns(schema)
@@ -76,13 +126,17 @@ class LeastMeanSquaresFilter(
   def transform(dataset: Dataset[_]): DataFrame = filter(dataset)
 
   protected def stateUpdateSpec: LeastMeanSquaresUpdateSpec = new LeastMeanSquaresUpdateSpec(
-    getInitialState)
+    getInitialState, getLearningRate, getRegularizationConstant)
 
 }
 
-
+/**
+ * Function spec for calculating Normalized LMS updates
+ */
 private[filter] class LeastMeanSquaresUpdateSpec(
-    val stateMean: Vector)
+    val stateMean: Vector,
+    val learningRate: Double,
+    val regularizationConstant: Double)
   extends StateUpdateSpec[String, LMSInput, LMSState, LMSOutput] {
 
   protected def stateToOutput(key: String, row: LMSInput, state: LMSState): LMSOutput = {
@@ -102,8 +156,10 @@ private[filter] class LeastMeanSquaresUpdateSpec(
       .getOrElse(LMSState(0L, stateMean))
 
     val features = row.features
+
     val gain = features.copy
-    BLAS.scal(1.0/BLAS.dot(features, features), gain)
+    BLAS.scal(learningRate/(regularizationConstant + BLAS.dot(features, features)), gain)
+
     val residual = row.label -  BLAS.dot(features, currentState.state)
 
     val estMean = currentState.state.copy
@@ -111,4 +167,29 @@ private[filter] class LeastMeanSquaresUpdateSpec(
     val newState = LMSState(currentState.stateIndex + 1, estMean)
     Some(newState)
   }
+}
+
+
+private[filter] trait HasLearningRate extends Params {
+
+  final val learningRate: DoubleParam = new DoubleParam(
+    this,
+    "learningRate",
+    "Learning rate for Normalized LMS. If there is no interference, the default value of 1.0 is optimal.")
+
+  setDefault(learningRate, 1.0)
+
+  final def getLearningRate: Double = $(learningRate)
+}
+
+private[filter] trait HasRegularizationConstant extends Params {
+
+  final val regularizationConstant: DoubleParam = new DoubleParam(
+    this,
+    "regularizationConstant",
+    "Regularization term for stability")
+
+  setDefault(regularizationConstant, 1.0)
+
+  final def getRegularizationConstant: Double = $(regularizationConstant)
 }
