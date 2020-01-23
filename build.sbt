@@ -1,6 +1,6 @@
 import Dependencies._
 
-val defaultScalaVersion = "2.12.8"
+val defaultScalaVersion = "2.11.8"
 
 scalaVersion := sys.props.getOrElse("scala.version", defaultScalaVersion)
 
