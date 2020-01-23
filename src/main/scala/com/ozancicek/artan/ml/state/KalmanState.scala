@@ -77,18 +77,7 @@ case class KalmanOutput(
     stateCovariance: Matrix,
     residual: Option[Vector],
     residualCovariance: Option[Matrix],
-    eventTime: Option[Timestamp]) extends KeyedOutput[String]{
-
-  def loglikelihood: Double = {
-    val zeroMean = new DenseVector(Array.fill(residual.size) {0.0})
-    MultivariateGaussian.logpdf(residual.get.toDense, zeroMean, residualCovariance.get.toDense)
-  }
-
-  def mahalanobis: Double = {
-    val zeroMean = new DenseVector(Array.fill(residual.size) {0.0})
-    LinalgUtils.mahalanobis(residual.get.toDense, zeroMean, residualCovariance.get.toDense)
-  }
-}
+    eventTime: Option[Timestamp]) extends KeyedOutput[String]
 
 /**
  * Internal representation of the state of a kalman filter.
