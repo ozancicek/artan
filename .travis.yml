@@ -13,7 +13,7 @@ matrix:
 
 install:
   - pip install --user pyspark==$SPARK_VERSION
-  - pip install --user -r python/test_requirements.txt
+  - pip install --user -r python/requirements.txt
 
 script:
   - sbt -Dscala.version=$SCALA_VERSION -Dspark.version=$SPARK_VERSION "set test in assembly := {}" assembly
