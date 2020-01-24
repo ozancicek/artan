@@ -1,17 +1,24 @@
+dist: trusty
+
 language: scala
 
+python:
+  - "3.6"
 jdk:
   - openjdk8
 
 matrix:
   include:
-    - env: SCALA_VERSION=2.12.8 SPARK_VERSION=2.4.4
+    - env: SCALA_VERSION=2.11.8 SPARK_VERSION=2.4.4
 
 install:
   - pip install --user pyspark==$SPARK_VERSION
+  - pip install --user -r python/test_requirements.txt
 
 script:
+  - sbt -Dscala.version=$SCALA_VERSION -Dspark.version=$SPARK_VERSION "set test in assembly := {}" assembly
   - sbt -Dscala.version=$SCALA_VERSION -Dspark.version=$SPARK_VERSION coverage test coverageReport
+  - ./python/run-tests.sh
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)
