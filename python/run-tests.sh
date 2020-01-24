@@ -35,4 +35,5 @@ done
 
 export PYSPARK_SUBMIT_ARGS="--jars $JAR_PATH pyspark-shell "
 
-nosetests python/artan/tests
+cd "$DIR"
+nosetests artan/tests "$@"
