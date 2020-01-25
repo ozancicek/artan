@@ -210,7 +210,7 @@ private[filter] abstract class KalmanTransformer[
   /**
    * Set the column corresponding to measurements.
    *
-   * The vectors in the column should be of size (stateSize). null values are allowed,
+   * The vectors in the column should be of size (measurementSize). null values are allowed,
    * which will result in only state prediction step.
    */
   def setMeasurementCol(value: String): ImplType = set(measurementCol, value).asInstanceOf[ImplType]

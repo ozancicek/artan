@@ -16,8 +16,8 @@
 #
 
 from artan.testing.sql_utils import ReusedSparkTestCase
-from artan.filter import RecursiveLeastSquaresFilter
-from pyspark.ml.linalg import Vectors
+from artan.filter import RecursiveLeastSquaresFilter, LinearKalmanFilter
+from pyspark.ml.linalg import Vectors, Matrices
 import numpy as np
 
 
@@ -65,5 +65,40 @@ class RLSTests(ReusedSparkTestCase):
         state = model.filter("stateIndex = {}".format(n)).collect()[0].state.values
 
         # Check equivalence with least squares solution with numpy
-        expected, _, _, _ = np.linalg.lstsq(features, y)
+        expected, _, _, _ = np.linalg.lstsq(features, y, rcond=None)
         np.testing.assert_array_almost_equal(state, expected)
+
+
+class LinearKalmanFilterTests(ReusedSparkTestCase):
+
+    np.random.seed(0)
+
+    def test_ols_equivalence(self):
+        # Simple ols problem
+        # y =  a * x + b + r
+        # Where r ~ N(0, 1)
+        n = 40
+        a = 0.27
+        b = 1.2
+        x = np.arange(0, n)
+        r = np.random.normal(0, 1, n)
+        y = (a * x + b + r).reshape(n, 1)
+        features = x.reshape(n, 1)
+        features = np.concatenate([features, np.ones_like(features)], axis=1)
+        df = self.spark.createDataFrame(
+            [(Vectors.dense(y[i]), Matrices.dense(1, 2, features[i])) for i in range(n)],
+            ["measurement", "measurementModel"])
+        lkf = LinearKalmanFilter(2, 1)\
+            .setMeasurementModelCol("measurementModel")\
+            .setMeasurementCol("measurement")\
+            .setInitialCovariance(Matrices.dense(2, 2, (np.eye(2)*10).reshape(4, 1)))\
+            .setProcessModel(Matrices.dense(2, 2, np.eye(2).reshape(4, 1)))\
+            .setProcessNoise(Matrices.dense(2, 2, np.zeros(4)))\
+            .setMeasurementNoise(Matrices.dense(1, 1, [10E-5]))
+
+        model = lkf.transform(df)
+        state = model.filter("stateIndex = {}".format(n)).collect()[0].state.values
+
+        # Check equivalence with least squares solution with numpy
+        expected, _, _, _ = np.linalg.lstsq(features, y, rcond=None)
+        np.testing.assert_array_almost_equal(state, expected.reshape(2), decimal=5)

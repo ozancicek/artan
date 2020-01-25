@@ -66,7 +66,7 @@ class RecursiveLeastSquaresFilter(
   override def copy(extra: ParamMap): RecursiveLeastSquaresFilter = defaultCopy(extra)
 
   /**
-   * Set label column. Default is "features"
+   * Set label column. Default is "label"
    */
   def setLabelCol(value: String): this.type = set(labelCol, value)
   setDefault(labelCol, "label")

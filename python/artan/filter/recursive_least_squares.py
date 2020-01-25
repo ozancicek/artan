@@ -17,10 +17,9 @@
 
 import numpy as np
 
-
 from pyspark.ml.param import Params, Param, TypeConverters
 from pyspark.ml.linalg import DenseMatrix
-from artan.state.stateful_transformer import StatefulTransformer
+from artan.state import StatefulTransformer
 from artan.filter.filter_params import HasInitialState
 
 
@@ -69,7 +68,21 @@ class HasRegularizationMatrix(Params):
 class RecursiveLeastSquaresFilter(StatefulTransformer, HasInitialState,
                                   HasForgettingFactor, HasRegularizationMatrix):
     """
-    Normalized RLS
+    Recursive formulation of least squares with exponential weighting & regularization, implemented with
+    a stateful spark Transformer for running parallel filters /w spark dataframes. Transforms an input dataframe
+    of observations to a dataframe of model parameters using stateful spark transormations, which can be used
+    in both streaming and batch applications.
+
+    Let w denote the model parameters and w_est denote our prior belief. RLS minimizes following regularization
+    & weighted SSE terms;
+
+    (w - w_est).T * (lambda^(-N-1) * P)^(-1) * (w - w_est) + Sum(lambda(N - j)*(d_k - u_k.T * w),  k = 0,1, .. N)
+
+    Where:
+    - lambda: forgetting factor, or exponential weighting factor. Between 0 and 1.
+    - P: regularization matrix. Smaller values increseas the weight of regularization term, whereas larger values
+      increases the weight of weighted SSE term.
+    - d_k, u_k: label and features vector at time step k.
     """
     def __init__(self, featuresSize):
         super(RecursiveLeastSquaresFilter, self).__init__()
@@ -77,24 +90,54 @@ class RecursiveLeastSquaresFilter(StatefulTransformer, HasInitialState,
                                             featuresSize, self.uid)
         self._featuresSize = featuresSize
 
+    def setLabelCol(self, value):
+        """
+        Set label column. Default is "label"
+
+        :param value: String
+        :return: RecursiveLeastSquaresFilter
+        """
+        return self._set(labelCol=value)
+
+    def setFeaturesCol(self, value):
+        """
+        Set features column. Default is "features"
+
+        :param value: String
+        :return: RecursiveLeastSquaresFilter
+        """
+        return self._set(featuresCol=value)
+
     def setInitialEstimate(self, value):
         """
-        Sets the value of :py:attr:`initialState`.
+        Set initial estimate for model parameters. Default is zero vector.
+
+        :param value: pyspark.ml.linalg.Vector with size (featuresSize)
+        :return: RecursiveLeastSquaresFilter
         """
         return self._set(initialState=value)
 
     def setForgettingFactor(self, value):
         """
-        Sets the value of :py:attr:`forgettingFactor`
+        Set forgetting factor, exponentially weights the measurements based on its sequence.
+
+        Default value of 1.0 weights all measurements equally. With smaller values, recent measurements will have
+        more weight. Generally set around 0.95 ~ 0.99
+
+        :param value: Float >= 1.0
+        :return: RecursiveLeastSquaresFilter
         """
         return self._set(forgettingFactor=value)
 
     def setRegularizationMatrix(self, value):
         """
-        Sets the value of :py:attr:`regularizationMatrix`
-
-        Governs influence of the initial estimate (prior). Larger values will
+        Set regularization matrix governing the influence of the initial estimate (prior). Larger values will
         remove regularization effect, making the filter behave like OLS.
+
+        Default is 10E5 * I
+
+        :param value: pyspark.ml.linalg.Matrix with size (featuresSize, featuresSize)
+        :return: RecursiveLeastSquaresFilter
         """
         return self._set(regularizationMatrix=value)
 
@@ -102,6 +145,9 @@ class RecursiveLeastSquaresFilter(StatefulTransformer, HasInitialState,
         """
         Sets the regularization matrix with a float factor, which results in setting the regularization matrix as
         factor * identity
+
+        :param value: Float
+        :return: RecursiveLeastSquaresFilter
         """
         regMat = np.eye(self._featuresSize) * value
         rows, cols = regMat.shape
