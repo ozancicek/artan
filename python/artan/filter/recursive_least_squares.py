@@ -24,7 +24,6 @@ from artan.state.stateful_transformer import StatefulTransformer
 from artan.filter.filter_params import HasInitialState
 
 
-
 class HasForgettingFactor(Params):
     """
     Mixin for param forgetting factor, between 0 and 1.
