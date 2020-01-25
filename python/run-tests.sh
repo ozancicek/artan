@@ -36,4 +36,4 @@ done
 export PYSPARK_SUBMIT_ARGS="--jars $JAR_PATH pyspark-shell "
 
 cd "$DIR"
-nosetests artan/tests "$@"
+nosetests artan/tests -c "$DIR/nose.cfg" "$@"

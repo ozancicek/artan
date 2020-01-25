@@ -30,8 +30,8 @@ class RLSTests(ReusedSparkTestCase):
              (1.0, Vectors.dense(2.0, 1.0)),
              (0.0, Vectors.dense(3.0, 3.0)), ], ["label", "features"])
         rls = RecursiveLeastSquaresFilter(2)
-        model = rls.transform(df).collect()
-        state = model[-1].state.values
+        model = rls.transform(df).filter("stateIndex=4").collect()
+        state = model[0].state.values
         expected = np.array([5.31071176e-09, 1.53846148e-01])
 
         np.testing.assert_array_almost_equal(state, expected)

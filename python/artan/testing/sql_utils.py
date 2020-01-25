@@ -29,10 +29,12 @@ class ReusedSparkTestCase(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        config = cls.conf()
+        config = cls.conf().set("spark.ui.showConsoleProgress", "false")
         cls.spark = SparkSession\
             .builder.master("local[4]").config(conf=config)\
             .getOrCreate()
+        cls.spark.sparkContext.setLogLevel("ERROR")
+
 
     @classmethod
     def tearDownClass(cls):
