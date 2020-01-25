@@ -4,6 +4,9 @@
 *.iws
 *.log
 .idea
+__pycache__
+*.pyc
+.coverage
 out
 target/
 dist/*
