@@ -38,18 +38,18 @@ trait StructuredStreamingTestWrapper extends SparkSessionTestWrapper {
     queryStream: Dataset[T] => DataFrame,
     queryName: String): Seq[Row] = {
 
-  implicit val sqlContext = spark.sqlContext
-  val inputStream = MemoryStream[T]
-  val transformed = queryStream(inputStream.toDS())
-  val query = transformed.writeStream
-    .format("memory")
-    .outputMode(mode)
-    .queryName(queryName)
-    .start()
+    implicit val sqlContext = spark.sqlContext
+    val inputStream = MemoryStream[T]
+    val transformed = queryStream(inputStream.toDS())
+    val query = transformed.writeStream
+      .format("memory")
+      .outputMode(mode)
+      .queryName(queryName)
+      .start()
 
-  inputStream.addData(input)
-  query.processAllAvailable()
-  val table = spark.table(queryName)
-  table.collect.toSeq
+    inputStream.addData(input)
+    query.processAllAvailable()
+    val table = spark.table(queryName)
+    table.collect.toSeq
   }
 }

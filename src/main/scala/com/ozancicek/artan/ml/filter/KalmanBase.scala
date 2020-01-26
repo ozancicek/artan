@@ -331,12 +331,11 @@ private[filter] abstract class KalmanTransformer[
 
 /**
  * Base trait for kalman state update spec to progress to next state.
- * @tparam Compute Type responsible for calculating the next state
+ * @tparam Compute KalmanStateCompute implementation which calculates the next state
  */
 private[filter] trait KalmanStateUpdateSpec[+Compute <: KalmanStateCompute]
   extends StateUpdateSpec[String, KalmanInput, KalmanState, KalmanOutput] {
 
-  /* Member responsible for calculating next state update*/
   val kalmanCompute: Compute
 
   /* Initial state vector*/
