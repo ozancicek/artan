@@ -137,6 +137,7 @@ class UnscentedKalmanFilterSpec
       .setMeasurementFunction(measurementFunc)
       .setSigmaPoints("merwe")
       .setMerweKappa(-0.7)
+      .setCalculateMahalanobis
 
     val query = (in: Dataset[UKFGLMMeasurement]) => filter.transform(in)
 

@@ -72,7 +72,7 @@ class UnscentedKalmanFilter(
     UnscentedKalmanStateCompute,
     UnscentedKalmanStateSpec,
     UnscentedKalmanFilter]
-  with HasProcessFunction with HasMeasurementFunction with SigmaPointsParams {
+  with HasProcessFunction with HasMeasurementFunction with AdaptiveNoiseParams with SigmaPointsParams {
 
   def this(
     measurementSize: Int,
@@ -130,6 +130,12 @@ class UnscentedKalmanFilter(
    */
   def setJulierKappa(value: Double): this.type = set(julierKappa, value)
 
+  /**
+   * Enable adaptive process noise according to B. Zheng (2018) RAUKF paper
+   */
+  def setEnableAdaptiveProcessNoise: this.type = set(adaptiveProcessNoise, true)
+
+
   override def copy(extra: ParamMap): this.type = defaultCopy(extra)
 
   def transform(dataset: Dataset[_]): DataFrame = filter(dataset)
@@ -141,7 +147,8 @@ class UnscentedKalmanFilter(
     getSigmaPoints,
     getProcessFunctionOpt,
     getMeasurementFunctionOpt,
-    outputResiduals
+    outputResiduals,
+    getAdaptiveNoiseParamSet
   )
 }
 
@@ -155,14 +162,16 @@ private[filter] class UnscentedKalmanStateSpec(
     val sigma: SigmaPoints,
     val processFunction: Option[(Vector, Matrix) => Vector],
     val measurementFunction: Option[(Vector, Matrix) => Vector],
-    val storeResidual: Boolean)
+    val storeResidual: Boolean,
+    val adaptiveNoiseParamSet: AdaptiveNoiseParamSet)
   extends KalmanStateUpdateSpec[UnscentedKalmanStateCompute] {
 
   val kalmanCompute = new UnscentedKalmanStateCompute(
     fadingFactor,
     sigma,
     processFunction,
-    measurementFunction)
+    measurementFunction,
+    adaptiveNoiseParamSet)
 }
 
 /**
@@ -172,7 +181,8 @@ private[filter] class UnscentedKalmanStateCompute(
     fadingFactor: Double,
     sigma: SigmaPoints,
     processFunc: Option[(Vector, Matrix) => Vector],
-    measurementFunc: Option[(Vector, Matrix) => Vector]) extends KalmanStateCompute {
+    measurementFunc: Option[(Vector, Matrix) => Vector],
+    adaptiveNoiseParams: AdaptiveNoiseParamSet) extends KalmanStateCompute {
 
   def predict(
     state: KalmanState,
@@ -183,7 +193,7 @@ private[filter] class UnscentedKalmanStateCompute(
     val processModel = process.processModel.get
     val processFunction = processFunc.getOrElse(
       (in: Vector, model: Matrix) => processModel.multiply(in))
-    val processNoise = process.processNoise.get
+    val processNoise = state.processNoise.getOrElse(process.processNoise.get)
 
     val fadingFactorSquare = pow(fadingFactor, 2)
     val stateSigmaPoints = sigmaPoints.map { sigmas =>
@@ -201,7 +211,39 @@ private[filter] class UnscentedKalmanStateCompute(
       fadingFactorSquare)
 
     KalmanState(
-      state.stateIndex + 1, stateMean, stateCov, state.residual, state.residualCovariance)
+      state.stateIndex + 1, stateMean, stateCov, state.residual, state.residualCovariance,
+      state.processNoise)
+  }
+
+  def getAdaptiveProcessNoise(
+    currentNoise: DenseMatrix,
+    residual: DenseVector,
+    estimateCov: DenseMatrix,
+    gain: DenseMatrix): Option[DenseMatrix] = {
+    if (adaptiveNoiseParams.isAdaptiveProcessNoise){
+      val zeros = new DenseVector(Array.fill(residual.size) {0.0})
+      val sqMah = LinalgUtils.squaredMahalanobis(residual, zeros, estimateCov)
+      val noise = if (sqMah > adaptiveNoiseParams.adaptiveProcessNoiseThreshold) {
+        val factor =  adaptiveNoiseParams.adaptiveProcessNoiseAlpha * adaptiveNoiseParams.adaptiveProcessNoiseThreshold
+        val weight = scala.math.max(
+          adaptiveNoiseParams.adaptiveProcessNoiseLambda,
+          (sqMah - factor)/sqMah
+        )
+        val update = DenseMatrix.zeros(residual.size, residual.size)
+        BLAS.dger(weight, residual, residual, update)
+
+        val noise = gain.multiply(update).multiply(gain.transpose)
+        BLAS.axpy(1.0-weight, currentNoise, noise)
+        Some(noise)
+      }
+      else {
+        None
+      }
+      noise
+    }
+    else {
+      None
+    }
   }
 
   def estimate(
@@ -255,8 +297,15 @@ private[filter] class UnscentedKalmanStateCompute(
 
     val (res, resCov) = if (storeResidual) (Some(residual), Some(estimateCov)) else (None, None)
 
+    val processNoise = getAdaptiveProcessNoise(
+      state.processNoise.getOrElse(process.processNoise.get).toDense,
+      residual,
+      estimateCov,
+      gain
+    )
+
     KalmanState(
-      state.stateIndex, newMean, newCov, res, resCov)
+      state.stateIndex, newMean, newCov, res, resCov, processNoise)
   }
 }
 
@@ -424,6 +473,84 @@ private[filter] trait HasJulierKappa extends Params {
   setDefault(julierKappa, 1.0)
 
   final def getJulierKappa: Double = $(julierKappa)
+}
+
+private[filter] case class AdaptiveNoiseParamSet(
+    isAdaptiveProcessNoise: Boolean,
+    adaptiveProcessNoiseThreshold: Double,
+    adaptiveProcessNoiseLambda: Double,
+    adaptiveProcessNoiseAlpha: Double)
+
+
+/**
+ * Helper trait for creating adaptive noise param set
+ */
+private[filter] trait AdaptiveNoiseParams extends Params with HasAdaptiveProcessNoise
+  with HasAdaptiveProcessNoiseThreshold with HasAdaptiveProcessNoiseAlpha with HasAdaptiveProcessNoiseLambda {
+
+  protected def getAdaptiveNoiseParamSet: AdaptiveNoiseParamSet = {
+    AdaptiveNoiseParamSet(
+      getAdaptiveProcessNoise,
+      getAdaptiveProcessNoiseThreshold,
+      getAdaptiveProcessNoiseLambda,
+      getAdaptiveProcessNoiseAlpha
+    )
+  }
+}
+
+
+private[filter] trait HasAdaptiveProcessNoise extends Params {
+
+  final val adaptiveProcessNoise: BooleanParam = new BooleanParam(
+    this,
+    "adaptiveProcessNoise",
+    "Enable adaptive process noise according to B. Zheng(2018) RAUKF paper"
+  )
+  setDefault(adaptiveProcessNoise, false)
+
+  final def getAdaptiveProcessNoise: Boolean = $(adaptiveProcessNoise)
+}
+
+private[filter] trait HasAdaptiveProcessNoiseThreshold extends Params {
+
+  final val adaptiveProcessNoiseThreshold: DoubleParam = new DoubleParam(
+    this,
+    "adaptiveProcessNoiseThreshold",
+    "Threshold for activating adaptive process noise, measured as mahalanobis distance from residual and" +
+    "its covariance."
+  )
+
+  setDefault(adaptiveProcessNoiseThreshold, 2.0)
+
+  final def getAdaptiveProcessNoiseThreshold: Double = $(adaptiveProcessNoiseThreshold)
+}
+
+
+private[filter] trait HasAdaptiveProcessNoiseLambda extends Params {
+
+  final val adaptiveProcessNoiseLambda: DoubleParam = new DoubleParam(
+    this,
+    "adaptiveProcessNoiseLambda",
+    "Weight factor controlling the stability of noise updates. Should be between 0 and 1"
+  )
+
+  setDefault(adaptiveProcessNoiseLambda, 0.9)
+
+  final def getAdaptiveProcessNoiseLambda: Double = $(adaptiveProcessNoiseLambda)
+}
+
+private[filter] trait HasAdaptiveProcessNoiseAlpha extends Params {
+
+  final val adaptiveProcessNoiseAlpha: DoubleParam = new DoubleParam(
+    this,
+    "adaptiveProcessNoiseAlpha",
+    "Weight factor controlling the senstivity of noise updates. Should be greater than 0.0" +
+    "Large values give more influence to lambda factor"
+  )
+
+  setDefault(adaptiveProcessNoiseAlpha, 1.0)
+
+  final def getAdaptiveProcessNoiseAlpha: Double = $(adaptiveProcessNoiseAlpha)
 }
 
 

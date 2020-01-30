@@ -54,7 +54,7 @@ class LinearKalmanFilterSpec
       val ts = (0 until n).map(_.toDouble).toArray
       val zs = ts.map(t =>  t + dist.draw())
       val startTime = Timestamp.valueOf("2010-01-01 00:00:00.000")
-      val timeDeltaSecs = 60L
+      val timeDeltaSecs = 60L * 10L
       val measurements = zs.zip(ts).toSeq.map { case (z, t) =>
         val newTs = new Timestamp(startTime.getTime + t.toLong * timeDeltaSecs * 1000)
         LocalLinearMeasurement(new DenseVector(Array(z)), newTs)
@@ -74,6 +74,7 @@ class LinearKalmanFilterSpec
           new DenseMatrix(1, 2, Array(1, 0)))
         .setCalculateMahalanobis
         .setEventTimeCol("eventTime")
+        .setCalculateLoglikelihood
 
       val query = (in: Dataset[LocalLinearMeasurement]) => filter.transform(in)
 

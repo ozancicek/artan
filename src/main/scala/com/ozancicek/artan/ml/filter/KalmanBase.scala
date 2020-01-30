@@ -373,6 +373,7 @@ private[filter] trait KalmanStateUpdateSpec[+Compute <: KalmanStateCompute]
         stateMean.toDense,
         stateCov.toDense,
         None,
+        None,
         None))
 
     /* Calculate next state from kalmanCompute. If there is a measurement, progress to next state with

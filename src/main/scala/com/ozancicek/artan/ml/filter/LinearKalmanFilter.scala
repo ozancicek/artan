@@ -196,7 +196,8 @@ private[filter] class LinearKalmanStateCompute(
       state.stateIndex + 1L,
       newMean, newCov,
       state.residual,
-      state.residualCovariance)
+      state.residualCovariance,
+      state.processNoise)
   }
 
   def estimate(
@@ -249,6 +250,7 @@ private[filter] class LinearKalmanStateCompute(
       estMean,
       estCov,
       res,
-      resCov)
+      resCov,
+      state.processNoise)
   }
 }

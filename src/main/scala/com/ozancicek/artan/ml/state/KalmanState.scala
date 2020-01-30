@@ -87,4 +87,5 @@ private[ml] case class KalmanState(
     state: Vector,
     stateCovariance: Matrix,
     residual: Option[Vector],
-    residualCovariance: Option[Matrix]) extends State
+    residualCovariance: Option[Matrix],
+    processNoise: Option[Matrix]) extends State
