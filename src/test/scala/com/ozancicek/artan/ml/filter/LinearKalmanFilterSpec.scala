@@ -39,10 +39,9 @@ case class DynamicLinearModel(measurement: DenseVector, processModel: DenseMatri
 class LinearKalmanFilterSpec
   extends FunSpec
   with Matchers
-  with StructuredStreamingTestWrapper {
+  with RegressionTestWrapper {
 
   import spark.implicits._
-  implicit val basis: RandBasis = RandBasis.withSeed(0)
   Random.setSeed(0)
 
   describe("Linear kalman filter tests") {
@@ -105,24 +104,6 @@ class LinearKalmanFilterSpec
     }
 
     describe("Ordinary least squares") {
-      // Ols problem
-      // z = a*x + b*y + c + N(0, R)
-      val n = 40
-      val dist = breeze.stats.distributions.Gaussian(0, 1)
-
-      val a = 1.5
-      val b = -2.7
-      val c = 5.0
-      val xs = (0 until n).map(_.toDouble).toArray
-      val ys = (0 until n).map(i=> scala.math.sqrt(i.toDouble)).toArray
-      val zs = xs.zip(ys).map {
-        case(x,y)=> (x, y, a*x + b*y + c + dist.draw())
-      }
-      val measurements = zs.map { case (x, y, z) =>
-        LinearRegressionMeasurement(
-          new DenseVector(Array(z)),
-          new DenseMatrix(1, 3, Array(x, y, 1)))
-      }.toSeq
 
       val filter = new LinearKalmanFilter(3, 1)
         .setInitialCovariance(
@@ -133,31 +114,14 @@ class LinearKalmanFilterSpec
         .setProcessNoise(DenseMatrix.zeros(3, 3))
         .setMeasurementNoise(new DenseMatrix(1, 1, Array(0.0001)))
 
-      val query = (in: Dataset[LinearRegressionMeasurement]) => filter.transform(in)
 
       it("should have same solution with lapack dgels routine") {
-        val modelState = query(measurements.toDS())
-        val lastState = modelState.collect
-          .filter(row=>row.getAs[Long]("stateIndex") == n)(0)
-          .getAs[DenseVector]("state")
+        testLeastSquaresSolutionEquivalent(filter, 10E-4)
 
-        // find least squares solution with dgels
-        val features = new DenseMatrix(n, 3, xs ++ ys ++ Array.fill(n) {1.0})
-        val target = new DenseVector(zs.map {case (x, y, z) => z})
-        val coeffs = LAPACK.dgels(features, target)
-        // Error is mean absolute difference of kalman and least squares solutions
-        val mae = (0 until coeffs.size).foldLeft(0.0) {
-          case(s, i) => s + scala.math.abs(lastState(i) - coeffs(i))
-        } / coeffs.size
-        // Error should be smaller than a certain threshold. The threshold is
-        // tuned to some arbitrary small value depending on noise, cov and true coefficients.
-        val threshold = 1E-4
-
-        assert(mae < threshold)
       }
 
       it("should have same result for batch & stream mode") {
-        testAppendQueryAgainstBatch(measurements, query, "ols")
+        testLeastSquaresBatchStreamEquivalent(filter, "LKFOls")
       }
     }
 

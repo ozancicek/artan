@@ -35,32 +35,15 @@ case class UKFGLMMeasurement(measurement: DenseVector, measurementModel: DenseMa
 class UnscentedKalmanFilterSpec
   extends FunSpec
   with Matchers
-  with StructuredStreamingTestWrapper {
+  with RegressionTestWrapper {
 
   import spark.implicits._
-  implicit val basis: RandBasis = RandBasis.withSeed(0)
 
   describe("Unscented kalman filter tests") {
-    describe("should estimate linear regression model parameters") {
-      // linear regression
-      // z = a*x + b*y + c + N(0, 1)
-      val a = 0.5
-      val b = -0.7
-      val c = 2.0
-      val dist = breeze.stats.distributions.Gaussian(0, 1)
-      val n = 40
-      val xs = (0 until n).map(i=>i.toDouble).toArray
-      val ys = (0 until n).map(i=> sqrt(i.toDouble)).toArray
-      val zs = xs.zip(ys).map {
-        case(x,y)=> (x, y, a*x + b*y + c + dist.draw())
-      }
-      val measurements = zs.map { case (x, y, z) =>
-        UKFOLSMeasurement(new DenseVector(Array(z)), new DenseMatrix(1, 3, Array(x, y, 1)))
-      }.toSeq
+    describe("Ordinary least squares") {
 
       val measurementFunc = (in: Vector, model: Matrix) => {
         val measurement = model.multiply(in)
-        //measurement.values(0) = scala.math.exp(measurement.values(0))
         measurement
       }
 
@@ -74,28 +57,13 @@ class UnscentedKalmanFilterSpec
         .setMeasurementNoise(new DenseMatrix(1, 1, Array(0.0001)))
         .setMeasurementFunction(measurementFunc)
 
-      val query = (in: Dataset[UKFOLSMeasurement]) => filter.transform(in)
 
       it("should have same solution with lapack dgels routine") {
-        val modelState = query(measurements.toDS)
-        val lastState = modelState.collect
-          .filter(row => row.getAs[Long]("stateIndex") == n)(0)
-          .getAs[DenseVector]("state")
-
-        val features = new DenseMatrix(n, 3, xs ++ ys ++ Array.fill(n) {1.0})
-        val target = new DenseVector(zs.map {case (x, y, z) => z})
-        val coeffs = LAPACK.dgels(features, target)
-        val mae = (0 until coeffs.size).foldLeft(0.0) {
-          case(s, i) => s + scala.math.abs(lastState(i) - coeffs(i))
-        } / coeffs.size
-        // Error should be smaller than a certain threshold. The threshold is
-        // tuned to some arbitrary small value depending on noise, cov and true coefficients.
-        val threshold = 1E-4
-        assert(mae < threshold)
+        testLeastSquaresSolutionEquivalent(filter, 10E-4)
       }
 
       it("should have same result for batch & stream mode") {
-        testAppendQueryAgainstBatch(measurements, query, "UKFOLSmodel")
+        testLeastSquaresBatchStreamEquivalent(filter, "UKFOls")
       }
     }
   }

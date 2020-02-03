@@ -34,29 +34,12 @@ case class EKFMAMeasurement(measurement: DenseVector, measurementModel: DenseMat
 class ExtendedKalmanFilterSpec
   extends FunSpec
   with Matchers
-  with StructuredStreamingTestWrapper {
+  with RegressionTestWrapper {
 
   import spark.implicits._
-  implicit val basis: RandBasis = RandBasis.withSeed(0)
 
   describe("Extended kalman filter tests") {
     describe("GLM with gaussian noise and log link") {
-      // generalized linear regression with log link
-      // z = exp(a*x + b*y + c) + N(0, 1)
-      val a = 0.5
-      val b = -0.7
-      val c = 2.0
-      val dist = breeze.stats.distributions.Gaussian(0, 1)
-      val n = 40
-      val xs = (0 until n).map(i=>i.toDouble).toArray
-      val ys = (0 until n).map(i=> scala.math.sqrt(i.toDouble)).toArray
-      val zs = xs.zip(ys).map {
-        case(x,y)=> (x, y, scala.math.exp(a*x + b*y + c) + dist.draw())
-      }
-
-      val measurements = zs.map { case (x, y, z) =>
-        EKFGLMMeasurement(new DenseVector(Array(z)), new DenseMatrix(1, 3, Array(x, y, 1)))
-      }.toSeq
 
       val measurementFunc = (in: Vector, model: Matrix) => {
         val measurement = model.multiply(in)
@@ -86,30 +69,13 @@ class ExtendedKalmanFilterSpec
         .setMeasurementFunction(measurementFunc)
         .setMeasurementStateJacobian(measurementJac)
 
-      val query = (in: Dataset[EKFGLMMeasurement]) => filter.transform(in)
-
       it("should estimate model parameters") {
-        val modelState = query(measurements.toDS())
-
-        val lastState = modelState.collect
-          .filter(row=>row.getAs[Long]("stateIndex") == n)(0)
-          .getAs[DenseVector]("state")
-
-        val coeffs = new DenseVector(Array(a, b, c))
-        val mae = (0 until coeffs.size).foldLeft(0.0) {
-          case(s, i) => s + scala.math.abs(lastState(i) - coeffs(i))
-        } / coeffs.size
-        // Error should be smaller than a certain threshold. The threshold is
-        // tuned to some arbitrary small value depending on noise, cov and true coefficients.
-        val threshold = 1E-4
-        assert(mae < threshold)
-
+        testLogRegressionEquivalent(filter, 10E-4)
       }
 
       it("should have same result for batch & stream mode") {
-        testAppendQueryAgainstBatch(measurements, query, "EKFGLMLogLink")
+        testLogRegressionBatchStreamEquivalent(filter, "EKFLogSolution")
       }
-
     }
 
     describe("ma model") {
