@@ -291,11 +291,10 @@ private[ml] trait StateUpdateSpec[
       if (groupState.hasTimedOut) {
         groupState.remove()
       }
-
       /* Need access to previous state while creating an output from measurement. Gather output in a queue
       while keeping the state in a pair*/
       val outputQueue = Queue[Option[OutType]]()
-      val statePair = (groupState.getOption, groupState.getOption)
+      val statePair: (Option[StateType], Option[StateType]) = (None, groupState.getOption)
 
       /* If state times out input rows will be empty, resulting in empty output iterator */
       rows.toSeq.sortBy(_.eventTime).foldLeft((outputQueue, statePair)) {

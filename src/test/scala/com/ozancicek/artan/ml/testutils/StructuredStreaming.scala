@@ -47,7 +47,9 @@ trait StructuredStreamingTestWrapper extends SparkSessionTestWrapper {
       .queryName(queryName)
       .start()
 
-    inputStream.addData(input)
+    input.foreach { data =>
+      inputStream.addData(Seq(data))
+    }
     query.processAllAvailable()
     val table = spark.table(queryName)
     table.collect.toSeq
