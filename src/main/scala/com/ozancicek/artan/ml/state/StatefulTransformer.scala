@@ -44,7 +44,7 @@ import scala.reflect.runtime.universe.TypeTag
 private[ml] abstract class StatefulTransformer[
   GroupKeyType,
   RowType <: KeyedInput[GroupKeyType] : TypeTag : Manifest,
-  StateType <: State : ClassTag,
+  StateType : ClassTag,
   OutType <: KeyedOutput[GroupKeyType] : TypeTag,
   ImplType <: StatefulTransformer[GroupKeyType, RowType, StateType, OutType, ImplType]] extends Transformer
   with HasStateTimeoutMode with HasEventTimeCol with HasWatermarkDuration with HasStateKeyCol[GroupKeyType]
@@ -249,14 +249,14 @@ private[state] case class StateSpecOps(
 private[ml] trait StateUpdateSpec[
   GroupKeyType,
   RowType <: KeyedInput[GroupKeyType],
-  StateType <: State,
+  StateType,
   OutType <: KeyedOutput[GroupKeyType]]
   extends Serializable {
 
   protected def stateToOutput(
     key: GroupKeyType,
     row: RowType,
-    state: StateType): OutType
+    state: StateType): List[OutType]
 
   protected def updateGroupState(
     key: GroupKeyType,
@@ -293,7 +293,7 @@ private[ml] trait StateUpdateSpec[
       }
       /* Need access to previous state while creating an output from measurement. Gather output in a queue
       while keeping the state in a pair*/
-      val outputQueue = Queue[Option[OutType]]()
+      val outputQueue = Queue[OutType]()
       val statePair: (Option[StateType], Option[StateType]) = (None, groupState.getOption)
 
       /* If state times out input rows will be empty, resulting in empty output iterator */
@@ -309,10 +309,10 @@ private[ml] trait StateUpdateSpec[
           }
 
           // Convert state to out type, push to output queue
-          val out = nextState.map(s => stateToOutput(key, row, s))
-          (q :+ out, (currentState, nextState))
+          val out = nextState.map(s => stateToOutput(key, row, s)).toList.flatten
+          (q.enqueue(out), (currentState, nextState))
         }
-      }._1.flatten.toIterator
+      }._1.toIterator
     }
   }
 

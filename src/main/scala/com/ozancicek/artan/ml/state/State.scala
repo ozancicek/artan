@@ -43,8 +43,6 @@ private[state] trait KeyedInput[KeyType] extends Product {
  *
  * @tparam KeyType Type of key
  */
-private[state] trait KeyedOutput[KeyType] extends Product {
-  val stateKey: KeyType
+private[state] trait KeyedOutput[KeyType] extends KeyedInput[KeyType] {
   val stateIndex: Long
-  val eventTime: Option[Timestamp]
 }

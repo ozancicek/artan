@@ -148,13 +148,13 @@ private[filter] class RecursiveLeastSquaresUpdateSpec(
     val forgettingFactor: Double)
   extends StateUpdateSpec[String, RLSInput, RLSState, RLSOutput] {
 
-  protected def stateToOutput(key: String, row: RLSInput, state: RLSState): RLSOutput = {
-    RLSOutput(
+  protected def stateToOutput(key: String, row: RLSInput, state: RLSState): List[RLSOutput] = {
+    List(RLSOutput(
       key,
       state.stateIndex,
       state.state,
       state.covariance,
-      row.eventTime)
+      row.eventTime))
   }
 
   def updateGroupState(

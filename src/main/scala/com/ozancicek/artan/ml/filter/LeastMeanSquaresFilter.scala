@@ -139,12 +139,12 @@ private[filter] class LeastMeanSquaresUpdateSpec(
     val regularizationConstant: Double)
   extends StateUpdateSpec[String, LMSInput, LMSState, LMSOutput] {
 
-  protected def stateToOutput(key: String, row: LMSInput, state: LMSState): LMSOutput = {
-    LMSOutput(
+  protected def stateToOutput(key: String, row: LMSInput, state: LMSState): List[LMSOutput] = {
+    List(LMSOutput(
       key,
       state.stateIndex,
       state.state,
-      row.eventTime)
+      row.eventTime))
   }
 
   def updateGroupState(

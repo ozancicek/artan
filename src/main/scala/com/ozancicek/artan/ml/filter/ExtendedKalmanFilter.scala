@@ -17,10 +17,11 @@
 
 package com.ozancicek.artan.ml.filter
 
+import com.ozancicek.artan.ml.state.{KalmanInput, KalmanState}
 import org.apache.spark.ml.linalg._
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.ml.{BLAS}
+import org.apache.spark.ml.BLAS
 import org.apache.spark.sql._
 
 
@@ -164,6 +165,18 @@ private[filter] class ExtendedKalmanStateSpec(
     val measurementNoiseJacobian: Option[(Vector, Matrix) => Matrix],
     val storeResidual: Boolean)
   extends KalmanStateUpdateSpec[ExtendedKalmanStateCompute] {
+
+  override def getOutputProcessModel(
+    row: KalmanInput,
+    state: KalmanState): Option[Matrix] = {
+    row.processModel.map(m => kalmanCompute.getProcessModel(state.state.toDense, m.toDense))
+  }
+
+  override def getOutputProcessNoise(
+    row: KalmanInput,
+    state: KalmanState): Option[Matrix] = {
+    row.processNoise.map(m => kalmanCompute.getProcessNoise(state.state.toDense, m.toDense))
+  }
 
   val kalmanCompute = new ExtendedKalmanStateCompute(
     fadingFactor,
