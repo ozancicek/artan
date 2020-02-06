@@ -24,7 +24,7 @@ import org.apache.spark.ml.param._
 /**
  * Param for initial state vector of a filter.
  */
-private[filter] trait HasInitialState extends Params {
+private[artan] trait HasInitialState extends Params {
 
   def stateSize: Int
 
@@ -44,7 +44,7 @@ private[filter] trait HasInitialState extends Params {
 /**
  * Param for initial covariance of the state
  */
-private[filter] trait HasInitialCovariance extends Params {
+private[artan] trait HasInitialCovariance extends Params {
 
   def stateSize: Int
 
@@ -64,7 +64,7 @@ private[filter] trait HasInitialCovariance extends Params {
 /**
  * Param for process model matrix
  */
-private[filter] trait HasProcessModel extends Params {
+private[artan] trait HasProcessModel extends Params {
 
   def stateSize: Int
 
@@ -83,7 +83,7 @@ private[filter] trait HasProcessModel extends Params {
 /**
  * Param for fading factor
  */
-private[filter] trait HasFadingFactor extends Params {
+private[artan] trait HasFadingFactor extends Params {
 
   final val fadingFactor: DoubleParam = new DoubleParam(
     this,
@@ -101,7 +101,7 @@ private[filter] trait HasFadingFactor extends Params {
 /**
  * Param for measurement model matrix
  */
-private[filter] trait HasMeasurementModel extends Params {
+private[artan] trait HasMeasurementModel extends Params {
 
   def stateSize: Int
   def measurementSize: Int
@@ -127,7 +127,7 @@ private[filter] trait HasMeasurementModel extends Params {
 /**
  * Param for process noise matrix
  */
-private[filter] trait HasProcessNoise extends Params {
+private[artan] trait HasProcessNoise extends Params {
 
   def stateSize: Int
 
@@ -145,7 +145,7 @@ private[filter] trait HasProcessNoise extends Params {
 /**
  * Param for measurement noise matrix
  */
-private[filter] trait HasMeasurementNoise extends Params {
+private[artan] trait HasMeasurementNoise extends Params {
 
   def measurementSize: Int
 
@@ -163,7 +163,7 @@ private[filter] trait HasMeasurementNoise extends Params {
 /**
  * Param for process function, typically for nonlinear state transition processes
  */
-private[filter] trait HasProcessFunction extends Params {
+private[artan] trait HasProcessFunction extends Params {
 
   final val processFunction: Param[(Vector, Matrix) => Vector] = new Param[(Vector, Matrix) => Vector](
     this,
@@ -179,7 +179,7 @@ private[filter] trait HasProcessFunction extends Params {
 /**
  * Param for process state jacobian for nonlinear state transition process
  */
-private[filter] trait HasProcessStateJacobian extends Params {
+private[artan] trait HasProcessStateJacobian extends Params {
 
   final val processStateJacobian: Param[(Vector, Matrix) => Matrix] = new Param[(Vector, Matrix) => Matrix](
     this,
@@ -195,7 +195,7 @@ private[filter] trait HasProcessStateJacobian extends Params {
 /**
  * Param for process noise jacobian for non-additive process noise
  */
-private[filter] trait HasProcessNoiseJacobian extends Params {
+private[artan] trait HasProcessNoiseJacobian extends Params {
 
   final val processNoiseJacobian: Param[(Vector, Matrix) => Matrix] = new Param[(Vector, Matrix) => Matrix](
     this,
@@ -215,7 +215,7 @@ private[filter] trait HasProcessNoiseJacobian extends Params {
 /**
  * Param for measurement function, typically for nonlinear measurement equations.
  */
-private[filter] trait HasMeasurementFunction extends Params {
+private[artan] trait HasMeasurementFunction extends Params {
 
   final val measurementFunction: Param[(Vector, Matrix) => Vector] = new Param[(Vector, Matrix) => Vector](
     this,
@@ -231,7 +231,7 @@ private[filter] trait HasMeasurementFunction extends Params {
 /**
  * Param for measurement jacobian for nonlinear measurement equations
  */
-private[filter] trait HasMeasurementStateJacobian extends Params {
+private[artan] trait HasMeasurementStateJacobian extends Params {
 
   final val measurementStateJacobian: Param[(Vector, Matrix) => Matrix] = new Param[(Vector, Matrix) => Matrix](
     this,
@@ -247,7 +247,7 @@ private[filter] trait HasMeasurementStateJacobian extends Params {
 /**
  * Param for measurement noise jacobian for non-additive process noise
  */
-private[filter] trait HasMeasurementNoiseJacobian extends Params {
+private[artan] trait HasMeasurementNoiseJacobian extends Params {
 
   final val measurementNoiseJacobian: Param[(Vector, Matrix) => Matrix] = new Param[(Vector, Matrix) => Matrix](
     this,
@@ -268,7 +268,7 @@ private[filter] trait HasMeasurementNoiseJacobian extends Params {
 /**
  * Param for measurement column
  */
-private[filter] trait HasMeasurementCol extends Params {
+private[artan] trait HasMeasurementCol extends Params {
 
   final val measurementCol: Param[String] = new Param[String](
     this,
@@ -284,7 +284,7 @@ private[filter] trait HasMeasurementCol extends Params {
 /**
  * Param for measurement model column
  */
-private[filter] trait HasMeasurementModelCol extends Params {
+private[artan] trait HasMeasurementModelCol extends Params {
 
   final val measurementModelCol: Param[String] = new Param[String](
     this,
@@ -299,7 +299,7 @@ private[filter] trait HasMeasurementModelCol extends Params {
 /**
  * Param for measurement noise column
  */
-private[filter] trait HasMeasurementNoiseCol extends Params {
+private[artan] trait HasMeasurementNoiseCol extends Params {
 
   final val measurementNoiseCol: Param[String] = new Param[String](
     this,
@@ -314,7 +314,7 @@ private[filter] trait HasMeasurementNoiseCol extends Params {
 /**
  * Param for process model column
  */
-private[filter] trait HasProcessModelCol extends Params {
+private[artan] trait HasProcessModelCol extends Params {
 
   final val processModelCol: Param[String] = new Param[String](
     this,
@@ -328,7 +328,7 @@ private[filter] trait HasProcessModelCol extends Params {
 /**
  * Param for process noise column
  */
-private[filter] trait HasProcessNoiseCol extends Params {
+private[artan] trait HasProcessNoiseCol extends Params {
 
   final val processNoiseCol: Param[String] = new Param[String](
     this,
@@ -343,7 +343,7 @@ private[filter] trait HasProcessNoiseCol extends Params {
 /**
  * Param for control column
  */
-private[filter] trait HasControlCol extends Params {
+private[artan] trait HasControlCol extends Params {
 
   final val controlCol: Param[String] = new Param[String](
     this,
@@ -357,7 +357,7 @@ private[filter] trait HasControlCol extends Params {
 /**
  * Param for control function column
  */
-private[filter] trait HasControlFunctionCol extends Params {
+private[artan] trait HasControlFunctionCol extends Params {
 
   final val controlFunctionCol: Param[String] = new Param[String](
     this,
@@ -371,7 +371,7 @@ private[filter] trait HasControlFunctionCol extends Params {
 /**
  * Param for enabling mahalanobis calculation
  */
-private[filter] trait HasCalculateMahalanobis extends Params {
+private[artan] trait HasCalculateMahalanobis extends Params {
 
   final val calculateMahalanobis: BooleanParam = new BooleanParam(
     this,
@@ -388,7 +388,7 @@ private[filter] trait HasCalculateMahalanobis extends Params {
 /**
  * Param for enabling loglikelihood calculation
  */
-private[filter] trait HasCalculateLoglikelihood extends Params {
+private[artan] trait HasCalculateLoglikelihood extends Params {
 
   final val calculateLoglikelihood: BooleanParam = new BooleanParam(
     this,

@@ -32,7 +32,7 @@ import org.apache.spark.sql.types._
 /**
  * Base trait for kalman input parameters & columns
  */
-private[filter] trait KalmanUpdateParams extends HasMeasurementCol
+private[artan] trait KalmanUpdateParams extends HasMeasurementCol
   with HasMeasurementModelCol with HasMeasurementNoiseCol
   with HasProcessModelCol with HasProcessNoiseCol with HasControlCol
   with HasControlFunctionCol with HasProcessModel with HasMeasurementModel

@@ -25,16 +25,28 @@ import org.apache.spark.ml.param.{IntParam, ParamMap, ParamValidators}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.{DataFrame, Dataset, Encoders}
 import org.apache.spark.sql.types.StructType
+import com.ozancicek.artan.ml.filter._
 
 import scala.collection.immutable.Queue
 
+/**
+ * Fixed lag linear kalman smoother.
+ *
+ * @param stateSize size of the state vector
+ * @param measurementSize size of the measurement vector
+ */
+class LinearKalmanSmoother(
+    val stateSize: Int,
+    val measurementSize: Int,
+    override val uid: String)
+  extends StatefulTransformer[String, KalmanOutput, Queue[KalmanOutput], RTSOutput, LinearKalmanSmoother]
+  with KalmanUpdateParams with HasInitialCovariance with HasInitialState with HasFadingFactor {
 
-class LinearKalmanSmoother(override val uid: String)
-  extends StatefulTransformer[String, KalmanOutput, Queue[KalmanOutput], RTSOutput, LinearKalmanSmoother] {
-
-  def this() = this(Identifiable.randomUID("RTSSmoother"))
+  def this(stateSize: Int, measurementSize: Int) = {
+    this(stateSize, measurementSize, Identifiable.randomUID("LinearKalmanSmoother"))
+  }
   implicit val stateKeyEncoder = Encoders.STRING
-  protected val defaultStateKey: String = "smoothing.RTSSmoother"
+  protected val defaultStateKey: String = "smoother.LinearKalmanSmoother"
 
   final val fixedLag: IntParam = new IntParam(
     this,
@@ -66,6 +78,8 @@ private[smoother] class LinearKalmanSmootherSpec(lag: Int)
   private def updateRTSOutput(head: Option[RTSOutput], in: KalmanOutput): RTSOutput = {
     head match {
       case None => {
+        // First measurement, only calculate one lagged covariance
+
         val measurementModel = in.measurementModel.get.toDense
 
         // ident = I - K * H
@@ -146,10 +160,10 @@ private[smoother] class LinearKalmanSmootherSpec(lag: Int)
     row: KalmanOutput,
     state: Option[Queue[KalmanOutput]]): Option[Queue[KalmanOutput]] = {
 
-    /* If state is empty, create initial state from input parameters*/
     val currentState = state
       .getOrElse(Queue.empty[KalmanOutput])
 
+    // State is just fixed size queue of KalmanOutput
     if (currentState.size == lag) {
       Some(currentState.dequeue._2.enqueue(row))
     }
