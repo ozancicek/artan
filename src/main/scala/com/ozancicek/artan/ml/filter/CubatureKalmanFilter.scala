@@ -160,7 +160,8 @@ private[filter] class CubatureKalmanStateCompute(
       processNoise.toDense,
       scala.math.pow(fadingFactor, 2))
     KalmanState(
-      state.stateIndex + 1, stateMean, stateCov, state.residual, state.residualCovariance,
+      state.stateIndex + 1, stateMean, stateCov,
+      state.gain, state.residual, state.residualCovariance,
       state.processNoise)
   }
 
@@ -217,7 +218,7 @@ private[filter] class CubatureKalmanStateCompute(
     val (res, resCov) = if (storeResidual) (Some(residual), Some(estimateCov)) else (None, None)
 
     KalmanState(
-      state.stateIndex, newMean, newCov, res, resCov, state.processNoise)
+      state.stateIndex, newMean, newCov, Some(gain), res, resCov, state.processNoise)
   }
 }
 

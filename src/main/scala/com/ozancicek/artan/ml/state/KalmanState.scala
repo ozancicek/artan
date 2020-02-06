@@ -75,11 +75,13 @@ case class KalmanOutput(
     stateIndex: Long,
     state: Vector,
     stateCovariance: Matrix,
+    gain: Option[Matrix],
     residual: Option[Vector],
     residualCovariance: Option[Matrix],
     eventTime: Option[Timestamp],
     processModel: Option[Matrix],
-    processNoise: Option[Matrix]) extends KeyedOutput[String]
+    processNoise: Option[Matrix],
+    measurementModel: Option[Matrix]) extends KeyedOutput[String]
 
 /**
  * Internal representation of the state of a kalman filter.
@@ -88,6 +90,7 @@ private[ml] case class KalmanState(
     stateIndex: Long,
     state: Vector,
     stateCovariance: Matrix,
+    gain: Option[Matrix],
     residual: Option[Vector],
     residualCovariance: Option[Matrix],
     processNoise: Option[Matrix]) extends State

@@ -178,6 +178,12 @@ private[filter] class ExtendedKalmanStateSpec(
     row.processNoise.map(m => kalmanCompute.getProcessNoise(state.state.toDense, m.toDense))
   }
 
+  override def getOutputMeasurementModel(
+    row: KalmanInput,
+    state: KalmanState): Option[Matrix] = {
+    row.measurementModel.map(m => kalmanCompute.getMeasurementModel(state.state.toDense, m.toDense))
+  }
+
   val kalmanCompute = new ExtendedKalmanStateCompute(
     fadingFactor,
     processFunction,

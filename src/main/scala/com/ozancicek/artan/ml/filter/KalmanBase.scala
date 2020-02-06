@@ -17,20 +17,17 @@
 
 package com.ozancicek.artan.ml.filter
 
-import com.ozancicek.artan.ml.state.{KalmanInput, KalmanOutput, KalmanState, RTSOutput, StateUpdateSpec, StatefulTransformer}
+import com.ozancicek.artan.ml.state.{KalmanInput, KalmanOutput, KalmanState, StateUpdateSpec, StatefulTransformer}
 import com.ozancicek.artan.ml.stats.MultivariateGaussian
 import com.ozancicek.artan.ml.linalg.LinalgUtils
 import org.apache.spark.ml.linalg.SQLDataTypes
-import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector, Matrix, Vector}
+import org.apache.spark.ml.linalg.{DenseVector, Matrix, Vector}
 import org.apache.spark.ml.param._
-import org.apache.spark.ml.BLAS
 import org.apache.spark.sql._
-import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.Encoders
 import org.apache.spark.sql.functions.{col, lit, udf}
 import org.apache.spark.sql.types._
 
-import scala.collection.immutable.Queue
 
 /**
  * Base trait for kalman input parameters & columns
@@ -353,24 +350,26 @@ private[filter] trait KalmanStateUpdateSpec[+Compute <: KalmanStateCompute]
 
   def getOutputProcessNoise(row: KalmanInput, state: KalmanState): Option[Matrix] = row.processNoise
 
+  def getOutputMeasurementModel(row: KalmanInput, state: KalmanState): Option[Matrix] = row.measurementModel
+
   protected def stateToOutput(
     key: String,
     row: KalmanInput,
     state: KalmanState): List[KalmanOutput] = {
 
-    val outputProcessModel = getOutputProcessModel(row, state)
-    val outputProcessNoise = getOutputProcessNoise(row, state)
     List(
       KalmanOutput(
       key,
       state.stateIndex,
       state.state,
       state.stateCovariance,
+      state.gain,
       state.residual,
       state.residualCovariance,
       row.eventTime,
-      outputProcessModel,
-      outputProcessNoise))
+      getOutputProcessModel(row, state),
+      getOutputProcessNoise(row, state),
+      getOutputMeasurementModel(row, state)))
   }
 
   def updateGroupState(
@@ -384,6 +383,7 @@ private[filter] trait KalmanStateUpdateSpec[+Compute <: KalmanStateCompute]
         0L,
         stateMean.toDense,
         stateCov.toDense,
+        None,
         None,
         None,
         None))
@@ -420,120 +420,4 @@ private[filter] trait KalmanStateCompute extends Serializable {
     state: KalmanState,
     process: KalmanInput,
     storeResidual: Boolean): KalmanState = estimate(predict(state, process), process, storeResidual)
-}
-
-
-
-
-private[filter] class RTSStateUpdateSpec(lag: Int)
-  extends StateUpdateSpec[String, KalmanOutput, Queue[KalmanOutput], RTSOutput] {
-
-  private def updateRTSOutput(head: Option[RTSOutput], in: KalmanOutput): RTSOutput = {
-    head match {
-      case None => RTSOutput(
-        in.stateKey,
-        in.stateIndex,
-        in.state,
-        in.stateCovariance,
-        DenseMatrix.zeros(in.state.size, in.state.size),
-        DenseMatrix.zeros(in.state.size, in.state.size),
-        in.eventTime
-      )
-      case Some(prev) => {
-        val model = in.processModel.get.toDense
-        val laggedState = model.multiply(in.state)
-        val covUpdate = model.multiply(in.stateCovariance.toDense)
-
-        val laggedCov = in.processNoise.get.toDense
-        BLAS.gemm(1.0, covUpdate, model.transpose, 1.0, laggedCov)
-        val gain = in.stateCovariance.multiply(model.transpose).multiply(LinalgUtils.pinv(laggedCov))
-
-        val residual = prev.state.copy
-        BLAS.axpy(-1.0, laggedState, residual)
-
-        val newMean = in.state.toDense.copy
-        BLAS.gemv(1.0, gain, residual, 1.0, newMean)
-
-        val covDiff = prev.stateCovariance.toDense.copy
-        BLAS.axpy(-1.0, laggedCov, covDiff)
-        val newCow = in.stateCovariance.toDense.copy
-        BLAS.gemm(1.0, gain.multiply(covDiff), gain.transpose, 1.0, newCow)
-
-        RTSOutput(
-          in.stateKey,
-          in.stateIndex,
-          newMean,
-          newCow,
-          gain,
-          laggedCov,
-          in.eventTime
-        )
-      }
-    }
-  }
-
-  protected def stateToOutput(
-    key: String,
-    row: KalmanOutput,
-    state: Queue[KalmanOutput]): List[RTSOutput] = {
-    if (state.size == lag) {
-      val (head, tail) = state.reverse.dequeue
-      val headOutput = updateRTSOutput(None, head)
-      tail.foldLeft(List(headOutput)) { case(x::xs, in) =>
-        updateRTSOutput(Some(x), in)::x::xs
-      }
-    }
-    else {
-      List.empty[RTSOutput]
-    }
-  }
-
-  def updateGroupState(
-    key: String,
-    row: KalmanOutput,
-    state: Option[Queue[KalmanOutput]]): Option[Queue[KalmanOutput]] = {
-
-    /* If state is empty, create initial state from input parameters*/
-    val currentState = state
-      .getOrElse(Queue.empty[KalmanOutput])
-
-    if (currentState.size == lag) {
-      Some(currentState.dequeue._2.enqueue(row))
-    }
-    else {
-      Some(currentState.enqueue(row))
-    }
-  }
-}
-
-
-class RTSSmoother(override val uid: String)
-  extends StatefulTransformer[String, KalmanOutput, Queue[KalmanOutput], RTSOutput, RTSSmoother] {
-
-  def this() = this(Identifiable.randomUID("RTSSmoother"))
-  implicit val stateKeyEncoder = Encoders.STRING
-  protected val defaultStateKey: String = "smoothing.RTSSmoother"
-
-  final val fixedLag: IntParam = new IntParam(
-    this,
-    "fixedLag",
-    "fixed lag param",
-    ParamValidators.gt(1))
-  setDefault(fixedLag, 2)
-
-  def setFixedLag(value: Int): this.type = set(fixedLag, value)
-  def getFixedLag: Int = $(fixedLag)
-
-  def stateUpdateSpec: RTSStateUpdateSpec = new RTSStateUpdateSpec(getFixedLag)
-
-  def transformSchema(schema: StructType): StructType = {
-    outEncoder.schema
-  }
-
-
-  override def copy(extra: ParamMap): RTSSmoother = defaultCopy(extra)
-
-  def transform(dataset: Dataset[_]): DataFrame = {
-    transformWithState(dataset.toDF)
-  }
 }
