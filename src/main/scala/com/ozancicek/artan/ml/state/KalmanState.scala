@@ -103,4 +103,7 @@ case class RTSOutput(
     stateCovariance: Matrix,
     rtsGain: Matrix,
     laggedStateCovariance: Matrix,
-    eventTime: Option[Timestamp]) extends KeyedOutput[String]
+    eventTime: Option[Timestamp],
+    stateProductExpectation: Matrix,
+    stateProductLaggedExpectation: Matrix,
+    stateProductDiffedExpectation: Matrix) extends KeyedOutput[String]

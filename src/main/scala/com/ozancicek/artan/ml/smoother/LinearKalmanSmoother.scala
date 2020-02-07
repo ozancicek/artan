@@ -45,6 +45,7 @@ class LinearKalmanSmoother(
   def this(stateSize: Int, measurementSize: Int) = {
     this(stateSize, measurementSize, Identifiable.randomUID("LinearKalmanSmoother"))
   }
+
   implicit val stateKeyEncoder = Encoders.STRING
   protected val defaultStateKey: String = "smoother.LinearKalmanSmoother"
 
@@ -105,7 +106,10 @@ private[smoother] class LKFSmootherStateSpec(val lag: Int)
           in.stateCovariance,
           DenseMatrix.zeros(in.state.size, in.state.size),
           laggedCov,
-          in.eventTime)
+          in.eventTime,
+          DenseMatrix.zeros(in.state.size, in.state.size),
+          DenseMatrix.zeros(in.state.size, in.state.size),
+          DenseMatrix.zeros(in.state.size, in.state.size))
       }
       case Some(prev) => {
         val model = in.processModel.get.toDense
@@ -133,6 +137,14 @@ private[smoother] class LKFSmootherStateSpec(val lag: Int)
         val laggedCov = in.stateCovariance.multiply(prev.rtsGain.toDense.transpose)
         BLAS.gemm(1.0, gain.multiply(laggedCovDiff), prev.rtsGain.toDense.transpose, 1.0, laggedCov)
 
+        val stateProductExpectation = newCow.copy
+        BLAS.dger(1.0, newMean, newMean, stateProductExpectation)
+        val stateProductLaggedExpectation = prev.laggedStateCovariance.toDense.copy
+        BLAS.dger(1.0, prev.state.toDense, newMean, stateProductLaggedExpectation)
+
+        val stateProductDiffExpectation = prev.stateCovariance.toDense.copy
+        BLAS.dger(1.0, prev.state.toDense, prev.state.toDense, stateProductDiffExpectation)
+
         RTSOutput(
           in.stateKey,
           in.stateIndex,
@@ -140,7 +152,10 @@ private[smoother] class LKFSmootherStateSpec(val lag: Int)
           newCow,
           gain,
           laggedCov,
-          in.eventTime
+          in.eventTime,
+          stateProductExpectation,
+          stateProductLaggedExpectation,
+          stateProductDiffExpectation
         )
       }
     }

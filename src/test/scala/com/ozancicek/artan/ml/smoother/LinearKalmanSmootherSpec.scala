@@ -63,7 +63,7 @@ class LinearKalmanSmootherSpec
         .setProcessModel(
           new DenseMatrix(2, 2, Array(1, 0, 1, 1)))
         .setProcessNoise(
-          new DenseMatrix(2, 2, Array(0.0001, 0.0, 0.0, 0.0001)))
+          new DenseMatrix(2, 2, Array(70, 1.13, 1.13, 0.18)))
         .setMeasurementNoise(
           new DenseMatrix(1, 1, Array(20)))
         .setMeasurementModel(
