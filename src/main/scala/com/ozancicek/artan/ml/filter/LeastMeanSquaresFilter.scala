@@ -65,7 +65,10 @@ class LeastMeanSquaresFilter(
 
   protected val defaultStateKey: String = "filter.leastMeanSquaresFilter"
 
-  override def copy(extra: ParamMap): LeastMeanSquaresFilter = defaultCopy(extra)
+  override def copy(extra: ParamMap): LeastMeanSquaresFilter =  {
+    val that = new LeastMeanSquaresFilter(featuresSize)
+    copyValues(that, extra)
+  }
 
   /**
    * Set label column. Default is "features"

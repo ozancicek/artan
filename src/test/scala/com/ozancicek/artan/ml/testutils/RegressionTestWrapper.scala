@@ -15,17 +15,16 @@
  * limitations under the License.
  */
 
-package com.ozancicek.artan.ml.filter
+package com.ozancicek.artan.ml.testutils
 
-import com.ozancicek.artan.ml.testutils.StructuredStreamingTestWrapper
 import org.scalatest.{FunSpec, Matchers}
 import org.apache.spark.ml.linalg._
 import breeze.stats.distributions.RandBasis
 import org.apache.spark.ml.LAPACK
-import org.apache.spark.sql.{DataFrame, Dataset}
+import org.apache.spark.sql.{Dataset}
 import org.apache.spark.ml.Transformer
 
-import scala.math.{abs, exp, sqrt}
+import scala.math.{sqrt}
 
 
 case class RegressionMeasurement(measurement: DenseVector, measurementModel: DenseMatrix)
@@ -39,11 +38,11 @@ trait RegressionTestWrapper
   import spark.implicits._
   implicit val basis: RandBasis = RandBasis.withSeed(0)
 
-  val firstCoeff: Double = 0.5
+  def firstCoeff: Double = 0.5
 
-  val secondCoeff: Double = -0.7
-  val constCoeff: Double = 2.0
-  val numSamples: Int = 40
+  def secondCoeff: Double = -0.7
+  def constCoeff: Double = 2.0
+  def numSamples: Int = 40
 
   private def getMeasurements(f: Double => Double): (Seq[RegressionMeasurement], DenseMatrix, DenseVector) = {
     // linear regression data

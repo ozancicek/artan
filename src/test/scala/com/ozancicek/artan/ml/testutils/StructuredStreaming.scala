@@ -29,7 +29,9 @@ trait StructuredStreamingTestWrapper extends SparkSessionTestWrapper {
     import spark.implicits._
     val streamingResults = runQueryStream(input, "append", queryStream, queryName)
     val batchResults = queryStream(input.toDS()).collect
-    streamingResults.zip(batchResults).foreach { case (streamRow, batchRow) => assert(streamRow == batchRow) }
+    streamingResults.zip(batchResults).foreach { case (streamRow, batchRow) =>
+      assert(streamRow == batchRow)
+    }
   }
 
   def runQueryStream[T: Encoder](

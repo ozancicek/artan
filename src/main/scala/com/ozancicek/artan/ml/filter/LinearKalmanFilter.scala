@@ -72,7 +72,10 @@ class LinearKalmanFilter(
 
   protected val defaultStateKey: String = "filter.linearKalmanFilter"
 
-  override def copy(extra: ParamMap): LinearKalmanFilter = defaultCopy(extra)
+  override def copy(extra: ParamMap): LinearKalmanFilter =  {
+    val that = new LinearKalmanFilter(stateSize, measurementSize)
+    copyValues(that, extra)
+  }
 
   def transform(dataset: Dataset[_]): DataFrame = filter(dataset)
 

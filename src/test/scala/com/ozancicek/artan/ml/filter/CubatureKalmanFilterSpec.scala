@@ -17,14 +17,10 @@
 
 package com.ozancicek.artan.ml.filter
 
-import com.ozancicek.artan.ml.testutils.StructuredStreamingTestWrapper
 import org.scalatest.{FunSpec, Matchers}
 import org.apache.spark.ml.linalg._
-import breeze.stats.distributions.RandBasis
-import org.apache.spark.ml.LAPACK
-import org.apache.spark.sql.Dataset
+import com.ozancicek.artan.ml.testutils.RegressionTestWrapper
 
-import scala.math.{abs, exp, sqrt}
 
 
 case class CKFOLSMeasurement(measurement: DenseVector, measurementModel: DenseMatrix)
@@ -55,10 +51,7 @@ class CubatureKalmanFilterSpec
         .setMeasurementFunction(measurementFunc)
 
       it("should have same solution with lapack dgels routine") {
-        testLeastSquaresSolutionEquivalent(filter, 10E-4)
-      }
-      it("should have same result for batch & stream mode") {
-        testLeastSquaresBatchStreamEquivalent(filter, "CKFOLSSolution")
+        testLeastSquaresSolutionEquivalent(filter, 10E-3)
       }
     }
 
@@ -80,11 +73,11 @@ class CubatureKalmanFilterSpec
         .setMeasurementFunction(measurementFunc)
 
       it("should estimate model parameters") {
-        testLogRegressionEquivalent(filter, 10E-4)
+        testLogRegressionEquivalent(filter, 10E-3)
       }
 
       it("should have same result for batch & stream mode") {
-        testLogRegressionBatchStreamEquivalent(filter, "CKFLogSolution")
+        testLogRegressionBatchStreamEquivalent(filter, "CKFLogResult")
       }
     }
   }

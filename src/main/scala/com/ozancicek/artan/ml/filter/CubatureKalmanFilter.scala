@@ -90,8 +90,10 @@ class CubatureKalmanFilter(
    */
   def setMeasurementFunction(value: (Vector, Matrix) => Vector): this.type = set(measurementFunction, value)
 
-
-  override def copy(extra: ParamMap): this.type = defaultCopy(extra)
+  override def copy(extra: ParamMap): CubatureKalmanFilter =  {
+    val that = new CubatureKalmanFilter(stateSize, measurementSize)
+    copyValues(that, extra)
+  }
 
   def transform(dataset: Dataset[_]): DataFrame = filter(dataset)
 

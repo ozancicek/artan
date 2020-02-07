@@ -132,7 +132,10 @@ class ExtendedKalmanFilter(
    */
   def setMeasurementNoiseJacobian(value: (Vector, Matrix) => Matrix): this.type = set(measurementNoiseJacobian, value)
 
-  override def copy(extra: ParamMap): ExtendedKalmanFilter = defaultCopy(extra)
+  override def copy(extra: ParamMap): ExtendedKalmanFilter =  {
+    val that = new ExtendedKalmanFilter(stateSize, measurementSize)
+    copyValues(that, extra)
+  }
 
   def transform(dataset: Dataset[_]): DataFrame = filter(dataset)
 

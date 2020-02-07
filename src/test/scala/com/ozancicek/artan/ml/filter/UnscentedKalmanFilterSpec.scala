@@ -17,11 +17,9 @@
 
 package com.ozancicek.artan.ml.filter
 
-import com.ozancicek.artan.ml.testutils.StructuredStreamingTestWrapper
 import org.scalatest.{FunSpec, Matchers}
 import org.apache.spark.ml.linalg._
-import breeze.stats.distributions.RandBasis
-import org.apache.spark.ml.LAPACK
+import com.ozancicek.artan.ml.testutils.RegressionTestWrapper
 import org.apache.spark.sql.Dataset
 
 import scala.math.{abs, exp, sqrt}

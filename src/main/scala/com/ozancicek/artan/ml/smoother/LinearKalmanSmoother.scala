@@ -40,7 +40,7 @@ class LinearKalmanSmoother(
     val measurementSize: Int,
     override val uid: String)
   extends StatefulTransformer[String, KalmanOutput, Queue[KalmanOutput], RTSOutput, LinearKalmanSmoother]
-  with KalmanUpdateParams with HasInitialCovariance with HasInitialState with HasFadingFactor {
+  with KalmanUpdateParams[LinearKalmanSmoother] {
 
   def this(stateSize: Int, measurementSize: Int) = {
     this(stateSize, measurementSize, Identifiable.randomUID("LinearKalmanSmoother"))
@@ -58,22 +58,31 @@ class LinearKalmanSmoother(
   def setFixedLag(value: Int): this.type = set(fixedLag, value)
   def getFixedLag: Int = $(fixedLag)
 
-  def stateUpdateSpec: LinearKalmanSmootherSpec = new LinearKalmanSmootherSpec(getFixedLag)
+  protected def stateUpdateSpec: LKFSmootherStateSpec = new LKFSmootherStateSpec(getFixedLag)
 
   def transformSchema(schema: StructType): StructType = {
     outEncoder.schema
   }
 
-  override def copy(extra: ParamMap): LinearKalmanSmoother = defaultCopy(extra)
+  override def copy(extra: ParamMap): LinearKalmanSmoother =  {
+    val that = new LinearKalmanSmoother(stateSize, measurementSize)
+    copyValues(that, extra)
+  }
 
   def transform(dataset: Dataset[_]): DataFrame = {
-    transformWithState(dataset.toDF)
+
+    val lkf = new LinearKalmanFilter(stateSize, measurementSize)
+
+    val copied = copyValues(lkf, extractParamMap)
+
+    val filtered = copied.transform(dataset)
+    transformWithState(filtered)
   }
 }
 
 
-private[smoother] class LinearKalmanSmootherSpec(lag: Int)
-  extends StateUpdateSpec[String, KalmanOutput, Queue[KalmanOutput], RTSOutput] {
+private[smoother] class LKFSmootherStateSpec(val lag: Int)
+  extends StateUpdateSpec[String, KalmanOutput, Queue[KalmanOutput], RTSOutput]{
 
   private def updateRTSOutput(head: Option[RTSOutput], in: KalmanOutput): RTSOutput = {
     head match {

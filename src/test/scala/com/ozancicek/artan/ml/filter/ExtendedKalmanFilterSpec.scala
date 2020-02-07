@@ -17,8 +17,7 @@
 
 package com.ozancicek.artan.ml.filter
 
-import breeze.stats.distributions.RandBasis
-import com.ozancicek.artan.ml.testutils.StructuredStreamingTestWrapper
+import com.ozancicek.artan.ml.testutils.RegressionTestWrapper
 import org.apache.spark.ml.linalg._
 import org.apache.spark.ml.stat.Summarizer
 import org.apache.spark.sql.Dataset

@@ -120,7 +120,7 @@ private[ml] abstract class StatefulTransformer[
     if(isSet(eventTimeCol)) {
       outDS.withColumnRenamed("eventTime", $(eventTimeCol))
     } else {
-      outDS.drop("eventTime")
+      outDS.toDF
     }
   }
 }

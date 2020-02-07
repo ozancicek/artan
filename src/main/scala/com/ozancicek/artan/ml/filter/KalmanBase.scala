@@ -32,112 +32,12 @@ import org.apache.spark.sql.types._
 /**
  * Base trait for kalman input parameters & columns
  */
-private[artan] trait KalmanUpdateParams extends HasMeasurementCol
+private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
   with HasMeasurementModelCol with HasMeasurementNoiseCol
   with HasProcessModelCol with HasProcessNoiseCol with HasControlCol
   with HasControlFunctionCol with HasProcessModel with HasMeasurementModel
   with HasProcessNoise with HasMeasurementNoise
-  with HasCalculateMahalanobis with HasCalculateLoglikelihood {
-
-  protected def getMeasurementExpr = col($(measurementCol)).cast(SQLDataTypes.VectorType)
-
-  protected def getMeasurementModelExpr = {
-    if (isSet(measurementModelCol)) {
-      col($(measurementModelCol))
-    } else {
-      val default = $(measurementModel)
-      val col = udf(()=>default)
-      col()
-    }
-  }
-
-  protected def getMeasurementNoiseExpr = {
-    if (isSet(measurementNoiseCol)) {
-      col($(measurementNoiseCol))
-    } else {
-      val default = $(measurementNoise)
-      val col = udf(()=>default)
-      col()
-    }
-  }
-
-  protected def getProcessModelExpr = {
-    if (isSet(processModelCol)) {
-      col($(processModelCol))
-    } else {
-      val default = $(processModel)
-      val col = udf(()=>default)
-      col()
-    }
-  }
-
-  protected def getProcessNoiseExpr = {
-    if (isSet(processNoiseCol)) {
-      col($(processNoiseCol))
-    } else {
-      val default = $(processNoise)
-      val col = udf(()=>default)
-      col()
-    }
-  }
-
-  protected def getControlExpr = {
-    if (isSet(controlCol)) {
-      col($(controlCol))
-    } else {
-      lit(null).cast(SQLDataTypes.VectorType)
-    }
-  }
-
-  protected def getControlFunctionExpr = {
-    if (isSet(controlFunctionCol)) {
-      col($(controlFunctionCol))
-    } else {
-      lit(null).cast(SQLDataTypes.MatrixType)
-    }
-  }
-
-  protected def validateSchema(schema: StructType): Unit = {
-    if (isSet(measurementModelCol)) {
-      require(
-        schema($(measurementModelCol)).dataType == SQLDataTypes.MatrixType,
-        "Measurement model column must be MatrixType")
-    }
-
-    val vectorCols = Seq(measurementCol, controlCol)
-    val matrixCols = Seq(
-      measurementModelCol, measurementNoiseCol, processModelCol,
-      processNoiseCol, controlFunctionCol)
-
-    vectorCols.foreach(col=>validateColParamType(schema, col, SQLDataTypes.VectorType))
-    matrixCols.foreach(col=>validateColParamType(schema, col, SQLDataTypes.MatrixType))
-  }
-
-  private def validateColParamType(schema: StructType, col: Param[String], t: DataType): Unit = {
-    if (isSet(col)) {
-      val colname = $(col)
-      val colType = schema(colname).dataType
-      require(colType == t, s"$colname must be of $t, found $colType")
-    }
-  }
-
-}
-
-/**
- * Base trait for kalman filter transformers.
- *
- * @tparam Compute Type responsible for calculating the next state
- * @tparam SpecType Type responsible for progressing the state with a compute instance
- * @tparam ImplType Implementing class type
- */
-private[filter] abstract class KalmanTransformer[
-  Compute <: KalmanStateCompute,
-  SpecType <: KalmanStateUpdateSpec[Compute],
-  ImplType <: KalmanTransformer[Compute, SpecType, ImplType]]
-  extends StatefulTransformer[String, KalmanInput, KalmanState, KalmanOutput, ImplType]
-    with KalmanUpdateParams with HasInitialState with HasInitialCovariance with HasFadingFactor {
-
-  implicit val stateKeyEncoder = Encoders.STRING
+  with HasInitialState with HasInitialCovariance with HasFadingFactor {
 
   /**
    * Set the initial state vector with size (stateSize).
@@ -259,6 +159,106 @@ private[filter] abstract class KalmanTransformer[
    */
   def setControlCol(value: String): ImplType = set(controlCol, value).asInstanceOf[ImplType]
 
+  protected def getMeasurementExpr = col($(measurementCol)).cast(SQLDataTypes.VectorType)
+
+  protected def getMeasurementModelExpr = {
+    if (isSet(measurementModelCol)) {
+      col($(measurementModelCol))
+    } else {
+      val default = $(measurementModel)
+      val col = udf(()=>default)
+      col()
+    }
+  }
+
+  protected def getMeasurementNoiseExpr = {
+    if (isSet(measurementNoiseCol)) {
+      col($(measurementNoiseCol))
+    } else {
+      val default = $(measurementNoise)
+      val col = udf(()=>default)
+      col()
+    }
+  }
+
+  protected def getProcessModelExpr = {
+    if (isSet(processModelCol)) {
+      col($(processModelCol))
+    } else {
+      val default = $(processModel)
+      val col = udf(()=>default)
+      col()
+    }
+  }
+
+  protected def getProcessNoiseExpr = {
+    if (isSet(processNoiseCol)) {
+      col($(processNoiseCol))
+    } else {
+      val default = $(processNoise)
+      val col = udf(()=>default)
+      col()
+    }
+  }
+
+  protected def getControlExpr = {
+    if (isSet(controlCol)) {
+      col($(controlCol))
+    } else {
+      lit(null).cast(SQLDataTypes.VectorType)
+    }
+  }
+
+  protected def getControlFunctionExpr = {
+    if (isSet(controlFunctionCol)) {
+      col($(controlFunctionCol))
+    } else {
+      lit(null).cast(SQLDataTypes.MatrixType)
+    }
+  }
+
+  protected def validateSchema(schema: StructType): Unit = {
+    if (isSet(measurementModelCol)) {
+      require(
+        schema($(measurementModelCol)).dataType == SQLDataTypes.MatrixType,
+        "Measurement model column must be MatrixType")
+    }
+
+    val vectorCols = Seq(measurementCol, controlCol)
+    val matrixCols = Seq(
+      measurementModelCol, measurementNoiseCol, processModelCol,
+      processNoiseCol, controlFunctionCol)
+
+    vectorCols.foreach(col=>validateColParamType(schema, col, SQLDataTypes.VectorType))
+    matrixCols.foreach(col=>validateColParamType(schema, col, SQLDataTypes.MatrixType))
+  }
+
+  private def validateColParamType(schema: StructType, col: Param[String], t: DataType): Unit = {
+    if (isSet(col)) {
+      val colname = $(col)
+      val colType = schema(colname).dataType
+      require(colType == t, s"$colname must be of $t, found $colType")
+    }
+  }
+
+}
+
+/**
+ * Base trait for kalman filter transformers.
+ *
+ * @tparam Compute Type responsible for calculating the next state
+ * @tparam SpecType Type responsible for progressing the state with a compute instance
+ * @tparam ImplType Implementing class type
+ */
+private[filter] abstract class KalmanTransformer[
+  Compute <: KalmanStateCompute,
+  SpecType <: KalmanStateUpdateSpec[Compute],
+  ImplType <: KalmanTransformer[Compute, SpecType, ImplType]]
+  extends StatefulTransformer[String, KalmanInput, KalmanState, KalmanOutput, ImplType]
+    with KalmanUpdateParams[ImplType] with HasCalculateMahalanobis with HasCalculateLoglikelihood {
+
+  implicit val stateKeyEncoder = Encoders.STRING
+
   /**
    * Optionally calculate loglikelihood of each measurement & add it to output dataframe. Loglikelihood is calculated
    * from residual vector & residual covariance matrix.
@@ -308,7 +308,7 @@ private[filter] abstract class KalmanTransformer[
       dfWithLoglikelihood
     }
     else {
-      outDF.drop("residual", "residualCovariance")
+      outDF
     }
   }
 

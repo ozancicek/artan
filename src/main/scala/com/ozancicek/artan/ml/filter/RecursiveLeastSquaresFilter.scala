@@ -63,7 +63,10 @@ class RecursiveLeastSquaresFilter(
 
   protected val defaultStateKey: String = "filter.recursiveLeastSquaresFilter"
 
-  override def copy(extra: ParamMap): RecursiveLeastSquaresFilter = defaultCopy(extra)
+  override def copy(extra: ParamMap): RecursiveLeastSquaresFilter =  {
+    val that = new RecursiveLeastSquaresFilter(featuresSize)
+    copyValues(that, extra)
+  }
 
   /**
    * Set label column. Default is "label"

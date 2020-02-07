@@ -135,8 +135,10 @@ class UnscentedKalmanFilter(
    */
   def setEnableAdaptiveProcessNoise: this.type = set(adaptiveProcessNoise, true)
 
-
-  override def copy(extra: ParamMap): this.type = defaultCopy(extra)
+  override def copy(extra: ParamMap): UnscentedKalmanFilter =  {
+    val that = new UnscentedKalmanFilter(stateSize, measurementSize)
+    copyValues(that, extra)
+  }
 
   def transform(dataset: Dataset[_]): DataFrame = filter(dataset)
 

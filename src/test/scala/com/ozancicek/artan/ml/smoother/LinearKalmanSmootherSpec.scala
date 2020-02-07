@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.ozancicek.artan.ml.filter
+package com.ozancicek.artan.ml.smoother
 
 import org.apache.spark.ml.linalg._
 import org.apache.spark.ml.stat.Summarizer
@@ -34,21 +34,20 @@ case class LinearRegressionMeasurement(measurement: DenseVector, measurementMode
 case class DynamicLinearModel(measurement: DenseVector, processModel: DenseMatrix)
 
 
-class LinearKalmanFilterSpec
+class LinearKalmanSmootherSpec
   extends FunSpec
   with Matchers
   with RegressionTestWrapper {
 
   import spark.implicits._
-  Random.setSeed(0)
+  override def numSamples: Int = 100
 
-  describe("Linear kalman filter tests") {
+  describe("Linear kalman smoother tests") {
     describe("local linear trend") {
 
-      val n = 100
       val dist = breeze.stats.distributions.Gaussian(0, 20)
 
-      val ts = (0 until n).map(_.toDouble).toArray
+      val ts = (0 until numSamples).map(_.toDouble).toArray
       val zs = ts.map(t =>  t + dist.draw())
       val startTime = Timestamp.valueOf("2010-01-01 00:00:00.000")
       val timeDeltaSecs = 60L * 10L
@@ -57,7 +56,7 @@ class LinearKalmanFilterSpec
         LocalLinearMeasurement(new DenseVector(Array(z)), newTs)
       }
 
-      val filter = new LinearKalmanFilter(2, 1)
+      val filter = new LinearKalmanSmoother(2, 1)
         .setMeasurementCol("measurement")
         .setInitialCovariance(
           new DenseMatrix(2, 2, Array(1000, 0, 0, 1000)))
@@ -69,41 +68,30 @@ class LinearKalmanFilterSpec
           new DenseMatrix(1, 1, Array(20)))
         .setMeasurementModel(
           new DenseMatrix(1, 2, Array(1, 0)))
-        .setCalculateMahalanobis
         .setEventTimeCol("eventTime")
-        .setCalculateLoglikelihood
+        .setFixedLag(numSamples)
 
       val query = (in: Dataset[LocalLinearMeasurement]) => filter.transform(in)
 
       it("should have same result for batch & stream mode") {
-        testAppendQueryAgainstBatch(measurements, query, "localLinearTrend")
-      }
-
-      it("should sort by event time") {
-        val ts = query(Random.shuffle(measurements).toDS)
-          .collect.map(_.getAs[Timestamp]("eventTime")).toList
-        val sortedTs = ts.sortWith(_.compareTo(_) < 1)
-        assert(ts == sortedTs)
+        testAppendQueryAgainstBatch(measurements, query, "localLinearTrendSmoothing")
       }
 
       it("should obtain the trend") {
         val batchState = query(Random.shuffle(measurements).toDS)
         val stats = batchState.groupBy($"stateKey")
-          .agg(
-            avg($"mahalanobis").alias("mahalanobis"),
-            Summarizer.mean($"state").alias("avg"))
+          .agg(Summarizer.mean($"state").alias("avg"))
           .head
-
-        assert(stats.getAs[Double]("mahalanobis") < 6.0)
-        assert(scala.math.abs(stats.getAs[DenseVector]("avg")(0) - n / 2) < 1.0)
+        assert(scala.math.abs(stats.getAs[DenseVector]("avg")(0) - numSamples / 2) < 2.0)
         assert(scala.math.abs(stats.getAs[DenseVector]("avg")(1) - 1.0) < 1.0)
       }
 
     }
 
+
     describe("Ordinary least squares") {
 
-      val filter = new LinearKalmanFilter(3, 1)
+      val filter = new LinearKalmanSmoother(3, 1)
         .setInitialCovariance(
           new DenseMatrix(3, 3, Array(10.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 10.0)))
         .setMeasurementCol("measurement")
@@ -111,6 +99,7 @@ class LinearKalmanFilterSpec
         .setProcessModel(DenseMatrix.eye(3))
         .setProcessNoise(DenseMatrix.zeros(3, 3))
         .setMeasurementNoise(new DenseMatrix(1, 1, Array(0.0001)))
+        .setFixedLag(numSamples)
 
 
       it("should have same solution with lapack dgels routine") {
@@ -119,7 +108,7 @@ class LinearKalmanFilterSpec
       }
 
       it("should have same result for batch & stream mode") {
-        testLeastSquaresBatchStreamEquivalent(filter, "LKFOls")
+        testLeastSquaresBatchStreamEquivalent(filter, "LKSOls")
       }
     }
 
@@ -127,14 +116,13 @@ class LinearKalmanFilterSpec
       // Linear regression where params perform a random walk
       // z = a*x + b + N(0, R)
       // [a, b] = [a, b] + N(0, Q)
-      val n = 100
       val R = breeze.stats.distributions.Gaussian(0, 1)
       val Q1 = breeze.stats.distributions.Gaussian(0, 0.1)
       val Q2 = breeze.stats.distributions.Gaussian(0, 0.15)
 
       var a = 1.5
       var b = -2.7
-      val xs = (0 until n).map(_.toDouble).toArray
+      val xs = (0 until numSamples).map(_.toDouble).toArray
       val zs = xs.map { x =>
         a += Q1.draw()
         b += Q2.draw()
@@ -142,7 +130,7 @@ class LinearKalmanFilterSpec
         z
       }
 
-      val measurements = (1 until n).map { i=>
+      val measurements = (1 until numSamples).map { i=>
         val dx = xs(i) - xs(i - 1)
         val measurement = new DenseVector(Array(zs(i)))
         val processModel = new DenseMatrix(
@@ -150,7 +138,7 @@ class LinearKalmanFilterSpec
         DynamicLinearModel(measurement, processModel)
       }
 
-      val filter = new LinearKalmanFilter(2, 1)
+      val filter = new LinearKalmanSmoother(2, 1)
         .setInitialCovariance(
           new DenseMatrix(2, 2, Array(10.0, 0.0, 0.0, 10.0)))
         .setMeasurementCol("measurement")
@@ -159,8 +147,7 @@ class LinearKalmanFilterSpec
         .setProcessNoise(
           new DenseMatrix(2, 2, Array(0.1, 0.0, 0.0, 0.05)))
         .setMeasurementNoise(new DenseMatrix(1, 1, Array(0.01)))
-        .setCalculateMahalanobis
-        .setCalculateLoglikelihood
+        .setFixedLag(numSamples - 1)
 
       val query = (in: Dataset[DynamicLinearModel]) => filter.transform(in)
 
@@ -168,7 +155,7 @@ class LinearKalmanFilterSpec
         val modelState = query(measurements.toDS())
 
         val lastState = modelState.collect
-          .filter(row=>row.getAs[Long]("stateIndex") == n - 1)(0)
+          .filter(row=>row.getAs[Long]("stateIndex") == numSamples - 1)(0)
           .getAs[DenseVector]("state")
 
         val stats = modelState.groupBy($"stateKey")
@@ -179,7 +166,7 @@ class LinearKalmanFilterSpec
       }
 
       it("should have same result for batch & stream mode") {
-        testAppendQueryAgainstBatch(measurements, query, "dynamicLinearModel")
+        testAppendQueryAgainstBatch(measurements, query, "dynamicLinearModelSmoothing")
       }
     }
   }
