@@ -104,11 +104,6 @@ class LinearKalmanSmootherSpec
 
       it("should have same solution with lapack dgels routine") {
         testLeastSquaresSolutionEquivalent(filter, 10E-4)
-
-      }
-
-      it("should have same result for batch & stream mode") {
-        testLeastSquaresBatchStreamEquivalent(filter, "LKSOls")
       }
     }
 
