@@ -19,13 +19,12 @@ package com.ozancicek.artan.ml.state
 
 import java.sql.Timestamp
 
-import org.apache.spark.ml.linalg.{DenseVector, Matrix, Vector}
-import com.ozancicek.artan.ml.linalg.LinalgUtils
-import com.ozancicek.artan.ml.stats.MultivariateGaussian
+import org.apache.spark.ml.linalg.{Matrix, Vector}
+
 
 /**
  * Case class for inputs of a kalman filter. Let state at step k be denoted with x_k, measurement with
- * z_k, where x_k and z_k are vectors of lenght n_state and n_obs
+ * z_k, where x_k and z_k are vectors of length n_state and n_obs
  *
  * State evolution:
  * x_k = F_k * x_k-1 + B_k * u_k + w_k
@@ -34,6 +33,8 @@ import com.ozancicek.artan.ml.stats.MultivariateGaussian
  * z_k = H_k * x_k + v_k
  *
  * @param stateKey Key of the filter state.
+ * @param initialState x_0, Vector with length n_state
+ * @param initialCovariance Covariance matrix with dimensions (n_state, n_state)
  * @param measurement z_k, Vector with length n_obs
  * @param measurementModel H_k, Matrix with dimensions (n_state, n_obs)
  * @param measurementNoise v_k, Matrix with dimensions (n_obs, n_obs)
@@ -45,6 +46,8 @@ import com.ozancicek.artan.ml.stats.MultivariateGaussian
  */
 private[ml] case class KalmanInput(
     stateKey: String,
+    initialState: Vector,
+    initialCovariance: Matrix,
     measurement: Option[Vector],
     measurementModel: Option[Matrix],
     measurementNoise: Option[Matrix],

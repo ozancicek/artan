@@ -140,8 +140,6 @@ class ExtendedKalmanFilter(
   def transform(dataset: Dataset[_]): DataFrame = filter(dataset)
 
   protected def stateUpdateSpec: ExtendedKalmanStateSpec = new ExtendedKalmanStateSpec(
-    getInitialState,
-    getInitialCovariance,
     getFadingFactor,
     getProcessFunctionOpt,
     getProcessStateJacobianOpt,
@@ -157,8 +155,6 @@ class ExtendedKalmanFilter(
  * Function spec for EKF
  */
 private[filter] class ExtendedKalmanStateSpec(
-    val stateMean: Vector,
-    val stateCov: Matrix,
     val fadingFactor: Double,
     val processFunction: Option[(Vector, Matrix) => Vector],
     val processStateJacobian: Option[(Vector, Matrix) => Matrix],

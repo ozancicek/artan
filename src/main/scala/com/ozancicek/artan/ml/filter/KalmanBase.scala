@@ -37,15 +37,24 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
   with HasProcessModelCol with HasProcessNoiseCol with HasControlCol
   with HasControlFunctionCol with HasProcessModel with HasMeasurementModel
   with HasProcessNoise with HasMeasurementNoise
-  with HasInitialState with HasInitialCovariance with HasFadingFactor {
+  with HasInitialState with HasInitialCovariance with HasFadingFactor
+  with HasInitialStateCol with HasInitialCovarianceCol {
 
   /**
    * Set the initial state vector with size (stateSize).
    *
    * It will be applied to all states. If the state timeouts and starts receiving
-   * measurements after timeout, it will again start from this initial state vector. Default is zero.
+   * measurements after timeout, it will again start from this initial state vector. Default is zero. For different
+   * initial state vector across filters or measurements, set the dataframe column with setInitialStateCol
    */
   def setInitialState(value: Vector): ImplType = set(initialState, value).asInstanceOf[ImplType]
+
+  /**
+   * Set the column corresponding to initial state vector.
+   *
+   * The vectors in the column should be of size (stateSize).
+   */
+  def setInitialStateCol(value: String): ImplType = set(initialStateCol, value).asInstanceOf[ImplType]
 
   /**
    * Set the initial covariance matrix with dimensions (stateSize, stateSize)
@@ -54,6 +63,13 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
    * measurements after timeout, it will again start from this initial covariance vector. Default is identity matrix.
    */
   def setInitialCovariance(value: Matrix): ImplType = set(initialCovariance, value).asInstanceOf[ImplType]
+
+  /**
+   * Set the column corresponding to initial covariance matrix.
+   *
+   * The matrices in the column should be of dimensions (stateSize, statesize).
+   */
+  def setInitialCovarianceCol(value: String): ImplType = set(initialCovarianceCol, value).asInstanceOf[ImplType]
 
   /**
    * Fading factor for giving more weights to more recent measurements. If needed, it should be greater than one.
@@ -158,6 +174,26 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
    * which will result in state transition without control input.
    */
   def setControlCol(value: String): ImplType = set(controlCol, value).asInstanceOf[ImplType]
+
+  protected def getInitialStateExpr = {
+    if (isSet(initialStateCol)) {
+      col($(initialStateCol))
+    } else {
+      val default = $(initialState)
+      val col = udf(() => default)
+      col()
+    }
+  }
+
+  protected def getInitialCovarianceExpr = {
+    if (isSet(initialCovarianceCol)) {
+      col($(initialCovarianceCol))
+    } else {
+      val default = $(initialCovariance)
+      val col = udf(() => default)
+      col()
+    }
+  }
 
   protected def getMeasurementExpr = col($(measurementCol)).cast(SQLDataTypes.VectorType)
 
@@ -315,6 +351,8 @@ private[filter] abstract class KalmanTransformer[
   private def toKalmanInput(dataset: Dataset[_]): DataFrame = {
     /* Get the column expressions and convert to Dataset[KalmanInput]*/
     dataset
+      .withColumn("initialState", getInitialStateExpr)
+      .withColumn("initialCovariance", getInitialCovarianceExpr)
       .withColumn("measurement", getMeasurementExpr)
       .withColumn("measurementModel", getMeasurementModelExpr)
       .withColumn("measurementNoise", getMeasurementNoiseExpr)
@@ -336,12 +374,6 @@ private[filter] trait KalmanStateUpdateSpec[+Compute <: KalmanStateCompute]
   extends StateUpdateSpec[String, KalmanInput, KalmanState, KalmanOutput] {
 
   val kalmanCompute: Compute
-
-  /* Initial state vector*/
-  def stateMean: Vector
-
-  /* Initial covariance matrix*/
-  def stateCov: Matrix
 
   /* Whether to store residual in the state */
   def storeResidual: Boolean
@@ -381,8 +413,8 @@ private[filter] trait KalmanStateUpdateSpec[+Compute <: KalmanStateCompute]
     val currentState = state
       .getOrElse(KalmanState(
         0L,
-        stateMean.toDense,
-        stateCov.toDense,
+        row.initialState,
+        row.initialCovariance,
         None,
         None,
         None,

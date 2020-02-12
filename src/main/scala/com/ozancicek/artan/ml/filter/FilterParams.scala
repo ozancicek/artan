@@ -264,6 +264,32 @@ private[artan] trait HasMeasurementNoiseJacobian extends Params {
   final def getMeasurementNoiseJacobianOpt: Option[(Vector, Matrix) => Matrix] = get(measurementNoiseJacobian)
 }
 
+/**
+ * Param for initial state column
+ */
+private[artan] trait HasInitialStateCol extends Params {
+
+  final val initialStateCol: Param[String] = new Param[String](
+    this,
+    "initialStateCol",
+    "Column name for initial state vector")
+
+  final def getInitialStateCol: String = $(initialStateCol)
+}
+
+
+/**
+ * Param for initial state covariance column
+ */
+private[artan] trait HasInitialCovarianceCol extends Params {
+
+  final val initialCovarianceCol: Param[String] = new Param[String](
+    this,
+    "initialCovarianceCol",
+    "Column name for initial covariance matrix")
+
+  final def getInitialCovarianceCol: String = $(initialCovarianceCol)
+}
 
 /**
  * Param for measurement column

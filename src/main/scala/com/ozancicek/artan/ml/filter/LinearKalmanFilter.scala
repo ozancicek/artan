@@ -80,8 +80,6 @@ class LinearKalmanFilter(
   def transform(dataset: Dataset[_]): DataFrame = filter(dataset)
 
   protected def stateUpdateSpec: LinearKalmanStateSpec = new LinearKalmanStateSpec(
-    getInitialState,
-    getInitialCovariance,
     getFadingFactor,
     outputResiduals
   )
@@ -90,14 +88,10 @@ class LinearKalmanFilter(
 /**
  * Function spec for updating linear kalman state
  *
- * @param stateMean Initial state vector for all keys & filters
- * @param stateCov Initial state covariance matrix for all keys & filters
  * @param fadingFactor Factor weighting for recent measurements, >= 1.0
  * @param storeResidual Boolean flag to store residuals in the state
  */
 private[filter] class LinearKalmanStateSpec(
-    val stateMean: Vector,
-    val stateCov: Matrix,
     val fadingFactor: Double,
     val storeResidual: Boolean)
   extends KalmanStateUpdateSpec[LinearKalmanStateCompute] {

@@ -143,8 +143,6 @@ class UnscentedKalmanFilter(
   def transform(dataset: Dataset[_]): DataFrame = filter(dataset)
 
   protected def stateUpdateSpec: UnscentedKalmanStateSpec = new UnscentedKalmanStateSpec(
-    getInitialState,
-    getInitialCovariance,
     getFadingFactor,
     getSigmaPoints,
     getProcessFunctionOpt,
@@ -158,8 +156,6 @@ class UnscentedKalmanFilter(
  * Function spec for UKF.
  */
 private[filter] class UnscentedKalmanStateSpec(
-    val stateMean: Vector,
-    val stateCov: Matrix,
     val fadingFactor: Double,
     val sigma: SigmaPoints,
     val processFunction: Option[(Vector, Matrix) => Vector],

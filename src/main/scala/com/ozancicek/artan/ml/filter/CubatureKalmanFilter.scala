@@ -98,8 +98,6 @@ class CubatureKalmanFilter(
   def transform(dataset: Dataset[_]): DataFrame = filter(dataset)
 
   protected def stateUpdateSpec: CubatureKalmanStateSpec = new CubatureKalmanStateSpec(
-    getInitialState,
-    getInitialCovariance.toDense,
     getFadingFactor,
     new CubaturePoints(stateSize),
     getProcessFunctionOpt,
@@ -112,8 +110,6 @@ class CubatureKalmanFilter(
  * Function spec for CKF.
  */
 private[filter] class CubatureKalmanStateSpec(
-    val stateMean: Vector,
-    val stateCov: Matrix,
     val fadingFactor: Double,
     val cubature: CubaturePoints,
     val processFunction: Option[(Vector, Matrix) => Vector],
