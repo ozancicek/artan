@@ -26,12 +26,14 @@ import java.sql.Timestamp
  * @param label Label corresponding to the features.
  * @param features Features vector.
  * @param eventTime event time of the input
+ * @param initialState initial state vector
  */
 case class LMSInput(
     stateKey: String,
     label: Double,
     features: Vector,
-    eventTime: Option[Timestamp]) extends KeyedInput[String]
+    eventTime: Option[Timestamp],
+    initialState: Vector) extends KeyedInput[String]
 
 
 /**

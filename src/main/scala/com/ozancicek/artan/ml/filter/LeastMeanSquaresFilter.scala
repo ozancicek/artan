@@ -26,6 +26,7 @@ import org.apache.spark.ml.param.shared._
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{BLAS}
 import org.apache.spark.sql._
+import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.Encoders
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
@@ -55,7 +56,8 @@ class LeastMeanSquaresFilter(
     val featuresSize: Int,
     override val uid: String)
   extends StatefulTransformer[String, LMSInput, LMSState, LMSOutput, LeastMeanSquaresFilter]
-  with HasLabelCol with HasFeaturesCol with HasInitialState with HasLearningRate with HasRegularizationConstant {
+  with HasLabelCol with HasFeaturesCol with HasInitialState with HasLearningRate with HasRegularizationConstant
+  with HasInitialStateCol {
 
   implicit val stateKeyEncoder = Encoders.STRING
 
@@ -83,11 +85,17 @@ class LeastMeanSquaresFilter(
   setDefault(featuresCol, "features")
 
   /**
-   * Set initial estimate for all states. Must have same size with features vector.
+   * Set initial estimate for all states. Must have same size with features vector. To set different initial
+   * estimates, use setInitialEstimateCol
    *
    * Default is zero vector
    */
   def setInitialEstimate(value: Vector): this.type = set(initialState, value)
+
+  /**
+   * Set initial estimate vector column. It will override setInitialEstimate.
+   */
+  def setInitialEstimateCol(value: String): this.type = set(initialStateCol, value)
 
   /**
    * Set learning rate controlling the speed of convergence. Without noise, 1.0 is optimal since filter is normalized.
@@ -120,16 +128,23 @@ class LeastMeanSquaresFilter(
 
   def filter(dataset: Dataset[_]): DataFrame = {
     transformSchema(dataset.schema)
+    val initialStateExpr = if (isSet(initialStateCol)) {
+      col(getInitialStateCol)
+    } else {
+      val f = udf(() => getInitialState)
+      f()
+    }
     val lmsUpdateDS = dataset
       .withColumn("label", col($(labelCol)))
       .withColumn("features", col($(featuresCol)))
+      .withColumn("initialState", initialStateExpr)
     transformWithState(lmsUpdateDS)
   }
 
   def transform(dataset: Dataset[_]): DataFrame = filter(dataset)
 
   protected def stateUpdateSpec: LeastMeanSquaresUpdateSpec = new LeastMeanSquaresUpdateSpec(
-    getInitialState, getLearningRate, getRegularizationConstant)
+    getLearningRate, getRegularizationConstant)
 
 }
 
@@ -137,7 +152,6 @@ class LeastMeanSquaresFilter(
  * Function spec for calculating Normalized LMS updates
  */
 private[filter] class LeastMeanSquaresUpdateSpec(
-    val stateMean: Vector,
     val learningRate: Double,
     val regularizationConstant: Double)
   extends StateUpdateSpec[String, LMSInput, LMSState, LMSOutput] {
@@ -156,7 +170,7 @@ private[filter] class LeastMeanSquaresUpdateSpec(
     state: Option[LMSState]): Option[LMSState] = {
 
     val currentState = state
-      .getOrElse(LMSState(0L, stateMean))
+      .getOrElse(LMSState(0L, row.initialState))
 
     val features = row.features
 

@@ -42,12 +42,16 @@ case class RLSOutput(
  * @param label Label corresponding to the features
  * @param features Features vector
  * @param eventTime event time of input
+ * @param initialState initial state vector
+ * @param initialCovariance initial covariance matrix
  */
 case class RLSInput(
     stateKey: String,
     label: Double,
     features: Vector,
-    eventTime: Option[Timestamp]) extends KeyedInput[String]
+    eventTime: Option[Timestamp],
+    initialState: Vector,
+    initialCovariance: Matrix) extends KeyedInput[String]
 
 
 /**

@@ -17,7 +17,7 @@
 
 package com.ozancicek.artan.ml.filter
 
-import com.ozancicek.artan.ml.state.{RLSOutput, RLSState, RLSInput, StateUpdateSpec, StatefulTransformer}
+import com.ozancicek.artan.ml.state.{RLSInput, RLSOutput, RLSState, StateUpdateSpec, StatefulTransformer}
 import org.apache.spark.ml.linalg.SQLDataTypes
 import org.apache.spark.ml.linalg.{DenseMatrix, Matrix, Vector}
 import org.apache.spark.ml.param._
@@ -26,7 +26,7 @@ import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.BLAS
 import org.apache.spark.sql._
 import org.apache.spark.sql.Encoders
-import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.types._
 
 
@@ -54,7 +54,7 @@ class RecursiveLeastSquaresFilter(
     override val uid: String)
   extends StatefulTransformer[String, RLSInput, RLSState, RLSOutput, RecursiveLeastSquaresFilter]
   with HasLabelCol with HasFeaturesCol with HasForgettingFactor
-  with HasInitialState with HasRegularizationMatrix {
+  with HasInitialState with HasRegularizationMatrix with HasInitialStateCol with HasRegularizationMatrixCol {
 
   implicit val stateKeyEncoder = Encoders.STRING
   def stateSize: Int = featuresSize
@@ -90,7 +90,8 @@ class RecursiveLeastSquaresFilter(
 
   /**
    * Set regularization matrix governing the influence of the initial estimate (prior). Larger values will
-   * remove regularization effect, making the filter behave like OLS.
+   * remove regularization effect, making the filter behave like OLS. Use setRegularizationMatrixCol for different
+   * values accross filters.
    *
    * Default is 10E5 * I
    */
@@ -104,9 +105,20 @@ class RecursiveLeastSquaresFilter(
   setDefault(regularizationMatrix, getFactoredIdentity(10E5))
 
   /**
-   * Set initial estimate for model parameters. Default is zero vector.
+   * Set initial estimate for model parameters for all filters. Use setInitialEstimateCol for different
+   * initial estimates across filters. Default is zero vector.
    */
   def setInitialEstimate(value: Vector): this.type = set(initialState, value)
+
+  /**
+   * Set initial estimate column.
+   */
+  def setInitialEstimateCol(value: String): this.type = set(initialStateCol, value)
+
+  /**
+   * Set regularization matrix column.
+   */
+  def setRegularizationMatrixCol(value: String): this.type = set(regularizationMatrixCol, value)
 
   private def getFactoredIdentity(value: Double): DenseMatrix = {
     new DenseMatrix(stateSize, stateSize, DenseMatrix.eye(stateSize).values.map(_ * value))
@@ -128,17 +140,33 @@ class RecursiveLeastSquaresFilter(
 
   def filter(dataset: Dataset[_]): DataFrame = {
     transformSchema(dataset.schema)
+
+    val initialStateExpr = if (isSet(initialStateCol)) {
+      col(getInitialStateCol)
+    } else {
+      val f = udf(() => getInitialState)
+      f()
+    }
+
+    val regMatExpr = if (isSet(regularizationMatrixCol)) {
+      col(getRegularizationMatrixCol)
+    } else {
+      val f = udf(() => getRegularizationMatrix)
+      f()
+    }
+
     val rlsUpdateDS = dataset
       .withColumn("label", col($(labelCol)))
       .withColumn("features", col($(featuresCol)))
+      .withColumn("initialState", initialStateExpr)
+      .withColumn("initialCovariance", regMatExpr)
+
     transformWithState(rlsUpdateDS)
   }
 
   def transform(dataset: Dataset[_]): DataFrame = filter(dataset)
 
   protected def stateUpdateSpec: RecursiveLeastSquaresUpdateSpec = new RecursiveLeastSquaresUpdateSpec(
-    getInitialState,
-    getRegularizationMatrix,
     getForgettingFactor)
 }
 
@@ -146,8 +174,6 @@ class RecursiveLeastSquaresFilter(
  * Function spec for calculating RLS updates.
  */
 private[filter] class RecursiveLeastSquaresUpdateSpec(
-    val stateMean: Vector,
-    val stateCov: Matrix,
     val forgettingFactor: Double)
   extends StateUpdateSpec[String, RLSInput, RLSState, RLSOutput] {
 
@@ -169,7 +195,7 @@ private[filter] class RecursiveLeastSquaresUpdateSpec(
     val label = row.label
 
     val currentState = state
-      .getOrElse(RLSState(0L, stateMean, stateCov))
+      .getOrElse(RLSState(0L, row.initialState, row.initialCovariance))
 
     val model = currentState.covariance.transpose.multiply(features)
 
@@ -225,5 +251,19 @@ private[filter] trait HasRegularizationMatrix extends Params {
   setDefault(regularizationMatrix, DenseMatrix.eye(featuresSize))
 
   final def getRegularizationMatrix: Matrix = $(regularizationMatrix)
+
+}
+
+private[filter] trait HasRegularizationMatrixCol extends Params {
+
+  def featuresSize: Int
+
+  final val regularizationMatrixCol: Param[String] = new Param[String](
+    this,
+    "regularizationMatrixCol",
+    "Regularization matrix column for specifying different reg matrices across filters")
+
+
+  final def getRegularizationMatrixCol: String = $(regularizationMatrixCol)
 
 }
