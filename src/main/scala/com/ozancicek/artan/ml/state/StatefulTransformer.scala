@@ -30,6 +30,24 @@ import java.sql.Timestamp
 
 import scala.reflect.runtime.universe.TypeTag
 
+
+trait StatefulTransformerParams[
+  ImplType,
+  GroupKeyType] extends Params with HasStateTimeoutMode with HasEventTimeCol
+  with HasWatermarkDuration with HasStateKeyCol[GroupKeyType] with HasStateTimeoutDuration {
+
+  def setStateKeyCol(value: String): ImplType = set(stateKeyCol, value).asInstanceOf[ImplType]
+
+  def setStateTimeoutMode(value: String): ImplType = set(timeoutMode, value).asInstanceOf[ImplType]
+  setDefault(timeoutMode, "none")
+
+  def setStateTimeoutDuration(value: String): ImplType = set(stateTimeoutDuration, value).asInstanceOf[ImplType]
+
+  def setEventTimeCol(value: String): ImplType = set(eventTimeCol, value).asInstanceOf[ImplType]
+
+  def setWatermarkDuration(value: String): ImplType = set(watermarkDuration, value).asInstanceOf[ImplType]
+}
+
 /**
  * Base class for a stateful [[org.apache.spark.ml.Transformer]]. Performs a stateful transformation
  * using flatMapGroupsWithState function, which is specified with a [[StateUpdateSpec]]. Currently, only
@@ -47,19 +65,7 @@ private[ml] abstract class StatefulTransformer[
   StateType : ClassTag,
   OutType <: KeyedOutput[GroupKeyType] : TypeTag,
   ImplType <: StatefulTransformer[GroupKeyType, RowType, StateType, OutType, ImplType]] extends Transformer
-  with HasStateTimeoutMode with HasEventTimeCol with HasWatermarkDuration with HasStateKeyCol[GroupKeyType]
-  with HasStateTimeoutDuration {
-
-  def setStateKeyCol(value: String): ImplType = set(stateKeyCol, value).asInstanceOf[ImplType]
-
-  def setStateTimeoutMode(value: String): ImplType = set(timeoutMode, value).asInstanceOf[ImplType]
-  setDefault(timeoutMode, "none")
-
-  def setStateTimeoutDuration(value: String): ImplType = set(stateTimeoutDuration, value).asInstanceOf[ImplType]
-
-  def setEventTimeCol(value: String): ImplType = set(eventTimeCol, value).asInstanceOf[ImplType]
-
-  def setWatermarkDuration(value: String): ImplType = set(watermarkDuration, value).asInstanceOf[ImplType]
+  with StatefulTransformerParams[ImplType, GroupKeyType] {
 
   /* Function to pass to flatMapGroupsWithState */
   protected def stateUpdateSpec: StateUpdateSpec[GroupKeyType, RowType, StateType, OutType]

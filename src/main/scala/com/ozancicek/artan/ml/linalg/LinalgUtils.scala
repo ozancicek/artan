@@ -17,12 +17,56 @@
 
 package com.ozancicek.artan.ml.linalg
 
-import org.apache.spark.ml.linalg.{DenseVector, DenseMatrix, SparseMatrix}
+import org.apache.spark.ml.linalg.{DenseVector, DenseMatrix, SparseMatrix, Matrix}
 import org.apache.spark.ml.{BLAS, LAPACK}
+import org.apache.spark.sql.expressions.MutableAggregationBuffer
+import org.apache.spark.sql.expressions.UserDefinedAggregateFunction
+import org.apache.spark.sql.Row
+import org.apache.spark.sql.types._
+import org.apache.spark.ml.linalg.SQLDataTypes
 import scala.math.{sqrt => scalarSqrt}
 
 
 object LinalgUtils {
+
+  private class MatrixAxpy(numRows: Int, numCols: Int) extends UserDefinedAggregateFunction {
+
+    override def inputSchema: StructType = StructType(
+      StructField("alpha", DoubleType) ::
+      StructField("mat", SQLDataTypes.MatrixType) :: Nil)
+
+    override def bufferSchema: StructType = StructType(
+      StructField("buffer", SQLDataTypes.MatrixType) :: Nil
+    )
+
+    override def dataType: DataType = SQLDataTypes.MatrixType
+
+    override def deterministic: Boolean = true
+
+    override def initialize(buffer: MutableAggregationBuffer): Unit = {
+      buffer(0) = DenseMatrix.zeros(numRows, numCols)
+    }
+
+    override def update(buffer: MutableAggregationBuffer, input: Row): Unit = {
+      input match { case Row(alpha: Double, mat: Matrix) =>
+        val result = buffer.getAs[DenseMatrix](0)
+        BLAS.axpy(alpha, mat.toDense, result)
+        buffer(0) = result
+      }
+    }
+
+    override def merge(buffer1: MutableAggregationBuffer, buffer2: Row): Unit = {
+      val result = buffer1.getAs[DenseMatrix](0)
+      BLAS.axpy(1.0, buffer2.getAs[DenseMatrix](0), result)
+      buffer1(0) = result
+    }
+
+    override def evaluate(buffer: Row): Any = {
+      buffer.getAs[DenseMatrix](0)
+    }
+  }
+
+  def axpyMatrixAggregate(numRows: Int, numCols: Int): UserDefinedAggregateFunction = new MatrixAxpy(numRows, numCols)
 
   def upperTriangle(a: DenseMatrix): Unit = {
     for {

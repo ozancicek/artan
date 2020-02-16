@@ -20,9 +20,11 @@ package com.ozancicek.artan.ml.linalg
 import org.apache.spark.ml.linalg._
 import org.scalatest.{FunSpec, Matchers}
 import scala.math.abs
+import com.ozancicek.artan.ml.testutils.SparkSessionTestWrapper
+import org.apache.spark.sql.functions._
 
-
-class LinalgUtilsSpec extends FunSpec with Matchers {
+class LinalgUtilsSpec extends FunSpec with Matchers with SparkSessionTestWrapper {
+  import spark.implicits._
 
   def sumAbsoluteError(left: DenseMatrix, right: DenseMatrix): Double = {
     left.values.zip(right.values).foldLeft(0.0) { case(s, (l, r)) => s + abs(l-r)}
@@ -42,6 +44,22 @@ class LinalgUtilsSpec extends FunSpec with Matchers {
       val sqrtTest = LinalgUtils.sqrt(testMat)
       val expectedTestMat = sqrtTest.multiply(sqrtTest)
       assert(sumAbsoluteError(expectedTestMat, testMat) < 10E-8)
+    }
+
+    it("should aggregate matrices") {
+      val df = Seq(
+        (1.0, DenseMatrix.eye(2)),
+        (2.0, DenseMatrix.eye(2)),
+        (3.0, DenseMatrix.eye(2)),
+        (1.0, DenseMatrix.zeros(2, 2))).toDF("alpha", "mat")
+
+      val aggFunction = LinalgUtils.axpyMatrixAggregate(2, 2)
+
+      val agg = df.groupBy(lit(1))
+        .agg(aggFunction($"alpha", $"mat").alias("agg"))
+        .head.getAs[DenseMatrix](1)
+
+      assert(agg == new DenseMatrix(2, 2, Array(6.0, 0.0, 0.0, 6.0)))
     }
   }
 }
