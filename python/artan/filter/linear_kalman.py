@@ -19,10 +19,11 @@ from artan.state import StatefulTransformer
 from artan.filter.filter_params import *
 
 
-class LinearKalmanFilter(StatefulTransformer, HasInitialState, HasInitialCovariance, HasProcessModel,
-                         HasFadingFactor, HasMeasurementModel, HasMeasurementNoise, HasProcessNoise,
-                         HasMeasurementCol, HasMeasurementModelCol, HasMeasurementNoiseCol,
-                         HasProcessModelCol, HasProcessNoiseCol, HasControlCol, HasControlFunctionCol,
+class LinearKalmanFilter(StatefulTransformer, HasInitialState, HasInitialCovariance, HasInitialStateCol,
+                         HasInitialCovarianceCol, HasProcessModel, HasFadingFactor, HasMeasurementModel,
+                         HasMeasurementNoise, HasProcessNoise, HasMeasurementCol,
+                         HasMeasurementModelCol, HasMeasurementNoiseCol, HasProcessModelCol,
+                         HasProcessNoiseCol, HasControlCol, HasControlFunctionCol,
                          HasCalculateMahalanobis, HasCalculateLoglikelihood):
     """
     Linear Kalman Filter, implemented with a stateful spark Transformer for running parallel filters /w spark
@@ -66,10 +67,23 @@ class LinearKalmanFilter(StatefulTransformer, HasInitialState, HasInitialCovaria
         It will be applied to all states. If the state timeouts and starts receiving
         measurements after timeout, it will again start from this initial state vector. Default is zero.
 
+        Note that if this parameter is set through here, it will result in same initial state for all filters.
+        For different initial states across filters, set the dataframe column for corresponding to initial state
+        with setInitialStateCol.
+
         :param value: pyspark.ml.linalg.Vector with size (stateSize)
         :return: LinearKalmanFilter
         """
         return self._set(initialState=value)
+
+    def setInitialStateCol(self, value):
+        """
+        Set the column corresponding to initial state vector. Overrides setInitialState setting.
+
+        :param value: String
+        :return: LinearKalmanFilter
+        """
+        return self._set(initialStateCol=value)
 
     def setInitialCovariance(self, value):
         """
@@ -81,6 +95,15 @@ class LinearKalmanFilter(StatefulTransformer, HasInitialState, HasInitialCovaria
         :return: LinearKalmanFilter
         """
         return self._set(initialCovariance=value)
+
+    def setInitialCovarianceCol(self, value):
+        """
+        Set the column corresponding to initial covariance matrix. Overrides setInitialCovariance setting.
+
+        :param value: String
+        :return: LinearKalmanFilter
+        """
+        return self._set(initialCovarianceCol=value)
 
     def setFadingFactor(self, value):
         """

@@ -17,3 +17,4 @@
 
 from artan.filter.recursive_least_squares import RecursiveLeastSquaresFilter
 from artan.filter.linear_kalman import LinearKalmanFilter
+from artan.filter.least_mean_squares import LeastMeanSquaresFilter

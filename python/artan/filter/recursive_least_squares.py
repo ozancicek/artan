@@ -18,9 +18,10 @@
 import numpy as np
 
 from pyspark.ml.param import Params, Param, TypeConverters
+from pyspark.ml.param.shared import HasLabelCol, HasFeaturesCol
 from pyspark.ml.linalg import DenseMatrix
 from artan.state import StatefulTransformer
-from artan.filter.filter_params import HasInitialState
+from artan.filter.filter_params import HasInitialState, HasInitialStateCol
 
 
 class HasForgettingFactor(Params):
@@ -65,8 +66,30 @@ class HasRegularizationMatrix(Params):
         return self.getOrDefault(self.regularizationMatrix)
 
 
-class RecursiveLeastSquaresFilter(StatefulTransformer, HasInitialState,
-                                  HasForgettingFactor, HasRegularizationMatrix):
+class HasRegularizationMatrixCol(Params):
+    """
+    Mixin for param regularization matrix column.
+    """
+
+    regularizationMatrixCol = Param(
+        Params._dummy(),
+        "regularizationMatrixCol",
+        "Regularization matrix column for specifying different reg matrices across filters",
+        typeConverter=TypeConverters.toString)
+
+    def __init__(self):
+        super(HasRegularizationMatrixCol, self).__init__()
+
+    def getRegularizationMatrixCol(self):
+        """
+        Gets the value of regularization matrix column or its default value.
+        """
+        return self.getOrDefault(self.regularizationMatrixCol)
+
+
+class RecursiveLeastSquaresFilter(StatefulTransformer, HasInitialState, HasInitialStateCol,
+                                  HasForgettingFactor, HasRegularizationMatrix, HasRegularizationMatrixCol,
+                                  HasLabelCol, HasFeaturesCol):
     """
     Recursive formulation of least squares with exponential weighting & regularization, implemented with
     a stateful spark Transformer for running parallel filters /w spark dataframes. Transforms an input dataframe
@@ -112,10 +135,22 @@ class RecursiveLeastSquaresFilter(StatefulTransformer, HasInitialState,
         """
         Set initial estimate for model parameters. Default is zero vector.
 
+        Note that if this parameter is set through here, it will result in same initial estimate for all filters.
+        For different initial estimates across filters, set the dataframe column for corresponding to initial estimate
+        with setInitialEstimateCol.
+
         :param value: pyspark.ml.linalg.Vector with size (featuresSize)
         :return: RecursiveLeastSquaresFilter
         """
         return self._set(initialState=value)
+
+    def setInitialEstimateCol(self, value):
+        """
+        Sets the column corresponding to initial estimates
+        :param value: String
+        :return: RecursiveLeastSquaresFilter
+        """
+        return self._set(initialStateCol=value)
 
     def setForgettingFactor(self, value):
         """
@@ -136,10 +171,22 @@ class RecursiveLeastSquaresFilter(StatefulTransformer, HasInitialState,
 
         Default is 10E5 * I
 
+        Note that if this parameter is set through here, it will result in same regularization for all filters.
+        For different regularizations across filters, set the dataframe column for corresponding to regularization
+        with setRegularizationMatrixCol.
+
         :param value: pyspark.ml.linalg.Matrix with size (featuresSize, featuresSize)
         :return: RecursiveLeastSquaresFilter
         """
         return self._set(regularizationMatrix=value)
+
+    def setRegularizationMatrixCol(self, value):
+        """
+        Sets the column corresponding to regularization matrix
+        :param value: String
+        :return: RecursiveLeastSquaresFilter
+         """
+        return self._set(regularizationMatrixCol=value)
 
     def setRegularizationMatrixFactor(self, value):
         """

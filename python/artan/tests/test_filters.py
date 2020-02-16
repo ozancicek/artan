@@ -16,7 +16,7 @@
 #
 
 from artan.testing.sql_utils import ReusedSparkTestCase
-from artan.filter import RecursiveLeastSquaresFilter, LinearKalmanFilter
+from artan.filter import RecursiveLeastSquaresFilter, LinearKalmanFilter, LeastMeanSquaresFilter
 from pyspark.ml.linalg import Vectors, Matrices
 import numpy as np
 
@@ -67,6 +67,35 @@ class RLSTests(ReusedSparkTestCase):
         # Check equivalence with least squares solution with numpy
         expected, _, _, _ = np.linalg.lstsq(features, y, rcond=None)
         np.testing.assert_array_almost_equal(state, expected)
+
+
+class LMSTests(ReusedSparkTestCase):
+
+    np.random.seed(0)
+
+    def test_filter_trend(self):
+        # y =  a * x + N(0, 1)
+        n = 40
+        a = 0.2
+        x = np.arange(0, n)
+        r = np.random.normal(0, 1, n)
+        y = a * x + r
+        features = x.reshape(n, 1)
+
+        df = self.spark.createDataFrame(
+            [(float(y[i]), Vectors.dense(features[i])) for i in range(n)], ["l", "f"])
+
+        lms = LeastMeanSquaresFilter(1)\
+            .setInitialEstimate(Vectors.dense([10.0]))\
+            .setRegularizationConstant(1.0)\
+            .setLearningRate(1.0)\
+            .setLabelCol("l")\
+            .setFeaturesCol("f")
+
+        model = lms.transform(df)
+        state = model.filter("stateIndex = {}".format(n)).collect()[0].state.values
+
+        np.testing.assert_array_almost_equal(state, np.array([0.2]), 2)
 
 
 class LinearKalmanFilterTests(ReusedSparkTestCase):

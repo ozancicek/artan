@@ -37,6 +37,27 @@ class HasInitialState(Params):
         return self.getOrDefault(self.initialState)
 
 
+class HasInitialStateCol(Params):
+    """
+    Mixin for param for initial state column.
+    """
+
+    initialStateCol = Param(
+        Params._dummy(),
+        "initialStateCol",
+        "Column name for initial state vector.",
+        typeConverter=TypeConverters.toString)
+
+    def __init__(self):
+        super(HasInitialStateCol, self).__init__()
+
+    def getInitialStateCol(self):
+        """
+        Gets the value of initial state column or its default value.
+        """
+        return self.getOrDefault(self.initialStateCol)
+
+
 class HasInitialCovariance(Params):
     """
     Mixin for param initial covariance matrix.
@@ -56,6 +77,27 @@ class HasInitialCovariance(Params):
         Gets the value of initial covariance matrix or its default value.
         """
         return self.getOrDefault(self.initialCovariance)
+
+
+class HasInitialCovarianceCol(Params):
+    """
+    Mixin for param for initial covariance column.
+    """
+
+    initialCovarianceCol = Param(
+        Params._dummy(),
+        "initialCovarianceCol",
+        "Column name for initial covariance vector.",
+        typeConverter=TypeConverters.toString)
+
+    def __init__(self):
+        super(HasInitialCovarianceCol, self).__init__()
+
+    def getInitialCovarianceCol(self):
+        """
+        Gets the value of initial covariance column or its default value.
+        """
+        return self.getOrDefault(self.initialCovarianceCol)
 
 
 class HasProcessModel(Params):
