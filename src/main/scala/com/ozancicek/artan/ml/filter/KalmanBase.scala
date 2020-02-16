@@ -29,6 +29,8 @@ import org.apache.spark.sql.functions.{col, lit, udf}
 import org.apache.spark.sql.types._
 
 
+import scala.reflect.runtime.universe.TypeTag
+
 /**
  * Base trait for kalman input parameters & columns
  */
@@ -175,69 +177,23 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
    */
   def setControlCol(value: String): ImplType = set(controlCol, value).asInstanceOf[ImplType]
 
-  protected def getInitialStateExpr = {
-    if (isSet(initialStateCol)) {
-      col($(initialStateCol))
+  protected def getUDFWithDefault[
+    DefaultType: TypeTag](defaultParam: Param[DefaultType], colParam: Param[String]): Column = {
+
+    if (isSet(colParam)) {
+      col($(colParam))
     } else {
-      val default = $(initialState)
-      val col = udf(() => default)
+      val defaultVal = $(defaultParam)
+      val col = udf(() => defaultVal)
       col()
     }
+
   }
 
-  protected def getInitialCovarianceExpr = {
-    if (isSet(initialCovarianceCol)) {
-      col($(initialCovarianceCol))
-    } else {
-      val default = $(initialCovariance)
-      val col = udf(() => default)
-      col()
-    }
-  }
+  protected def getMeasurementExpr: Column = col($(measurementCol)).cast(SQLDataTypes.VectorType)
 
-  protected def getMeasurementExpr = col($(measurementCol)).cast(SQLDataTypes.VectorType)
 
-  protected def getMeasurementModelExpr = {
-    if (isSet(measurementModelCol)) {
-      col($(measurementModelCol))
-    } else {
-      val default = $(measurementModel)
-      val col = udf(()=>default)
-      col()
-    }
-  }
-
-  protected def getMeasurementNoiseExpr = {
-    if (isSet(measurementNoiseCol)) {
-      col($(measurementNoiseCol))
-    } else {
-      val default = $(measurementNoise)
-      val col = udf(()=>default)
-      col()
-    }
-  }
-
-  protected def getProcessModelExpr = {
-    if (isSet(processModelCol)) {
-      col($(processModelCol))
-    } else {
-      val default = $(processModel)
-      val col = udf(()=>default)
-      col()
-    }
-  }
-
-  protected def getProcessNoiseExpr = {
-    if (isSet(processNoiseCol)) {
-      col($(processNoiseCol))
-    } else {
-      val default = $(processNoise)
-      val col = udf(()=>default)
-      col()
-    }
-  }
-
-  protected def getControlExpr = {
+  protected def getControlExpr: Column = {
     if (isSet(controlCol)) {
       col($(controlCol))
     } else {
@@ -245,7 +201,7 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
     }
   }
 
-  protected def getControlFunctionExpr = {
+  protected def getControlFunctionExpr: Column = {
     if (isSet(controlFunctionCol)) {
       col($(controlFunctionCol))
     } else {
@@ -337,7 +293,7 @@ private[filter] abstract class KalmanTransformer[
   private[filter] def filter(dataset: Dataset[_]): DataFrame = {
     transformSchema(dataset.schema)
     val inDF = toKalmanInput(dataset)
-    val outDF = transformWithState(inDF)
+    val outDF = transformWithState(inDF).toDF
     if (outputResiduals) {
       val dfWithMahalanobis = if (getCalculateMahalanobis) withMahalanobis(outDF) else outDF
       val dfWithLoglikelihood = if (getCalculateLoglikelihood) withLoglikelihood(dfWithMahalanobis) else dfWithMahalanobis
@@ -351,13 +307,13 @@ private[filter] abstract class KalmanTransformer[
   private def toKalmanInput(dataset: Dataset[_]): DataFrame = {
     /* Get the column expressions and convert to Dataset[KalmanInput]*/
     dataset
-      .withColumn("initialState", getInitialStateExpr)
-      .withColumn("initialCovariance", getInitialCovarianceExpr)
+      .withColumn("initialState", getUDFWithDefault(initialState, initialStateCol))
+      .withColumn("initialCovariance", getUDFWithDefault(initialCovariance, initialCovarianceCol))
       .withColumn("measurement", getMeasurementExpr)
-      .withColumn("measurementModel", getMeasurementModelExpr)
-      .withColumn("measurementNoise", getMeasurementNoiseExpr)
-      .withColumn("processModel", getProcessModelExpr)
-      .withColumn("processNoise", getProcessNoiseExpr)
+      .withColumn("measurementModel", getUDFWithDefault(measurementModel, measurementModelCol))
+      .withColumn("measurementNoise", getUDFWithDefault(measurementNoise, measurementNoiseCol))
+      .withColumn("processModel", getUDFWithDefault(processModel, processModelCol))
+      .withColumn("processNoise", getUDFWithDefault(processNoise, processNoiseCol))
       .withColumn("control", getControlExpr)
       .withColumn("controlFunction", getControlFunctionExpr)
   }

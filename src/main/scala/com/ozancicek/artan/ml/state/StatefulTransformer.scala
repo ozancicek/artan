@@ -95,7 +95,7 @@ private[ml] abstract class StatefulTransformer[
 
   protected def transformWithState(
     in: DataFrame)(
-    implicit keyEncoder: Encoder[GroupKeyType]): DataFrame = {
+    implicit keyEncoder: Encoder[GroupKeyType]): Dataset[OutType] = {
 
     val withStateKey = in.withColumn("stateKey", getStateKeyColumn)
 
@@ -123,11 +123,7 @@ private[ml] abstract class StatefulTransformer[
         OutputMode.Append,
         getTimeoutMode.conf)(stateUpdateSpec.stateFunc(ops))
 
-    if(isSet(eventTimeCol)) {
-      outDS.withColumnRenamed("eventTime", $(eventTimeCol))
-    } else {
-      outDS.toDF
-    }
+    outDS
   }
 }
 

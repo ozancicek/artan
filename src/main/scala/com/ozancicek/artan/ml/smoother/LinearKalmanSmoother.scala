@@ -77,7 +77,7 @@ class LinearKalmanSmoother(
     val copied = copyValues(lkf, extractParamMap)
 
     val filtered = copied.transform(dataset)
-    transformWithState(filtered)
+    transformWithState(filtered).toDF
   }
 }
 
@@ -111,6 +111,7 @@ private[smoother] class LKFSmootherStateSpec(val lag: Int)
           DenseMatrix.zeros(in.state.size, in.state.size),
           DenseMatrix.zeros(in.state.size, in.state.size))
       }
+
       case Some(prev) => {
         val model = in.processModel.get.toDense
         val nextState = model.multiply(in.state)

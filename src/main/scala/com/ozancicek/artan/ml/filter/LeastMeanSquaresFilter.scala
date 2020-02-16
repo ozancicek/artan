@@ -138,7 +138,7 @@ class LeastMeanSquaresFilter(
       .withColumn("label", col($(labelCol)))
       .withColumn("features", col($(featuresCol)))
       .withColumn("initialState", initialStateExpr)
-    transformWithState(lmsUpdateDS)
+    transformWithState(lmsUpdateDS).toDF
   }
 
   def transform(dataset: Dataset[_]): DataFrame = filter(dataset)

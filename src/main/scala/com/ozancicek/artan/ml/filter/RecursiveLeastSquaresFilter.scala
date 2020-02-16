@@ -138,7 +138,7 @@ class RecursiveLeastSquaresFilter(
     outEncoder.schema
   }
 
-  def filter(dataset: Dataset[_]): DataFrame = {
+  private[filter] def filter(dataset: Dataset[_]): DataFrame = {
     transformSchema(dataset.schema)
 
     val initialStateExpr = if (isSet(initialStateCol)) {
@@ -161,7 +161,7 @@ class RecursiveLeastSquaresFilter(
       .withColumn("initialState", initialStateExpr)
       .withColumn("initialCovariance", regMatExpr)
 
-    transformWithState(rlsUpdateDS)
+    transformWithState(rlsUpdateDS).toDF
   }
 
   def transform(dataset: Dataset[_]): DataFrame = filter(dataset)
