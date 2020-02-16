@@ -88,28 +88,13 @@ private[smoother] class LKFSmootherStateSpec(val lag: Int)
   private def updateRTSOutput(head: Option[RTSOutput], in: KalmanOutput): RTSOutput = {
     head match {
       case None => {
-        // First measurement, only calculate one lagged covariance
-
-        val measurementModel = in.measurementModel.get.toDense
-
-        // ident = I - K * H
-        val ident = DenseMatrix.eye(in.state.size)
-        BLAS.gemm(-1.0, in.gain.get, measurementModel, 1.0, ident)
-        val laggedCov = ident
-          .multiply(in.processModel.get.toDense)
-          .multiply(in.stateCovariance.toDense)
-
         RTSOutput(
           in.stateKey,
           in.stateIndex,
           in.state,
           in.stateCovariance,
           DenseMatrix.zeros(in.state.size, in.state.size),
-          laggedCov,
-          in.eventTime,
-          DenseMatrix.zeros(in.state.size, in.state.size),
-          DenseMatrix.zeros(in.state.size, in.state.size),
-          DenseMatrix.zeros(in.state.size, in.state.size))
+          in.eventTime)
       }
 
       case Some(prev) => {
@@ -132,31 +117,13 @@ private[smoother] class LKFSmootherStateSpec(val lag: Int)
         val newCow = in.stateCovariance.toDense.copy
         BLAS.gemm(1.0, gain.multiply(covDiff), gain.transpose, 1.0, newCow)
 
-        val laggedCovDiff = prev.laggedStateCovariance.toDense.copy
-        BLAS.axpy(-1.0, covUpdate, laggedCovDiff)
-
-        val laggedCov = in.stateCovariance.multiply(prev.rtsGain.toDense.transpose)
-        BLAS.gemm(1.0, gain.multiply(laggedCovDiff), prev.rtsGain.toDense.transpose, 1.0, laggedCov)
-
-        val stateProductExpectation = newCow.copy
-        BLAS.dger(1.0, newMean, newMean, stateProductExpectation)
-        val stateProductLaggedExpectation = prev.laggedStateCovariance.toDense.copy
-        BLAS.dger(1.0, prev.state.toDense, newMean, stateProductLaggedExpectation)
-
-        val stateProductDiffExpectation = prev.stateCovariance.toDense.copy
-        BLAS.dger(1.0, prev.state.toDense, prev.state.toDense, stateProductDiffExpectation)
-
         RTSOutput(
           in.stateKey,
           in.stateIndex,
           newMean,
           newCow,
           gain,
-          laggedCov,
-          in.eventTime,
-          stateProductExpectation,
-          stateProductLaggedExpectation,
-          stateProductDiffExpectation
+          in.eventTime
         )
       }
     }

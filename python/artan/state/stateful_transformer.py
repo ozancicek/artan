@@ -160,4 +160,3 @@ class StatefulTransformer(JavaTransformer,
         Sets the value of :py:attr:`stateTimeoutDuration`
         """
         return self._set(stateTimeoutDuration=value)
-

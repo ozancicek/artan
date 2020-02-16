@@ -19,47 +19,15 @@ from artan.state import StatefulTransformer
 from artan.filter.filter_params import *
 
 
-class LinearKalmanFilter(StatefulTransformer, HasInitialState, HasInitialCovariance, HasInitialStateCol,
-                         HasInitialCovarianceCol, HasProcessModel, HasFadingFactor, HasMeasurementModel,
-                         HasMeasurementNoise, HasProcessNoise, HasMeasurementCol,
-                         HasMeasurementModelCol, HasMeasurementNoiseCol, HasProcessModelCol,
-                         HasProcessNoiseCol, HasControlCol, HasControlFunctionCol,
-                         HasCalculateMahalanobis, HasCalculateLoglikelihood):
+class LinearKalmanFilterParams(HasInitialState, HasInitialCovariance, HasInitialStateCol,
+                               HasInitialCovarianceCol, HasProcessModel, HasFadingFactor, HasMeasurementModel,
+                               HasMeasurementNoise, HasProcessNoise, HasMeasurementCol,
+                               HasMeasurementModelCol, HasMeasurementNoiseCol, HasProcessModelCol,
+                               HasProcessNoiseCol, HasControlCol, HasControlFunctionCol,
+                               HasCalculateMahalanobis, HasCalculateLoglikelihood):
     """
-    Linear Kalman Filter, implemented with a stateful spark Transformer for running parallel filters /w spark
-    dataframes. Transforms an input dataframe of noisy measurements to dataframe of state estimates using stateful
-    spark transormations, which can be used in both streaming and batch applications.
-
-    Assuming a state (x_k) with size n_s, and measurements (z_k) with size n_m,
-    following parameters should be specified;
-
-    - F_k, process model, matrix with dimensions (n_s, n_s)
-    - H_k, measurement model, matrix with dimensions (n_s, n_m)
-    - Q_k, process noise covariance, matrix with dimensions (n_s, n_s)
-    - R_k, measurement noise covariance, matrix with dimensions (n_m, n_m)
-    - B_k, optional control model, matrix with dimensions (n_s, n_control)
-    - u_k, optional control vector, vector with size (n_control)
-
-    Linear Kalman Filter will predict & estimate the state according to following equations
-
-    State prediction:
-    x_k = F_k * x_k-1 + B_k * u_k + w_k
-
-    Measurement incorporation:
-    z_k = H_k * x_k + v_k
-
-    Where v_k and w_k are noise vectors drawn from zero mean, Q_k and R_k covariance distributions.
-
-    The default values of system matrices will not give you a functioning filter, but they will be initialized
-    with reasonable values given the state and measurement sizes. All of the inputs to the filter can
-    be specified with a dataframe column which will allow you to have different value across measurements/filters,
-    or you can specify a constant value across all measurements/filters.
+    Mixin for linear kalman filter parameters
     """
-    def __init__(self, stateSize, measurementSize):
-        super(LinearKalmanFilter, self).__init__()
-        self._java_obj = self._new_java_obj("com.ozancicek.artan.ml.filter.LinearKalmanFilter",
-                                            stateSize, measurementSize, self.uid)
-
     def setInitialState(self, value):
         """
         Set the initial state vector with size (stateSize).
@@ -279,3 +247,40 @@ class LinearKalmanFilter(StatefulTransformer, HasInitialState, HasInitialCovaria
         :return: LinearKalmanFilter
         """
         return self._set(calculateMahalanobis=True)
+
+
+class LinearKalmanFilter(StatefulTransformer, LinearKalmanFilterParams):
+    """
+    Linear Kalman Filter, implemented with a stateful spark Transformer for running parallel filters /w spark
+    dataframes. Transforms an input dataframe of noisy measurements to dataframe of state estimates using stateful
+    spark transormations, which can be used in both streaming and batch applications.
+
+    Assuming a state (x_k) with size n_s, and measurements (z_k) with size n_m,
+    following parameters should be specified;
+
+    - F_k, process model, matrix with dimensions (n_s, n_s)
+    - H_k, measurement model, matrix with dimensions (n_s, n_m)
+    - Q_k, process noise covariance, matrix with dimensions (n_s, n_s)
+    - R_k, measurement noise covariance, matrix with dimensions (n_m, n_m)
+    - B_k, optional control model, matrix with dimensions (n_s, n_control)
+    - u_k, optional control vector, vector with size (n_control)
+
+    Linear Kalman Filter will predict & estimate the state according to following equations
+
+    State prediction:
+    x_k = F_k * x_k-1 + B_k * u_k + w_k
+
+    Measurement incorporation:
+    z_k = H_k * x_k + v_k
+
+    Where v_k and w_k are noise vectors drawn from zero mean, Q_k and R_k covariance distributions.
+
+    The default values of system matrices will not give you a functioning filter, but they will be initialized
+    with reasonable values given the state and measurement sizes. All of the inputs to the filter can
+    be specified with a dataframe column which will allow you to have different value across measurements/filters,
+    or you can specify a constant value across all measurements/filters.
+    """
+    def __init__(self, stateSize, measurementSize):
+        super(LinearKalmanFilter, self).__init__()
+        self._java_obj = self._new_java_obj("com.ozancicek.artan.ml.filter.LinearKalmanFilter",
+                                            stateSize, measurementSize, self.uid)

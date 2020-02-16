@@ -78,7 +78,6 @@ case class KalmanOutput(
     stateIndex: Long,
     state: Vector,
     stateCovariance: Matrix,
-    gain: Option[Matrix],
     residual: Option[Vector],
     residualCovariance: Option[Matrix],
     eventTime: Option[Timestamp],
@@ -93,7 +92,6 @@ private[ml] case class KalmanState(
     stateIndex: Long,
     state: Vector,
     stateCovariance: Matrix,
-    gain: Option[Matrix],
     residual: Option[Vector],
     residualCovariance: Option[Matrix],
     processNoise: Option[Matrix]) extends State
@@ -105,8 +103,4 @@ case class RTSOutput(
     state: Vector,
     stateCovariance: Matrix,
     rtsGain: Matrix,
-    laggedStateCovariance: Matrix,
-    eventTime: Option[Timestamp],
-    stateProductExpectation: Matrix,
-    stateProductLaggedExpectation: Matrix,
-    stateProductDiffedExpectation: Matrix) extends KeyedOutput[String]
+    eventTime: Option[Timestamp]) extends KeyedOutput[String]

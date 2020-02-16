@@ -19,7 +19,7 @@ package com.ozancicek.artan.ml.filter
 
 import com.ozancicek.artan.ml.linalg.LinalgUtils
 import com.ozancicek.artan.ml.state.{KalmanInput, KalmanState}
-import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector, Matrix, Vector}
+import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector}
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.BLAS
@@ -191,7 +191,7 @@ private[filter] class LinearKalmanStateCompute(
 
     KalmanState(
       state.stateIndex + 1L,
-      newMean, newCov, state.gain,
+      newMean, newCov,
       state.residual,
       state.residualCovariance,
       state.processNoise)
@@ -246,7 +246,6 @@ private[filter] class LinearKalmanStateCompute(
       state.stateIndex,
       estMean,
       estCov,
-      Some(gain),
       res,
       resCov,
       state.processNoise)

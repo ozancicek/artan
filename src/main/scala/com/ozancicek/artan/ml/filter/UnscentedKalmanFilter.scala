@@ -210,7 +210,7 @@ private[filter] class UnscentedKalmanStateCompute(
 
     KalmanState(
       state.stateIndex + 1, stateMean, stateCov,
-      state.gain, state.residual, state.residualCovariance,
+      state.residual, state.residualCovariance,
       state.processNoise)
   }
 
@@ -304,7 +304,7 @@ private[filter] class UnscentedKalmanStateCompute(
     )
 
     KalmanState(
-      state.stateIndex, newMean, newCov, Some(gain), res, resCov, processNoise)
+      state.stateIndex, newMean, newCov, res, resCov, processNoise)
   }
 }
 

@@ -351,7 +351,6 @@ private[filter] trait KalmanStateUpdateSpec[+Compute <: KalmanStateCompute]
       state.stateIndex,
       state.state,
       state.stateCovariance,
-      state.gain,
       state.residual,
       state.residualCovariance,
       row.eventTime,
@@ -371,7 +370,6 @@ private[filter] trait KalmanStateUpdateSpec[+Compute <: KalmanStateCompute]
         0L,
         row.initialState,
         row.initialCovariance,
-        None,
         None,
         None,
         None))
