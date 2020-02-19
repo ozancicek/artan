@@ -2,23 +2,37 @@ import Dependencies._
 
 val defaultScalaVersion = "2.11.8"
 
-scalaVersion := sys.props.getOrElse("scala.version", defaultScalaVersion)
-
-version := "0.1.0-SNAPSHOT"
-
-organization := "com.ozancicek"
-
-organizationName := "ozancicek"
+val scalaVer = sys.props.getOrElse("scala.version", defaultScalaVersion)
 
 val defaultSparkVersion = "2.4.4"
 
-sparkVersion := sys.props.getOrElse("spark.version", defaultSparkVersion)
+val sparkVer = sys.props.getOrElse("spark.version", defaultSparkVersion)
+
+val components = Seq("streaming", "sql", "mllib")
+
+
+lazy val settings = Seq(
+  scalaVersion := scalaVer,
+  version := "0.1.0-SNAPSHOT",
+  organization := "com.ozancicek",
+  organizationName := "ozancicek",
+  sparkVersion := sparkVer,
+  libraryDependencies += scalaTest % Test,
+  sparkComponents ++= components,
+  spAppendScalaVersion := true
+)
 
 lazy val root = (project in file("."))
   .settings(
     name := "artan",
-    libraryDependencies += scalaTest % Test,
-    fork in run := true)
+    fork in run := true,
+    settings)
+
+lazy val examples = (project in file("examples"))
+  .settings(
+    name := "artan-examples",
+    settings)
+  .dependsOn(root)
 
 logBuffered in Test := false
 
@@ -30,6 +44,4 @@ parallelExecution in Test := false
 
 spName := "ozancicek/artan"
 
-spAppendScalaVersion := true
 
-sparkComponents ++= Seq("streaming", "sql", "mllib")
