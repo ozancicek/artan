@@ -25,7 +25,12 @@ import org.apache.spark.ml.linalg._
 
 
 /**
- * Continiously filters a local linear trend with a rate source
+ * Continiously filters a local linear increasing trend with a rate source, primarily for a quick
+ * local performance & capacity testing.
+ *
+ * To run the sample from source, build the assembly jar for artan-examples project and run:
+ *
+ * `spark-submit --class com.ozancicek.artan.examples.streaming.RateSourceLKF artan-examples-assembly-VERSION.jar 10 10`
  */
 object RateSourceLKF {
 
