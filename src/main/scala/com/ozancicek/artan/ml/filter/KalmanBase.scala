@@ -192,7 +192,6 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
 
   protected def getMeasurementExpr: Column = col($(measurementCol)).cast(SQLDataTypes.VectorType)
 
-
   protected def getControlExpr: Column = {
     if (isSet(controlCol)) {
       col($(controlCol))

@@ -30,7 +30,7 @@ import scala.math.pow
 /**
  * Unscented Kalman Filter (UKF), implemented with a stateful spark Transformer for running parallel filters /w spark
  * dataframes. Transforms an input dataframe of noisy measurements to dataframe of state estimates using stateful
- * spark transormations, which can be used in both streaming and batch applications.
+ * spark transformations, which can be used in both streaming and batch applications.
  *
  * Similar to Extended Kalman Filter (EKF), UKF is aimed for filtering nonlinear systems. With deterministic sampling
  * techniques, it picks up a minimal sample points and propogates them through state transition and measurement

@@ -253,7 +253,7 @@ class LinearKalmanFilter(StatefulTransformer, LinearKalmanFilterParams):
     """
     Linear Kalman Filter, implemented with a stateful spark Transformer for running parallel filters /w spark
     dataframes. Transforms an input dataframe of noisy measurements to dataframe of state estimates using stateful
-    spark transormations, which can be used in both streaming and batch applications.
+    spark transformations, which can be used in both streaming and batch applications.
 
     Assuming a state (x_k) with size n_s, and measurements (z_k) with size n_m,
     following parameters should be specified;

@@ -29,7 +29,7 @@ import org.apache.spark.sql._
 /**
  * Cubature Kalman Filter (CKF), implemented with a stateful spark Transformer for running parallel filters /w spark
  * dataframes. Transforms an input dataframe of noisy measurements to dataframe of state estimates using stateful
- * spark transormations, which can be used in both streaming and batch applications. CKF is similar to UKF,
+ * spark transformations, which can be used in both streaming and batch applications. CKF is similar to UKF,
  * it could be seen as a special case of UKF with good parameters for most general problems.
  *
  * In addition to Linear Kalman Filter parameters, following functions

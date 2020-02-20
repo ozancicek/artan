@@ -28,7 +28,7 @@ import org.apache.spark.sql._
 /**
  * Extended Kalman Filter (EKF), implemented with a stateful spark Transformer for running parallel filters /w spark
  * dataframes. Transforms an input dataframe of noisy measurements to dataframe of state estimates using stateful
- * spark transormations, which can be used in both streaming and batch applications.
+ * spark transformations, which can be used in both streaming and batch applications.
  *
  * Typically for nonlinear systems, it allows either of state transition and observation models to be
  * differentiable functions instead of matrices. It also allows speciying non-additive noise covariances for

@@ -93,7 +93,7 @@ class RecursiveLeastSquaresFilter(StatefulTransformer, HasInitialState, HasIniti
     """
     Recursive formulation of least squares with exponential weighting & regularization, implemented with
     a stateful spark Transformer for running parallel filters /w spark dataframes. Transforms an input dataframe
-    of observations to a dataframe of model parameters using stateful spark transormations, which can be used
+    of observations to a dataframe of model parameters using stateful spark transformations, which can be used
     in both streaming and batch applications.
 
     Let w denote the model parameters and w_est denote our prior belief. RLS minimizes following regularization

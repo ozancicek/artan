@@ -35,7 +35,7 @@ import org.apache.spark.sql.types._
 /**
  * Normalized Least Mean Squares filter, implemented with a stateful spark Transformer for running parallel
  * filters /w spark dataframes. Transforms an input dataframe of observations to a dataframe of model parameters
- * using stateful spark transormations, which can be used in both streaming and batch applications.
+ * using stateful spark transformations, which can be used in both streaming and batch applications.
  *
  * Belonging to stochastic gradient descent type of methods, LMS minimizes SSE on each measurement
  * based on the expectation of steepest descending gradient.
