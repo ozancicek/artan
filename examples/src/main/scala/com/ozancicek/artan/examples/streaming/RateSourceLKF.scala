@@ -50,7 +50,7 @@ object RateSourceLKF {
     val numStates = args(0).toInt
     val rowsPerSecond = args(1).toInt
 
-    val noiseParam = 20.0
+    val noiseParam = 1.0
 
     val measurementUdf = udf((t: Long, r: Double) => new DenseVector(Array(t.toDouble + r)))
 
@@ -71,8 +71,9 @@ object RateSourceLKF {
     val measurements = spark.readStream.format("rate")
       .option("rowsPerSecond", rowsPerSecond)
       .load()
-      .withColumn("measurement", measurementUdf($"value", randn() * noiseParam))
-      .withColumn("stateKey", ($"value" % numStates).cast("String"))
+      .withColumn("mod", $"value" % numStates)
+      .withColumn("stateKey", $"mod".cast("String"))
+      .withColumn("measurement", measurementUdf($"value"/numStates, randn() * noiseParam))
 
     val query = filter.transform(measurements)
       .writeStream

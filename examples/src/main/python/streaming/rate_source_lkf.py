@@ -44,11 +44,12 @@ if __name__ == "__main__":
     spark = SparkSession.builder.appName("RateSourceLKF").getOrCreate()
     spark.sparkContext.setLogLevel("WARN")
 
-    noise_param = 20
+    noise_param = 1
 
     input_df = spark.readStream.format("rate").option("rowsPerSecond", mps).load()\
-        .withColumn("stateKey", (F.col("value") % num_states).cast("String"))\
-        .withColumn("trend", F.col("value") + F.randn() * noise_param)
+        .withColumn("mod", F.col("value") % num_states)\
+        .withColumn("stateKey", F.col("mod").cast("String"))\
+        .withColumn("trend", (F.col("value")/num_states).cast("Integer") + F.randn() * noise_param)
 
     lkf = LinearKalmanFilter(2, 1)\
         .setStateKeyCol("stateKey")\
