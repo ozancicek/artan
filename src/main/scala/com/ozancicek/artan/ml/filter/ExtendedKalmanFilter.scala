@@ -92,7 +92,7 @@ class ExtendedKalmanFilter(
     stateSize: Int) = {
     this(measurementSize, stateSize, Identifiable.randomUID("extendedKalmanFilter"))
   }
-  protected val defaultStateKey: String = "filter.extendedKalmanFilter"
+  protected val defaultStateKey: String = "filter.extendedKalmanFilter.defaultStateKey"
 
   /**
    * Set process function which governs state transition. It should accept the current stateVector
@@ -136,8 +136,6 @@ class ExtendedKalmanFilter(
     val that = new ExtendedKalmanFilter(stateSize, measurementSize)
     copyValues(that, extra)
   }
-
-  def transform(dataset: Dataset[_]): DataFrame = filter(dataset)
 
   protected def stateUpdateSpec: ExtendedKalmanStateSpec = new ExtendedKalmanStateSpec(
     getFadingFactor,

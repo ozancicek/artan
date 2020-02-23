@@ -70,14 +70,12 @@ class LinearKalmanFilter(
     this(measurementSize, stateSize, Identifiable.randomUID("linearKalmanFilter"))
   }
 
-  protected val defaultStateKey: String = "filter.linearKalmanFilter"
+  protected val defaultStateKey: String = "filter.linearKalmanFilter.defaultStateKey"
 
   override def copy(extra: ParamMap): LinearKalmanFilter =  {
     val that = new LinearKalmanFilter(stateSize, measurementSize)
     copyValues(that, extra)
   }
-
-  def transform(dataset: Dataset[_]): DataFrame = filter(dataset)
 
   protected def stateUpdateSpec: LinearKalmanStateSpec = new LinearKalmanStateSpec(
     getFadingFactor,

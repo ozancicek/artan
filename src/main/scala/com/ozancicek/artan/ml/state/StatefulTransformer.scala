@@ -25,7 +25,7 @@ import org.apache.spark.sql.functions.{col, lit}
 import scala.collection.immutable.Queue
 import scala.reflect.ClassTag
 import org.apache.spark.ml.param._
-import org.apache.spark.sql.types.{StructType, TimestampType}
+import org.apache.spark.sql.types.{StructField, StructType, TimestampType}
 import java.sql.Timestamp
 
 import scala.reflect.runtime.universe.TypeTag
@@ -36,15 +36,51 @@ trait StatefulTransformerParams[
   GroupKeyType] extends Params with HasStateTimeoutMode with HasEventTimeCol
   with HasWatermarkDuration with HasStateKeyCol[GroupKeyType] with HasStateTimeoutDuration {
 
+  /**
+   * Sets the state key column. Each value in the column should uniquely identify a stateful transformer. Each
+   * unique value will result in a separate state.
+   */
   def setStateKeyCol(value: String): ImplType = set(stateKeyCol, value).asInstanceOf[ImplType]
 
+  /**
+   * Sets the state timeout mode. Supported values are 'none', 'process' and 'event'. Enabling state timeout will
+   * clear the state after a certain timeout duration which can be set. If a state receives measurements after
+   * it times out, the state will be initialized as if it received no measurements.
+   *
+   *
+   * - 'none': No state timeout, state is kept indefinitely.
+   *
+   * - 'process': Process time based state timeout, state will be cleared if no measurements are received for
+   * a duration based on processing time. Effects all states. Timeout duration must be set with
+   * setStateTimeoutDuration.
+   *
+   * - 'event': Event time based state timeout, state will be cleared if no measurements are recieved for a duration
+   * based on event time determined by watermark. Effects all states. Timeout duration must be set with
+   * setStateTimeoutDuration. Additionally, event time column and it's watermark duration must be set with
+   * setEventTimeCol and setWatermarkDuration. Note that this will result in dropping measurements occuring later
+   * than the watermark.
+   *
+   * Default is 'none'
+   *
+   */
   def setStateTimeoutMode(value: String): ImplType = set(timeoutMode, value).asInstanceOf[ImplType]
   setDefault(timeoutMode, "none")
 
+  /**
+   * Sets the state timeout duration for all states, only valid when state timeout mode is not 'none'.
+   * Must be a valid duration string, such as '10 minutes'.
+   */
   def setStateTimeoutDuration(value: String): ImplType = set(stateTimeoutDuration, value).asInstanceOf[ImplType]
 
+  /**
+   * Sets the event time column in the input DataFrame for event time based state timeout.
+   */
   def setEventTimeCol(value: String): ImplType = set(eventTimeCol, value).asInstanceOf[ImplType]
 
+  /**
+   * Set the watermark duration for all states, only valid when state timeout mode is 'event'.
+   * Must be a valid duration string, such as '10 minutes'.
+   */
   def setWatermarkDuration(value: String): ImplType = set(watermarkDuration, value).asInstanceOf[ImplType]
 }
 
@@ -93,6 +129,27 @@ private[ml] abstract class StatefulTransformer[
     }
   }
 
+  def asDataFrame(in: Dataset[OutType]): DataFrame = {
+    val df = in.toDF
+    val withEventTime = if (isSet(eventTimeCol)) {
+      df.withColumnRenamed("eventTime", getEventTimeCol)
+    }
+    else {
+      df.drop("eventTime")
+    }
+    withEventTime
+  }
+
+  def asDataFrameTransformSchema(schema: StructType): StructType = {
+    val filtered = schema.filter(f => f.name == "eventTime")
+    if (isSet(eventTimeCol)) {
+      StructType(filtered :+ StructField(getEventTimeCol, TimestampType, nullable = true))
+    }
+    else {
+      StructType(filtered)
+    }
+  }
+
   protected def transformWithState(
     in: DataFrame)(
     implicit keyEncoder: Encoder[GroupKeyType]): Dataset[OutType] = {
@@ -136,7 +193,9 @@ private[state] trait HasStateKeyCol[KeyType] extends Params {
   protected val defaultStateKey: KeyType
 
   final val stateKeyCol: Param[String] = new Param[String](
-    this, "stateKeyCol", "state key column name")
+    this, "stateKeyCol",
+    "State key column. State keys uniquely identify the each state in stateful transformers," +
+      "thus controlling the number of states and the degree of parallelization")
 
   final def getStateKeyColname: String = $(stateKeyCol)
 
@@ -151,7 +210,7 @@ private[state] trait HasEventTimeCol extends Params {
   final val eventTimeCol: Param[String] = new Param[String](
     this,
     "eventTimeCol",
-    "Event time column"
+    "Column marking the event time of the received measurements"
   )
 
   def getEventTimeCol: String = $(eventTimeCol)

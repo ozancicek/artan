@@ -42,6 +42,8 @@ import scala.collection.immutable.Queue
  * outputs multiple estimates for a single measurement, it is advised to set event time column
  * of the measurements with setEventTimeCol.
  *
+ * Except fixedLag parameter, LinearKalmanSmoother has the same parameters with LinearKalmanFilter
+ *
  * @param stateSize size of the state vector
  * @param measurementSize size of the measurement vector
  */
@@ -57,7 +59,7 @@ class LinearKalmanSmoother(
   }
 
   implicit val stateKeyEncoder = Encoders.STRING
-  protected val defaultStateKey: String = "smoother.LinearKalmanSmoother"
+  protected val defaultStateKey: String = "smoother.LinearKalmanSmoother.defaultStateKey"
 
   final val fixedLag: IntParam = new IntParam(
     this,
@@ -66,6 +68,11 @@ class LinearKalmanSmoother(
     ParamValidators.gt(1))
   setDefault(fixedLag, 2)
 
+  /**
+   * Sets the smoother fixed lag.
+   *
+   * Default is 2.
+   */
   def setFixedLag(value: Int): this.type = set(fixedLag, value)
 
   def getFixedLag: Int = $(fixedLag)
@@ -73,7 +80,7 @@ class LinearKalmanSmoother(
   protected def stateUpdateSpec: LKFSmootherStateSpec = new LKFSmootherStateSpec(getFixedLag)
 
   def transformSchema(schema: StructType): StructType = {
-    outEncoder.schema
+    asDataFrameTransformSchema(outEncoder.schema)
   }
 
   override def copy(extra: ParamMap): LinearKalmanSmoother =  {
@@ -87,8 +94,8 @@ class LinearKalmanSmoother(
 
     val copied = copyValues(lkf, extractParamMap)
 
-    val filtered = copied.transform(dataset)
-    transformWithState(filtered).toDF
+    val filtered = copied.filter(dataset).toDF
+    asDataFrame(transformWithState(filtered))
   }
 }
 

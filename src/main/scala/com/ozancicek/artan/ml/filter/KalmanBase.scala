@@ -187,7 +187,6 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
       val col = udf(() => defaultVal)
       col()
     }
-
   }
 
   protected def getMeasurementExpr: Column = col($(measurementCol)).cast(SQLDataTypes.VectorType)
@@ -268,7 +267,7 @@ private[filter] abstract class KalmanTransformer[
 
   def transformSchema(schema: StructType): StructType = {
     validateWatermarkColumns(schema)
-    outEncoder.schema
+    asDataFrameTransformSchema(outEncoder.schema)
   }
 
   private def loglikelihoodUDF = udf((residual: Vector, covariance: Matrix) => {
@@ -289,19 +288,46 @@ private[filter] abstract class KalmanTransformer[
 
   protected def outputResiduals: Boolean = getCalculateLoglikelihood || getCalculateMahalanobis
 
-  private[filter] def filter(dataset: Dataset[_]): DataFrame = {
-    transformSchema(dataset.schema)
-    val inDF = toKalmanInput(dataset)
-    val outDF = transformWithState(inDF).toDF
+  override def asDataFrame(in: Dataset[KalmanOutput]): DataFrame = {
+    val outDF = super.asDataFrame(in)
     if (outputResiduals) {
       val dfWithMahalanobis = if (getCalculateMahalanobis) withMahalanobis(outDF) else outDF
-      val dfWithLoglikelihood = if (getCalculateLoglikelihood) withLoglikelihood(dfWithMahalanobis) else dfWithMahalanobis
-      dfWithLoglikelihood
+      val dfWithlikelihood = if (getCalculateLoglikelihood) withLoglikelihood(dfWithMahalanobis) else dfWithMahalanobis
+      dfWithlikelihood
     }
     else {
-      outDF
+      outDF.drop("residual", "residualCovariance")
     }
   }
+
+  override def asDataFrameTransformSchema(schema: StructType): StructType = {
+    val outSchema = super.asDataFrameTransformSchema(schema)
+    if (outputResiduals) {
+      val withMahalanobis = if (getCalculateMahalanobis) {
+        outSchema.add(StructField("mahalanobis", DoubleType))
+      }
+      else {
+        outSchema
+      }
+      val withLikelihood = if (getCalculateLoglikelihood) {
+        withMahalanobis.add(StructField("logLikelihood", DoubleType))
+      } else {
+        withMahalanobis
+      }
+      withLikelihood
+    }
+    else {
+      StructType(outSchema.filter(f => Set("residual", "residualCovariance").contains(f.name)))
+    }
+  }
+
+  private[artan] def filter(dataset: Dataset[_]): Dataset[KalmanOutput] = {
+    transformSchema(dataset.schema)
+    val inDF = toKalmanInput(dataset)
+    transformWithState(inDF)
+  }
+
+  def transform(dataset: Dataset[_]): DataFrame = asDataFrame(filter(dataset))
 
   private def toKalmanInput(dataset: Dataset[_]): DataFrame = {
     /* Get the column expressions and convert to Dataset[KalmanInput]*/

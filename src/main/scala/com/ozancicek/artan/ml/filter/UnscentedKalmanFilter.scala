@@ -80,7 +80,7 @@ class UnscentedKalmanFilter(
     this(measurementSize, stateSize, Identifiable.randomUID("unscentedKalmanFilter"))
   }
 
-  protected val defaultStateKey: String = "filter.unscentedKalmanFilter"
+  protected val defaultStateKey: String = "filter.unscentedKalmanFilter.defaultStateKey"
 
   /**
    * Set process function which governs state transition. It should accept the current stateVector
@@ -139,8 +139,6 @@ class UnscentedKalmanFilter(
     val that = new UnscentedKalmanFilter(stateSize, measurementSize)
     copyValues(that, extra)
   }
-
-  def transform(dataset: Dataset[_]): DataFrame = filter(dataset)
 
   protected def stateUpdateSpec: UnscentedKalmanStateSpec = new UnscentedKalmanStateSpec(
     getFadingFactor,

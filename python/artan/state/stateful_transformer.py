@@ -28,7 +28,8 @@ class HasStateKeyCol(Params):
     stateKeyCol = Param(
         Params._dummy(),
         "stateKeyCol",
-        "State key column",
+        "State key column. State keys uniquely identify the each state in stateful transformers," +
+        "thus controlling the number of states and the degree of parallelization",
         typeConverter=TypeConverters.toString)
 
     def __init__(self):
@@ -49,7 +50,7 @@ class HasEventTimeCol(Params):
     eventTimeCol = Param(
         Params._dummy(),
         "eventTimeCol",
-        "event time column",
+        "Column marking the event time of the received measurements",
         typeConverter=TypeConverters.toString)
 
     def __init__(self):
@@ -91,7 +92,7 @@ class HasStateTimeoutMode(Params):
     timeoutMode = Param(
         Params._dummy(),
         "timeoutMode",
-        "Timeout mode for removing states that didn't recieve measurements.",
+        "Timeout mode for clearing the states that didn't receive measurements.",
         typeConverter=TypeConverters.toString)
 
     def __init__(self):
@@ -133,30 +134,50 @@ class StatefulTransformer(JavaTransformer,
     """
     def setStateKeyCol(self, value):
         """
-        Sets the value of :py:attr:`stateKeyCol`.
+        Sets the state key column. Each value in the column should uniquely identify a stateful transformer. Each
+        unique value will result in a separate state.
         """
         return self._set(stateKeyCol=value)
 
+    def setStateTimeoutMode(self, value):
+        """
+        Sets the state timeout mode. Supported values are 'none', 'process' and 'event'. Enabling state timeout will
+        clear the state after a certain timeout duration which can be set. If a state receives measurements after
+        it times out, the state will be initialized as if it received no measurements.
+
+        - 'none': No state timeout, state is kept indefinitely.
+
+        - 'process': Process time based state timeout, state will be cleared if no measurements are received for
+            a duration based on processing time. Effects all states. Timeout duration must be set with
+            setStateTimeoutDuration.
+
+        - 'event': Event time based state timeout, state will be cleared if no measurements are recieved for a duration
+            based on event time determined by watermark. Effects all states. Timeout duration must be set with
+            setStateTimeoutDuration. Additionally, event time column and it's watermark duration must be set with
+            setEventTimeCol and setWatermarkDuration. Note that this will result in dropping measurements occuring later
+            than the watermark.
+
+        Default is 'none'
+        """
+        return self._set(timeoutMode=value)
+
     def setEventTimeCol(self, value):
         """
-        Sets the value of :py:attr:`eventTimeCol`.
+        Sets the event time column in the input DataFrame for event time based state timeout.
         """
         return self._set(eventTimeCol=value)
 
     def setWatermarkDuration(self, value):
         """
-        Sets the value of :py:attr:`watermarkDuration`.
+        Set the watermark duration for all states, only valid when state timeout mode is 'event'.
+        Must be a valid duration string, such as '10 minutes'.
         """
         return self._set(watermarkDuration=value)
 
-    def setStateTimeoutMode(self, value):
-        """
-        Sets the value of :py:attr:`timeoutMode`
-        """
-        return self._set(timeoutMode=value)
 
     def setStateTimeoutDuration(self, value):
         """
-        Sets the value of :py:attr:`stateTimeoutDuration`
+        Sets the state timeout duration for all states, only valid when state timeout mode is not 'none'.
+        Must be a valid duration string, such as '10 minutes'.
         """
         return self._set(stateTimeoutDuration=value)

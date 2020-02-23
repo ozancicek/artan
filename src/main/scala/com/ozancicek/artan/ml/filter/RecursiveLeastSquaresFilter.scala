@@ -61,7 +61,7 @@ class RecursiveLeastSquaresFilter(
 
   def this(featuresSize: Int) = this(featuresSize, Identifiable.randomUID("recursiveLeastSquaresFilter"))
 
-  protected val defaultStateKey: String = "filter.recursiveLeastSquaresFilter"
+  protected val defaultStateKey: String = "filter.recursiveLeastSquaresFilter.defaultStateKey"
 
   override def copy(extra: ParamMap): RecursiveLeastSquaresFilter =  {
     val that = new RecursiveLeastSquaresFilter(featuresSize)
@@ -135,10 +135,10 @@ class RecursiveLeastSquaresFilter(
 
   def transformSchema(schema: StructType): StructType = {
     validateSchema(schema)
-    outEncoder.schema
+    asDataFrameTransformSchema(outEncoder.schema)
   }
 
-  private[filter] def filter(dataset: Dataset[_]): DataFrame = {
+  private[artan] def filter(dataset: Dataset[_]): Dataset[RLSOutput] = {
     transformSchema(dataset.schema)
 
     val initialStateExpr = if (isSet(initialStateCol)) {
@@ -161,10 +161,10 @@ class RecursiveLeastSquaresFilter(
       .withColumn("initialState", initialStateExpr)
       .withColumn("initialCovariance", regMatExpr)
 
-    transformWithState(rlsUpdateDS).toDF
+    transformWithState(rlsUpdateDS)
   }
 
-  def transform(dataset: Dataset[_]): DataFrame = filter(dataset)
+  def transform(dataset: Dataset[_]): DataFrame = asDataFrame(filter(dataset))
 
   protected def stateUpdateSpec: RecursiveLeastSquaresUpdateSpec = new RecursiveLeastSquaresUpdateSpec(
     getForgettingFactor)

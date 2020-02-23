@@ -60,8 +60,9 @@ class LinearKalmanSmoother(StatefulTransformer, LinearKalmanFilterParams, HasFix
 
     def setFixedLag(self, value):
         """
-        Set fixed lag
+        Sets the smoother fixed lag
 
+        Default is 2.
         :param value: Int
         :return: LinearKalmanSmoother
         """

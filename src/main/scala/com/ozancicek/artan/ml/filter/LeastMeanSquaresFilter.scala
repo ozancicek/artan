@@ -65,7 +65,7 @@ class LeastMeanSquaresFilter(
 
   def this(stateSize: Int) = this(stateSize, Identifiable.randomUID("leastMeanSquaresFilter"))
 
-  protected val defaultStateKey: String = "filter.leastMeanSquaresFilter"
+  protected val defaultStateKey: String = "filter.leastMeanSquaresFilter.defaultStateKey"
 
   override def copy(extra: ParamMap): LeastMeanSquaresFilter =  {
     val that = new LeastMeanSquaresFilter(featuresSize)
@@ -123,10 +123,10 @@ class LeastMeanSquaresFilter(
 
   def transformSchema(schema: StructType): StructType = {
     validateSchema(schema)
-    outEncoder.schema
+    asDataFrameTransformSchema(outEncoder.schema)
   }
 
-  def filter(dataset: Dataset[_]): DataFrame = {
+  private[artan] def filter(dataset: Dataset[_]): Dataset[LMSOutput] = {
     transformSchema(dataset.schema)
     val initialStateExpr = if (isSet(initialStateCol)) {
       col(getInitialStateCol)
@@ -138,10 +138,10 @@ class LeastMeanSquaresFilter(
       .withColumn("label", col($(labelCol)))
       .withColumn("features", col($(featuresCol)))
       .withColumn("initialState", initialStateExpr)
-    transformWithState(lmsUpdateDS).toDF
+    transformWithState(lmsUpdateDS)
   }
 
-  def transform(dataset: Dataset[_]): DataFrame = filter(dataset)
+  def transform(dataset: Dataset[_]): DataFrame = asDataFrame(filter(dataset))
 
   protected def stateUpdateSpec: LeastMeanSquaresUpdateSpec = new LeastMeanSquaresUpdateSpec(
     getLearningRate, getRegularizationConstant)

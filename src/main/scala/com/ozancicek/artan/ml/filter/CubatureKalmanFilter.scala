@@ -76,7 +76,7 @@ class CubatureKalmanFilter(
     this(measurementSize, stateSize, Identifiable.randomUID("cubatureKalmanFilter"))
   }
 
-  protected val defaultStateKey: String = "filter.cubatureKalmanFilter"
+  protected val defaultStateKey: String = "filter.cubatureKalmanFilter.defaultStateKey"
 
   /**
    * Set process function which governs state transition. It should accept the current stateVector
@@ -94,8 +94,6 @@ class CubatureKalmanFilter(
     val that = new CubatureKalmanFilter(stateSize, measurementSize)
     copyValues(that, extra)
   }
-
-  def transform(dataset: Dataset[_]): DataFrame = filter(dataset)
 
   protected def stateUpdateSpec: CubatureKalmanStateSpec = new CubatureKalmanStateSpec(
     getFadingFactor,
