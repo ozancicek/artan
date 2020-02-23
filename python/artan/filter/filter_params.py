@@ -384,7 +384,7 @@ class HasCalculateLoglikelihood(Params):
     Mixin for param for enabling loglikelihood calculation.
     """
 
-    calculateLoglikelihood= Param(
+    calculateLoglikelihood = Param(
         Params._dummy(),
         "calculateLoglikelihood",
         "When true, loglikelihood of residual will be calculated & added to output DataFrame. Default is false",
@@ -398,3 +398,24 @@ class HasCalculateLoglikelihood(Params):
         Gets the value of loglikelihood calculation flag.
         """
         return self.getOrDefault(self.calculateLoglikelihood)
+
+
+class HasOutputSystemMatrices(Params):
+    """
+    Mixin for param for enabling the output of system matrices along with the state.
+    """
+
+    outputSystemMatrices = Param(
+        Params._dummy(),
+        "outputSystemMatrices",
+        "When true, the system matrices will be added to output DataFrame. Default is false",
+        typeConverter=TypeConverters.toBoolean)
+
+    def __init__(self):
+        super(HasOutputSystemMatrices, self).__init__()
+
+    def getOutputSystemMatrices(self):
+        """
+        Gets the value of loglikelihood calculation flag.
+        """
+        return self.getOrDefault(self.outputSystemMatrices)

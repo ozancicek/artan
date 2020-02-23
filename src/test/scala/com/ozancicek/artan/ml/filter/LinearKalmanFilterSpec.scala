@@ -161,6 +161,7 @@ class LinearKalmanFilterSpec
         .setMeasurementNoise(new DenseMatrix(1, 1, Array(0.01)))
         .setCalculateMahalanobis
         .setCalculateLoglikelihood
+        .setOutputSystemMatrices
 
       val query = (in: Dataset[DynamicLinearModel]) => filter.transform(in)
 

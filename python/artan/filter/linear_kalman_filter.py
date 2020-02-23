@@ -24,7 +24,8 @@ class LinearKalmanFilterParams(HasInitialState, HasInitialCovariance, HasInitial
                                HasMeasurementNoise, HasProcessNoise, HasMeasurementCol,
                                HasMeasurementModelCol, HasMeasurementNoiseCol, HasProcessModelCol,
                                HasProcessNoiseCol, HasControlCol, HasControlFunctionCol,
-                               HasCalculateMahalanobis, HasCalculateLoglikelihood):
+                               HasCalculateMahalanobis, HasCalculateLoglikelihood,
+                               HasOutputSystemMatrices):
     """
     Mixin for linear kalman filter parameters
     """
@@ -239,7 +240,7 @@ class LinearKalmanFilterParams(HasInitialState, HasInitialCovariance, HasInitial
 
     def setCalculateMahalanobis(self):
         """
-        Optinally calculate mahalanobis distance metric of each measuremenet & add it to output dataframe.
+        Optionally calculate mahalanobis distance metric of each measuremenet & add it to output dataframe.
         Mahalanobis distance is calculated from residual vector & residual covariance matrix.
 
         Not enabled by default.
@@ -247,6 +248,15 @@ class LinearKalmanFilterParams(HasInitialState, HasInitialCovariance, HasInitial
         :return: LinearKalmanFilter
         """
         return self._set(calculateMahalanobis=True)
+
+    def setOutputSystemMatrices(self):
+        """
+        Optionally add system matrices to output dataframe returned by the transformer.
+
+        Default is false
+        :return: LinearKalmanFilter
+        """
+        return self._set(outputSystemMatrices=True)
 
 
 class LinearKalmanFilter(StatefulTransformer, LinearKalmanFilterParams):

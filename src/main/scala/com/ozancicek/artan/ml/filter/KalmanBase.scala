@@ -40,7 +40,7 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
   with HasControlFunctionCol with HasProcessModel with HasMeasurementModel
   with HasProcessNoise with HasMeasurementNoise
   with HasInitialState with HasInitialCovariance with HasFadingFactor
-  with HasInitialStateCol with HasInitialCovarianceCol {
+  with HasInitialStateCol with HasInitialCovarianceCol with HasOutputSystemMatrices {
 
   /**
    * Set the initial state vector with size (stateSize).
@@ -177,6 +177,13 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
    */
   def setControlCol(value: String): ImplType = set(controlCol, value).asInstanceOf[ImplType]
 
+  /**
+   * Enable outputting system matrices
+   *
+   * Default is false
+   */
+  def setOutputSystemMatrices: ImplType = set(outputSystemMatrices, true).asInstanceOf[ImplType]
+
   protected def getUDFWithDefault[
     DefaultType: TypeTag](defaultParam: Param[DefaultType], colParam: Param[String]): Column = {
 
@@ -290,7 +297,8 @@ private[filter] abstract class KalmanTransformer[
 
   override def asDataFrame(in: Dataset[KalmanOutput]): DataFrame = {
     val outDF = super.asDataFrame(in)
-    if (outputResiduals) {
+
+    val resFiltered = if (outputResiduals) {
       val dfWithMahalanobis = if (getCalculateMahalanobis) withMahalanobis(outDF) else outDF
       val dfWithlikelihood = if (getCalculateLoglikelihood) withLoglikelihood(dfWithMahalanobis) else dfWithMahalanobis
       dfWithlikelihood
@@ -298,11 +306,20 @@ private[filter] abstract class KalmanTransformer[
     else {
       outDF.drop("residual", "residualCovariance")
     }
+
+    val systemFiltered = if (getOutputSystemMatrices) {
+      resFiltered
+    }
+    else {
+      resFiltered.drop("processModel", "processNoise", "measurementModel")
+    }
+    systemFiltered
   }
 
   override def asDataFrameTransformSchema(schema: StructType): StructType = {
     val outSchema = super.asDataFrameTransformSchema(schema)
-    if (outputResiduals) {
+
+    val resFiltered = if (outputResiduals) {
       val withMahalanobis = if (getCalculateMahalanobis) {
         outSchema.add(StructField("mahalanobis", DoubleType))
       }
@@ -319,6 +336,14 @@ private[filter] abstract class KalmanTransformer[
     else {
       StructType(outSchema.filter(f => Set("residual", "residualCovariance").contains(f.name)))
     }
+
+    val systemFiltered = if (getOutputSystemMatrices) {
+      resFiltered
+    }
+    else {
+      StructType(resFiltered.filter(f => Set("processModel", "processNoise", "measurementModel").contains(f.name)))
+    }
+    systemFiltered
   }
 
   private[artan] def filter(dataset: Dataset[_]): Dataset[KalmanOutput] = {

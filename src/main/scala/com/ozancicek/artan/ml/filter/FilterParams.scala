@@ -425,3 +425,18 @@ private[artan] trait HasCalculateLoglikelihood extends Params {
 
   final def getCalculateLoglikelihood: Boolean = $(calculateLoglikelihood)
 }
+
+/**
+ * Param for enabling output of system matrices
+ */
+private[artan] trait HasOutputSystemMatrices extends Params {
+
+  final val outputSystemMatrices: BooleanParam = new BooleanParam(
+    this,
+    "outputSystemMatrices",
+    "When true, system matrices will be also added to output DataFrame. Default is false")
+
+  setDefault(outputSystemMatrices, false)
+
+  final def getOutputSystemMatrices: Boolean = $(outputSystemMatrices)
+}
