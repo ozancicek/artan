@@ -61,7 +61,8 @@ state.show()
 // +--------+----------+--------------------+--------------------+
 ```
 
-The supported filters in python are located in artan.filter package. Nonlinear filters are not yet supported in Python.
+The supported filters in python are located at `artan.filter` package. Some of the supported filters in scala are
+not yet supported in python.
 
 ```python
 from artan.filter import LinearKalmanFilter

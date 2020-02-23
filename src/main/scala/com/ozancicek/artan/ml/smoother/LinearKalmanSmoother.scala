@@ -99,13 +99,29 @@ class LinearKalmanSmoother(
   }
 }
 
-
+/**
+ * Function spec for calculating LinearKalmanSmoother output from the state. The state is KalmanOutput
+ * queue resulting from the LinearKalmanFilter, and the state is transformed to output by RTS method for each
+ * update.
+ *
+ * @param lag fixed size lag.
+ */
 private[smoother] class LKFSmootherStateSpec(val lag: Int)
   extends StateUpdateSpec[String, KalmanOutput, Queue[KalmanOutput], RTSOutput]{
 
+  /**
+   * Function for outputting smoothed output from filtered state. Smoothed output calculation at time step k depends
+   * on the filtered output at time step k and smoothed output at previous step.
+   *
+   * @param head Smoothed output at previous time step. Should be None for initial time step, and Some(value)
+   *             for next steps
+   * @param in Filtered output at current time step
+   * @return RTSOutput, smoothed output at current time step
+   */
   private def updateRTSOutput(head: Option[RTSOutput], in: KalmanOutput): RTSOutput = {
     head match {
       case None => {
+        // Initial time step logic
         RTSOutput(
           in.stateKey,
           in.stateIndex,
@@ -152,9 +168,11 @@ private[smoother] class LKFSmootherStateSpec(val lag: Int)
     row: KalmanOutput,
     state: Queue[KalmanOutput]): List[RTSOutput] = {
     if (state.size == lag) {
+      // Start processing from the head of the queue
       val (head, tail) = state.reverse.dequeue
+      // Generate the initial smoothed output
       val headOutput = updateRTSOutput(None, head)
-
+      
       tail.foldLeft(List(headOutput)) {
         case(x::xs, in) => updateRTSOutput(Some(x), in)::x::xs
         case(Nil, _) => List.empty[RTSOutput]
@@ -173,7 +191,7 @@ private[smoother] class LKFSmootherStateSpec(val lag: Int)
     val currentState = state
       .getOrElse(Queue.empty[KalmanOutput])
 
-    // State is just fixed size queue of KalmanOutput
+    // State is KalmanOutput queue with fixed size = lag
     if (currentState.size == lag) {
       Some(currentState.dequeue._2.enqueue(row))
     }
