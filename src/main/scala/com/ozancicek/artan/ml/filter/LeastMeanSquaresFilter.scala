@@ -20,11 +20,11 @@ package com.ozancicek.artan.ml.filter
 import com.ozancicek.artan.ml.state.{LMSState, LMSInput, LMSOutput}
 import com.ozancicek.artan.ml.state.{StateUpdateSpec, StatefulTransformer}
 import org.apache.spark.ml.linalg.SQLDataTypes
-import org.apache.spark.ml.linalg.{Vector}
+import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.param.shared._
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.ml.{BLAS}
+import org.apache.spark.ml.BLAS
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.Encoders

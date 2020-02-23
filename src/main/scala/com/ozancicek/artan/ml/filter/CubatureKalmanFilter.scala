@@ -22,8 +22,7 @@ import com.ozancicek.artan.ml.state.{KalmanInput, KalmanState}
 import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector, Matrix, Vector}
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.ml.{BLAS, LAPACK}
-import org.apache.spark.sql._
+import org.apache.spark.ml.BLAS
 
 
 /**

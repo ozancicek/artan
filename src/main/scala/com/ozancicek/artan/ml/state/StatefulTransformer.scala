@@ -47,7 +47,6 @@ trait StatefulTransformerParams[
    * clear the state after a certain timeout duration which can be set. If a state receives measurements after
    * it times out, the state will be initialized as if it received no measurements.
    *
-   *
    * - 'none': No state timeout, state is kept indefinitely.
    *
    * - 'process': Process time based state timeout, state will be cleared if no measurements are received for
@@ -323,7 +322,6 @@ private[ml] trait StateUpdateSpec[
     key: GroupKeyType,
     row: RowType,
     state: Option[StateType]): Option[StateType]
-
 
   private implicit def orderedIfSet: Ordering[Option[Timestamp]] = new Ordering[Option[Timestamp]] {
     def compare(left: Option[Timestamp], right: Option[Timestamp]): Int = (left, right) match {

@@ -23,7 +23,6 @@ import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector}
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.BLAS
-import org.apache.spark.sql._
 
 
 /**

@@ -245,7 +245,7 @@ private[filter] abstract class KalmanTransformer[
   SpecType <: KalmanStateUpdateSpec[Compute],
   ImplType <: KalmanTransformer[Compute, SpecType, ImplType]]
   extends StatefulTransformer[String, KalmanInput, KalmanState, KalmanOutput, ImplType]
-    with KalmanUpdateParams[ImplType] with HasCalculateMahalanobis with HasCalculateLoglikelihood {
+  with KalmanUpdateParams[ImplType] with HasCalculateMahalanobis with HasCalculateLoglikelihood {
 
   implicit val stateKeyEncoder = Encoders.STRING
 
