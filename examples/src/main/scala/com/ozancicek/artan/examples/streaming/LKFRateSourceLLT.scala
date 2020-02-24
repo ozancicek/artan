@@ -30,18 +30,18 @@ import org.apache.spark.ml.linalg._
  *
  * To run the sample from source, build the assembly jar for artan-examples project and run:
  *
- * `spark-submit --class com.ozancicek.artan.examples.streaming.RateSourceLKF artan-examples-assembly-VERSION.jar 10 10`
+ * `spark-submit --class com.ozancicek.artan.examples.streaming.LKFRateSourceLLT artan-examples-assembly-VERSION.jar 10 10`
  */
-object RateSourceLKF {
+object LKFRateSourceLLT {
 
   def main(args: Array[String]): Unit = {
     if (args.length < 2) {
-      System.err.println("Usage: RateSourceLKF <numStates> <measurementsPerSecond>")
+      System.err.println("Usage: LKFRateSourceLLT <numStates> <measurementsPerSecond>")
       System.exit(1)
     }
     val spark = SparkSession
       .builder
-      .appName("RateSourceLKF")
+      .appName("LLTRateSourceLKF")
       .getOrCreate
     spark.sparkContext.setLogLevel("WARN")
 
@@ -77,7 +77,7 @@ object RateSourceLKF {
 
     val query = filter.transform(measurements)
       .writeStream
-      .queryName("RateSourceLKF")
+      .queryName("LKFRateSourceLLT")
       .outputMode("append")
       .format("console")
       .start()

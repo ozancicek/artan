@@ -107,6 +107,7 @@ state.show()
 
 See [examples](examples/src/main) for all sample scripts.
 
-- Streaming local linear trend filtering with Linear Kalman Filter ([python](examples/src/main/python/streaming/rate_source_lkf.py), [scala](examples/src/main/scala/com/ozancicek/artan/examples/streaming/RateSourceLKF.scala))
-- Streaming GLM estimation with Extended Kalman Filter, gaussian noise & log link ([scala](examples/src/main/scala/com/ozancicek/artan/examples/streaming/GLMLogEKF.scala))
-
+### Streaming examples
+- Local linear trend filtering with Linear Kalman Filter ([python](examples/src/main/python/streaming/lkf_rate_source_llt.py), [scala](examples/src/main/scala/com/ozancicek/artan/examples/streaming/LKFRateSourceLLT.scala))
+- Recursive least squares ([scala](examples/src/main/scala/com/ozancicek/artan/examples/streaming/RLSRateSourceOLS.scala))
+- GLM estimation with Extended Kalman Filter, gaussian noise & log link ([scala](examples/src/main/scala/com/ozancicek/artan/examples/streaming/EKFRateSourceGLMLog.scala))

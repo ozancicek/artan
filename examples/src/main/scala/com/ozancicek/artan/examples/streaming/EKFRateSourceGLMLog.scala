@@ -28,14 +28,14 @@ import org.apache.spark.ml.linalg._
  *
  * To run the sample from source, build the assembly jar for artan-examples project and run:
  *
- * `spark-submit --class com.ozancicek.artan.examples.batch.GLMLogEKF artan-examples-assembly-VERSION.jar 10 10`
+ * `spark-submit --class com.ozancicek.artan.examples.batch.EKFRateSourceGLMLog artan-examples-assembly-VERSION.jar 10 10`
  */
-object GLMLogEKF {
+object EKFRateSourceGLMLog {
 
   def main(args: Array[String]): Unit = {
 
     if (args.length < 2) {
-      System.err.println("Usage: RateSourceLKF <numStates> <measurementsPerSecond>")
+      System.err.println("Usage: EKFRateSourceGLMLog <numStates> <measurementsPerSecond>")
       System.exit(1)
     }
 
@@ -107,7 +107,7 @@ object GLMLogEKF {
 
     val query = filter.transform(measurements)
       .writeStream
-      .queryName("GLMLogEKF")
+      .queryName("EKFRateSourceGLMLog")
       .outputMode("append")
       .format("console")
       .start()

@@ -32,10 +32,10 @@ if __name__ == "__main__":
     To run the sample from source, build the assembly jar for artan scala project, zip the artan python package
     and run:
     
-    `spark-submit --py-files artan.zip --jars artan-examples-assembly-VERSION.jar rate_source_lkf.py 1000 1000`
+    `spark-submit --py-files artan.zip --jars artan-examples-assembly-VERSION.jar lkf_rate_source_llt.py 1000 1000`
     """
     if len(sys.argv) != 3:
-        print("Usage: rate_source_lkf.py <num_states> <measurements_per_sec>", file=sys.stderr)
+        print("Usage: lkf_rate_source_llt.py <num_states> <measurements_per_sec>", file=sys.stderr)
         sys.exit(-1)
 
     num_states = int(sys.argv[1])
