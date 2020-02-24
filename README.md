@@ -5,8 +5,8 @@
 Model-parallel bayesian filtering with Apache Spark.
 
 - [Overview](#overview)
-- [Usage](#usage)
 - [Examples](#examples)
+- [Usage](#usage)
 
 ## Overview
 This library provides supports for running various bayesian filters in parallel with Apache Spark. Uses arbitrary
@@ -18,6 +18,16 @@ you can transform a DataFrame of measurements to a DataFrame of estimated states
 (extended, unscented, etc,..) and various other filters as a part of your SparkML Pipeline.
 
 Artan requires Scala 2.11, Spark 2.4+ and Python 3,6+
+
+## Examples
+
+See [examples](examples/src/main) for all sample scripts.
+
+### Streaming examples
+- Local linear trend filtering with Linear Kalman Filter ([python](examples/src/main/python/streaming/lkf_rate_source_llt.py), [scala](examples/src/main/scala/com/ozancicek/artan/examples/streaming/LKFRateSourceLLT.scala))
+- Recursive least squares ([python](examples/src/main/python/streaming/rls_rate_source_ols.py), [scala](examples/src/main/scala/com/ozancicek/artan/examples/streaming/RLSRateSourceOLS.scala))
+- GLM estimation with Extended Kalman Filter, gaussian noise & log link ([scala](examples/src/main/scala/com/ozancicek/artan/examples/streaming/EKFRateSourceGLMLog.scala))
+
 
 ## Usage
 
@@ -102,12 +112,3 @@ state.show()
 # +--------+----------+--------------------+--------------------+
 
 ```
-
-## Examples
-
-See [examples](examples/src/main) for all sample scripts.
-
-### Streaming examples
-- Local linear trend filtering with Linear Kalman Filter ([python](examples/src/main/python/streaming/lkf_rate_source_llt.py), [scala](examples/src/main/scala/com/ozancicek/artan/examples/streaming/LKFRateSourceLLT.scala))
-- Recursive least squares ([scala](examples/src/main/scala/com/ozancicek/artan/examples/streaming/RLSRateSourceOLS.scala))
-- GLM estimation with Extended Kalman Filter, gaussian noise & log link ([scala](examples/src/main/scala/com/ozancicek/artan/examples/streaming/EKFRateSourceGLMLog.scala))

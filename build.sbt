@@ -13,7 +13,7 @@ val components = Seq("streaming", "sql", "mllib")
 
 lazy val settings = Seq(
   scalaVersion := scalaVer,
-  version := "0.1.0-SNAPSHOT",
+  version := "0.1.0",
   organization := "com.ozancicek",
   organizationName := "ozancicek",
   sparkVersion := sparkVer,
