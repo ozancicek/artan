@@ -74,9 +74,9 @@ class UnscentedKalmanFilter(
   with HasProcessFunction with HasMeasurementFunction with AdaptiveNoiseParams with SigmaPointsParams {
 
   def this(
-    measurementSize: Int,
-    stateSize: Int) = {
-    this(measurementSize, stateSize, Identifiable.randomUID("unscentedKalmanFilter"))
+    stateSize: Int,
+    measurementSize: Int) = {
+    this(stateSize, measurementSize, Identifiable.randomUID("unscentedKalmanFilter"))
   }
 
   protected val defaultStateKey: String = "filter.unscentedKalmanFilter.defaultStateKey"

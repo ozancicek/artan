@@ -64,9 +64,9 @@ class LinearKalmanFilter(
   extends KalmanTransformer[LinearKalmanStateCompute, LinearKalmanStateSpec, LinearKalmanFilter] {
 
   def this(
-    measurementSize: Int,
-    stateSize: Int) = {
-    this(measurementSize, stateSize, Identifiable.randomUID("linearKalmanFilter"))
+    stateSize: Int,
+    measurementSize: Int) = {
+    this(stateSize, measurementSize, Identifiable.randomUID("linearKalmanFilter"))
   }
 
   protected val defaultStateKey: String = "filter.linearKalmanFilter.defaultStateKey"

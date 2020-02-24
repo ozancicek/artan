@@ -89,7 +89,6 @@ class LinearKalmanSmoother(
   }
 
   def transform(dataset: Dataset[_]): DataFrame = {
-
     val lkf = new LinearKalmanFilter(stateSize, measurementSize)
 
     val copied = copyValues(lkf, extractParamMap)
@@ -172,7 +171,9 @@ private[smoother] class LKFSmootherStateSpec(val lag: Int)
       val (head, tail) = state.reverse.dequeue
       // Generate the initial smoothed output
       val headOutput = updateRTSOutput(None, head)
-      
+
+      // Rest of the output is generated with fold logic, as output at current time step depends on the output
+      // at previous time step.
       tail.foldLeft(List(headOutput)) {
         case(x::xs, in) => updateRTSOutput(Some(x), in)::x::xs
         case(Nil, _) => List.empty[RTSOutput]

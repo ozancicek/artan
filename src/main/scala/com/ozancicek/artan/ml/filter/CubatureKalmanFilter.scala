@@ -70,9 +70,9 @@ class CubatureKalmanFilter(
   with HasProcessFunction with HasMeasurementFunction {
 
   def this(
-    measurementSize: Int,
-    stateSize: Int) = {
-    this(measurementSize, stateSize, Identifiable.randomUID("cubatureKalmanFilter"))
+    stateSize: Int,
+    measurementSize: Int) = {
+    this(stateSize, measurementSize, Identifiable.randomUID("cubatureKalmanFilter"))
   }
 
   protected val defaultStateKey: String = "filter.cubatureKalmanFilter.defaultStateKey"

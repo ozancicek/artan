@@ -87,9 +87,9 @@ class ExtendedKalmanFilter(
   with HasMeasurementFunction with HasMeasurementStateJacobian with HasMeasurementNoiseJacobian {
 
   def this(
-    measurementSize: Int,
-    stateSize: Int) = {
-    this(measurementSize, stateSize, Identifiable.randomUID("extendedKalmanFilter"))
+    stateSize: Int,
+    measurementSize: Int) = {
+    this(stateSize, measurementSize, Identifiable.randomUID("extendedKalmanFilter"))
   }
   protected val defaultStateKey: String = "filter.extendedKalmanFilter.defaultStateKey"
 
