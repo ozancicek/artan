@@ -22,7 +22,6 @@ from artan.filter import RecursiveLeastSquaresFilter
 from pyspark.sql import SparkSession
 import pyspark.sql.functions as F
 from pyspark.ml.feature import VectorAssembler
-from pyspark.ml.linalg import Vectors, Matrices
 
 
 if __name__ == "__main__":
