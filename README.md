@@ -6,6 +6,7 @@ Model-parallel bayesian filtering with Apache Spark.
 
 - [Overview](#overview)
 - [Usage](#usage)
+- [Examples](#examples)
 
 ## Overview
 This library provides supports for running various bayesian filters in parallel with Apache Spark. Uses arbitrary
@@ -102,4 +103,10 @@ state.show()
 
 ```
 
+## Examples
+
+See [examples](examples/src/main) for all sample scripts.
+
+- Streaming local linear filtering with Linear Kalman filter ([python](examples/src/main/python/streaming/rate_source_lkf.py), [scala](examples/src/main/scala/com/ozancicek/artan/examples/streaming/RateSourceLKF.scala))
+- Streaming GLM with Extended Kalman filter, gaussian noise & log link ([scala](examples/src/main/scala/com/ozancicek/artan/examples/streaming/GLMLogEKF.scala)))
 
