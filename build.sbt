@@ -44,4 +44,16 @@ parallelExecution in Test := false
 
 spName := "ozancicek/artan"
 
+credentials += Credentials(Path.userHome / ".ivy2" / ".sparkpackagescredentials")
+
+spShortDescription := "Bayesian filtering with Spark"
+
+spDescription := """Model-parallel bayesian filtering with Apache Spark.
+                    |
+                    |This library allows you to define model-parallel bayesian filters by leveraging arbitrary stateful
+                    |transformation capabilities of Spark DataFrames. Supports both structured streaming and
+                    |batch processing mode. Suitable for latent state estimation of many similar small scale systems
+                    |rather than a big single system.""".stripMargin
+
+licenses += "Apache-2.0" -> url("http://opensource.org/licenses/Apache-2.0")
 
