@@ -55,7 +55,7 @@ class LinearKalmanSmoother(StatefulTransformer, LinearKalmanFilterParams, HasFix
     """
     def __init__(self, stateSize, measurementSize):
         super(LinearKalmanSmoother, self).__init__()
-        self._java_obj = self._new_java_obj("com.ozancicek.artan.ml.smoother.LinearKalmanSmoother",
+        self._java_obj = self._new_java_obj("com.github.ozancicek.artan.ml.smoother.LinearKalmanSmoother",
                                             stateSize, measurementSize, self.uid)
 
     def setFixedLag(self, value):

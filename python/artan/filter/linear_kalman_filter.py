@@ -292,5 +292,5 @@ class LinearKalmanFilter(StatefulTransformer, LinearKalmanFilterParams):
     """
     def __init__(self, stateSize, measurementSize):
         super(LinearKalmanFilter, self).__init__()
-        self._java_obj = self._new_java_obj("com.ozancicek.artan.ml.filter.LinearKalmanFilter",
+        self._java_obj = self._new_java_obj("com.github.ozancicek.artan.ml.filter.LinearKalmanFilter",
                                             stateSize, measurementSize, self.uid)

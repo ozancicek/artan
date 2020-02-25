@@ -33,7 +33,7 @@ See [examples](examples/src/main) for all sample scripts.
 
 In scala, filters are located at `com.ozancicek.artan.ml.filter` package.
 ```scala
-import com.ozancicek.artan.ml.filter.LinearKalmanFilter
+import LinearKalmanFilter
 import org.apache.spark.ml.linalg._
 
 val measurements: DataFrame = ... // DataFrame of measurements

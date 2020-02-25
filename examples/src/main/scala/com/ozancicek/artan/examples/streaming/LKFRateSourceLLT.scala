@@ -15,10 +15,9 @@
  * limitations under the License.
  */
 
-package com.ozancicek.artan.examples.streaming
+package com.github.ozancicek.artan.examples.streaming
 
-import com.ozancicek.artan.ml.filter.LinearKalmanFilter
-
+import com.github.ozancicek.artan.ml.filter.LinearKalmanFilter
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
 import org.apache.spark.ml.linalg._
@@ -30,7 +29,7 @@ import org.apache.spark.ml.linalg._
  *
  * To run the sample from source, build the assembly jar for artan-examples project and run:
  *
- * `spark-submit --class com.ozancicek.artan.examples.streaming.LKFRateSourceLLT artan-examples-assembly-VERSION.jar 10 10`
+ * `spark-submit --class com.github.ozancicek.artan.examples.streaming.LKFRateSourceLLT artan-examples-assembly-VERSION.jar 10 10`
  */
 object LKFRateSourceLLT {
 

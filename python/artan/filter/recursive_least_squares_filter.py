@@ -109,7 +109,7 @@ class RecursiveLeastSquaresFilter(StatefulTransformer, HasInitialState, HasIniti
     """
     def __init__(self, featuresSize):
         super(RecursiveLeastSquaresFilter, self).__init__()
-        self._java_obj = self._new_java_obj("com.ozancicek.artan.ml.filter.RecursiveLeastSquaresFilter",
+        self._java_obj = self._new_java_obj("com.github.ozancicek.artan.ml.filter.RecursiveLeastSquaresFilter",
                                             featuresSize, self.uid)
         self._featuresSize = featuresSize
 

@@ -89,7 +89,7 @@ class LeastMeanSquaresFilter(StatefulTransformer, HasInitialState,
     """
     def __init__(self, featuresSize):
         super(LeastMeanSquaresFilter, self).__init__()
-        self._java_obj = self._new_java_obj("com.ozancicek.artan.ml.filter.LeastMeanSquaresFilter",
+        self._java_obj = self._new_java_obj("com.github.ozancicek.artan.ml.filter.LeastMeanSquaresFilter",
                                             featuresSize, self.uid)
         self._featuresSize = featuresSize
 
