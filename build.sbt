@@ -21,7 +21,7 @@ val longDesc = """Model-parallel bayesian filtering with Apache Spark.
 
 lazy val settings = Seq(
   scalaVersion := scalaVer,
-  version := "0.1.0",
+  version := "0.2.0-SNAPSHOT",
   organization := "com.github.ozancicek",
   organizationName := "ozancicek",
   sparkVersion := sparkVer,
@@ -35,7 +35,6 @@ lazy val root = (project in file("."))
     name := "artan",
     fork in run := true,
     (packageBin in Compile) := {
-      println("here")
       spPackage.value
     },
     settings)
@@ -94,5 +93,3 @@ description := shortDesc
 developers := List(
   Developer("ozancicek", "Ozan Cicekci", "ozancancicekci@gmail.com", url("https://github.com/ozancicek"))
 )
-
-

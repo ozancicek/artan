@@ -5,10 +5,12 @@
 Model-parallel bayesian filtering with Apache Spark.
 
 - [Overview](#overview)
+- [Download](#download)
 - [Examples](#examples)
 - [Usage](#usage)
 
 ## Overview
+
 This library provides supports for running various bayesian filters in parallel with Apache Spark. Uses arbitrary
 stateful transformation capabilities of Spark DataFrames to define model-parallel bayesian filters. Therefore, it
 is suitable for latent state estimation of many similar small scale systems rather than a big single system.
@@ -18,6 +20,20 @@ you can transform a DataFrame of measurements to a DataFrame of estimated states
 (extended, unscented, etc,..) and various other filters as a part of your SparkML Pipeline.
 
 Artan requires Scala 2.11, Spark 2.4+ and Python 3,6+
+
+
+## Download
+
+This project has been published to the Maven Central Repository. When submitting jobs on your cluster, you can use
+`spark-submit` with `--packages` parameter to download all required dependencies including python packages.
+
+    spark-submit --packages='com.github.ozancicek:artan_2.11:0.1.0'
+
+For SBT:
+
+    libraryDependencies += "com.github.ozancicek" %% "artan" % "0.1.0"
+
+
 
 ## Examples
 
