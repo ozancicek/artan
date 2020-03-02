@@ -33,6 +33,11 @@ For SBT:
 
     libraryDependencies += "com.github.ozancicek" %% "artan" % "0.1.0"
 
+For python:
+
+    pip install artan
+
+Note that pip will only install the python dependencies. To submit pyspark jobs, `--packages='com.github.ozancicek:artan_2.11:0.1.0'` argument should be specified in order to download necessary jars.
 
 
 ## Examples
@@ -48,6 +53,7 @@ See [examples](examples/src/main) for all sample scripts.
 ## Usage
 
 In scala, filters are located at `com.github.ozancicek.artan.ml.filter` package.
+
 ```scala
 import com.github.ozancicek.artan.ml.filter.LinearKalmanFilter
 import org.apache.spark.ml.linalg._
