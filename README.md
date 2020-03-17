@@ -65,9 +65,9 @@ val measurements: DataFrame = ... // DataFrame of measurements
 // Size of the state vector
 val stateSize = 2
 // Size of the measurements vector
-val measurementsSize = 1 //
+val measurementsSize = 1
 
-val filter = new LinearKalmanFilter(stateSize, measurementSize)
+val filter = new LinearKalmanFilter(stateSize, measurementsSize)
   .setStateKeyCol("stateKey")
   .setMeasurementCol("measurement")
   .setInitialCovariance(new DenseMatrix(2, 2, Array(10.0, 0.0, 0.0, 10.0)))
