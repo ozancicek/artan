@@ -9,31 +9,8 @@ online training of a model-parallel Recursive Least Squares with spark structure
 As its name suggests, Recursive Least Squares (RLS) is a recursive solution to the least squares problem. RLS
 does not require the complete data for training, it can perform sequential updates to the model from a
 sequence of observations which is useful for streaming applications.
-
-### Prerequisites
  
-Install Spark 2.4+, Scala 2.11 and Python 3.6+. Spark shell or pyspark shell can be run with maven coordinates
-using ``--packages`` argument. This will place all required jars and python files to appropriate executor and driver
-paths.
 
-    spark-shell --packages com.github.ozancicek:artan_2.11:0.1.0
-    pyspark --packages com.github.ozancicek:artan_2.11:0.1.0
-    spark-submit --packages com.github.ozancicek:artan_2.11:0.1.0
-
-
-For developing with Scala, the dependencies can be retrieved from Maven Central.
-
-    libraryDependencies += "com.github.ozancicek" %% "artan" % "0.1.0"
-    
-For developing with Python, the dependencies can be installed with pip.
-
-    pip install artan
-    
-Note that pip will only install the python dependencies, which is not enough to submit jobs to spark cluster. 
-To submit pyspark jobs, `--packages='com.github.ozancicek:artan_2.11:0.1.0'` argument should still be specified in
-order to download necessary jars from maven central.
- 
- 
 #### Scala
  
 Import RLS filter & spark, start spark session.
@@ -146,7 +123,7 @@ Batch: 66
 */
 ```
 
-See [examples](examples/src/main/scala/com/ozancicek/artan/examples/streaming/RLSRateSourceOLS.scala) for the full code
+See [examples](/examples/src/main/scala/com/ozancicek/artan/examples/streaming/RLSRateSourceOLS.scala) for the full code
 
 #### Python
 
@@ -253,4 +230,4 @@ Batch: 37
 """
 ```
 
-See [examples](examples/src/main/python/streaming/rls_rate_source_ols.py) for the full code
+See [examples](/examples/src/main/python/streaming/rls_rate_source_ols.py) for the full code
