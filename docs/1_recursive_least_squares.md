@@ -1,11 +1,10 @@
 # Documentation
 
-## Quick Start
+## Online Recursive Least Squares
 
 This tutorial will show you how to setup a very simple spark application with this library. The example consists of
 online training of a model-parallel Recursive Least Squares with spark structured streaming.
 
-## Online Recursive Least Squares
  
 As its name suggests, Recursive Least Squares (RLS) is a recursive solution to the least squares problem. RLS
 does not require the complete data for training, it can perform sequential updates to the model from a
@@ -147,6 +146,8 @@ Batch: 66
 */
 ```
 
+See [examples](examples/src/main/scala/com/ozancicek/artan/examples/streaming/RLSRateSourceOLS.scala) for the full code
+
 #### Python
 
 Import RLS filter & spark, start spark session.
@@ -251,3 +252,5 @@ Batch: 37
 +--------+----------+--------------------+--------------------+
 """
 ```
+
+See [examples](examples/src/main/python/streaming/rls_rate_source_ols.py) for the full code

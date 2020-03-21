@@ -42,9 +42,9 @@ For python:
 Note that pip will only install the python dependencies. To submit pyspark jobs, `--packages='com.github.ozancicek:artan_2.11:0.1.0'` argument should be specified in order to download necessary jars.
 
 
-## Examples
+## Docs and Examples
 
-See [examples](examples/src/main) for all sample scripts.
+Visit [docs](docs) (in progress) for tutorials and [examples](examples/src/main) for all sample scripts.
 
 ### Streaming examples
 - Local linear trend filtering with Linear Kalman Filter ([python](examples/src/main/python/streaming/lkf_rate_source_llt.py), [scala](examples/src/main/scala/com/ozancicek/artan/examples/streaming/LKFRateSourceLLT.scala))
@@ -111,7 +111,7 @@ state_size = 2
 # Size of the measurements vector
 measurement_size = 1
 
-filter = LinearKalmanFilter(2, 1)\
+filter = LinearKalmanFilter(state_size, measurement_size)\
     .setStateKeyCol("stateKey")\
     .setMeasurementCol("measurement")\
     .setInitialCovariance(Matrices.dense(2, 2, [10.0, 0.0, 0.0, 10.0]))\
