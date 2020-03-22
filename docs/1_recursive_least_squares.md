@@ -232,3 +232,6 @@ Batch: 37
 ```
 
 See [examples](/examples/src/main/python/streaming/rls_rate_source_ols.py) for the full code
+
+
+[Next - Kalman filter](2_kalman_filter.md)
