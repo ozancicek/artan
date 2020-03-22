@@ -58,7 +58,7 @@ val labelUDF = udf((x: Double, y: Double, w: Double) => {
 })
 
 val features = spark.readStream.format("rate")
-  .option("rowsPerSecond", rowsPerSecond)
+  .option("rowsPerSecond", 10)
   .load()
   .withColumn("mod", $"value" % numStates)
   .withColumn("stateKey", $"mod".cast("String"))
@@ -160,7 +160,7 @@ features_size = 3
 label_expression = F.col("x") * a + F.col("y") * b + c + F.col("w")
 
 
-input_df = spark.readStream.format("rate").option("rowsPerSecond", mps).load()\
+input_df = spark.readStream.format("rate").option("rowsPerSecond", 10).load()\
     .withColumn("mod", F.col("value") % num_states)\
     .withColumn("stateKey", F.col("mod").cast("String"))\
     .withColumn("x", (F.col("value")/num_states).cast("Integer").cast("Double"))\

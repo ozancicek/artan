@@ -48,8 +48,6 @@ object LKFRateSourceOLS {
     val numStates = args(0).toInt
     val rowsPerSecond = args(1).toInt
 
-    val noiseParam = 1.0
-
     // OLS problem, states to be estimated are a, b and c
     // z = a*x + b * y + c + w, where w ~ N(0, 1)
 
@@ -58,6 +56,7 @@ object LKFRateSourceOLS {
     val c = 1.2
     val stateSize = 3
     val measurementsSize = 1
+    val noiseParam = 1.0
 
     val featuresUDF = udf((x: Double, y: Double) => {
       new DenseMatrix(measurementsSize, stateSize, Array(x, y, 1.0))
@@ -76,7 +75,6 @@ object LKFRateSourceOLS {
       .withColumn("y", sqrt($"x"))
       .withColumn("label", labelUDF($"x", $"y", randn() * noiseParam))
       .withColumn("features", featuresUDF($"x", $"y"))
-
 
     val filter = new LinearKalmanFilter(stateSize, measurementsSize)
       .setInitialCovariance(
