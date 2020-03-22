@@ -12,12 +12,11 @@ val components = Seq("streaming", "sql", "mllib")
 
 val shortDesc = "Bayesian filtering with Spark"
 
-val longDesc = """Model-parallel bayesian filtering with Apache Spark.
+val longDesc = """Model-parallel kalman and bayesian filtering with Apache Spark.
                   |
-                  |This library allows you to define model-parallel bayesian filters by leveraging arbitrary stateful
-                  |transformation capabilities of Spark DataFrames. Supports both structured streaming and
-                  |batch processing mode. Suitable for latent state estimation of many similar small scale systems
-                  |rather than a big single system.""".stripMargin
+                  |This library allows you to define model-parallel kalman & bayesian filters by leveraging arbitrary
+                  |stateful transformation capabilities of Spark DataFrames. Supports both structured streaming and
+                  |batch processing mode. Suitable for latent state estimation of many similar small scale systems.""".stripMargin
 
 lazy val settings = Seq(
   scalaVersion := scalaVer,
