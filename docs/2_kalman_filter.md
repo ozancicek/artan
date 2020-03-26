@@ -34,6 +34,9 @@ val spark = SparkSession
   .getOrCreate
 
 import spark.implicits._
+val rowsPerSecond = 10
+val numStates = 10
+
 ```
 
 ```scala
@@ -130,3 +133,117 @@ Batch: 54
 ```
 
 See [examples](/examples/src/main/scala/com/ozancicek/artan/examples/streaming/LKFRateSourceOLS.scala) for the full code
+
+
+
+#### Python
+```python
+from artan.filter import LinearKalmanFilter
+
+from pyspark.sql import SparkSession
+import pyspark.sql.functions as F
+from pyspark.ml.linalg import Matrices, Vectors, MatrixUDT, VectorUDT
+from pyspark.sql.types import StringType
+
+spark = SparkSession.builder.appName("LKFRateSourceOLS").getOrCreate()
+
+num_states = 10
+measurements_per_sec = 10
+```
+
+```python
+# OLS problem, states to be estimated are a, b and c
+# z = a*x + b * y + c + w, where w ~ N(0, 1)
+a = 0.5
+b = 0.2
+c = 1.2
+noise_param = 1
+state_size = 3
+measurement_size = 1
+
+label_udf = F.udf(lambda x, y, w: Vectors.dense([x * a + y * b + c + w]), VectorUDT())
+features_udf = F.udf(lambda x, y: Matrices.dense(1, 3, [x, y, 1]), MatrixUDT())
+
+features = spark.readStream.format("rate").option("rowsPerSecond", measurements_per_sec).load()\
+    .withColumn("mod", F.col("value") % num_states)\
+    .withColumn("stateKey", F.col("mod").cast("String"))\
+    .withColumn("x", (F.col("value")/num_states).cast("Integer").cast("Double"))\
+    .withColumn("y", F.sqrt("x"))\
+    .withColumn("w", F.randn(0) * noise_param)\
+    .withColumn("label", label_udf("x", "y", "w"))\
+    .withColumn("features", features_udf("x", "y"))
+```
+
+```python
+lkf = LinearKalmanFilter(state_size, measurement_size)\
+    .setStateKeyCol("stateKey")\
+    .setMeasurementCol("label")\
+    .setMeasurementModelCol("features")\
+    .setInitialCovariance(Matrices.dense(3, 3, [10, 0, 0, 0, 10, 0, 0, 0, 10]))\
+    .setProcessModel(Matrices.dense(3, 3, [1, 0, 0, 0, 1, 0, 0, 0, 1]))\
+    .setProcessNoise(Matrices.dense(3, 3, [0] * 9))\
+    .setMeasurementNoise(Matrices.dense(1, 1, [1]))
+
+truncate_udf = F.udf(lambda x: "[%.2f, %.2f, %.2f]" % (x[0], x[1], x[2]), StringType())
+
+query = lkf.transform(features)\
+    .select("stateKey", "stateIndex", truncate_udf("state").alias("modelParameters"))\
+    .writeStream\
+    .queryName("LKFRateSourceOLS")\
+    .outputMode("append")\
+    .format("console")\
+    .start()
+
+query.awaitTermination()
+    
+"""
+-------------------------------------------
+Batch: 32
+-------------------------------------------
++--------+----------+-------------------+
+|stateKey|stateIndex|    modelParameters|
++--------+----------+-------------------+
+|       7|        74|[0.55, -0.30, 2.29]|
+|       3|        74|[0.55, -0.26, 1.87]|
+|       8|        74| [0.51, 0.18, 1.14]|
+|       0|        74| [0.47, 0.52, 0.41]|
+|       5|        74|[0.52, -0.01, 1.70]|
+|       6|        74| [0.49, 0.32, 1.13]|
+|       9|        74| [0.49, 0.39, 0.68]|
+|       1|        74|[0.52, -0.09, 2.15]|
+|       4|        74| [0.50, 0.05, 2.13]|
+|       2|        74| [0.49, 0.34, 0.77]|
++--------+----------+-------------------+
+
+-------------------------------------------
+Batch: 33
+-------------------------------------------
++--------+----------+-------------------+
+|stateKey|stateIndex|    modelParameters|
++--------+----------+-------------------+
+|       7|        75|[0.54, -0.19, 2.11]|
+|       7|        76|[0.54, -0.22, 2.16]|
+|       3|        75|[0.55, -0.24, 1.84]|
+|       3|        76|[0.55, -0.23, 1.82]|
+|       8|        75| [0.50, 0.18, 1.13]|
+|       8|        76| [0.50, 0.21, 1.10]|
+|       0|        75| [0.47, 0.54, 0.38]|
+|       0|        76| [0.47, 0.54, 0.38]|
+|       5|        75| [0.51, 0.07, 1.58]|
+|       5|        76| [0.50, 0.13, 1.50]|
+|       6|        75| [0.48, 0.35, 1.07]|
+|       6|        76| [0.48, 0.35, 1.07]|
+|       9|        75| [0.49, 0.35, 0.74]|
+|       9|        76| [0.49, 0.37, 0.71]|
+|       1|        75|[0.51, -0.03, 2.07]|
+|       1|        76|[0.51, -0.02, 2.04]|
+|       4|        75| [0.50, 0.06, 2.12]|
+|       4|        76| [0.50, 0.04, 2.15]|
+|       2|        75| [0.49, 0.36, 0.75]|
+|       2|        76| [0.49, 0.33, 0.79]|
++--------+----------+-------------------+
+
+"""
+```
+
+See [examples](/examples/src/main/python/streaming/lkf_rate_source_ols.py) for the full code
