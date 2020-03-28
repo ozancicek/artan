@@ -31,7 +31,9 @@ val spark = SparkSession
 import spark.implicits._
 ``` 
 
-Define model parameters, #models and udf's to generate training data. Each feature and label can be associated with a 
+Define model parameters, #models and udf's to generate training data. 
+
+Each feature and label can be associated with a 
 different model by creating a key column & specifying it with `setStateKeyCol`. Not specifying any key column will result
 in training a single model. Training data is generated using streaming rate source. Streaming rate source generates
 consecutive numbers with timestamps. These consecutive numbers are binned for different models and then used for 
@@ -69,7 +71,9 @@ val features = spark.readStream.format("rate")
 
 ```
 
-Initialize the filter & run the query with console sink. The trained model will be outputted in the `state`
+Initialize the filter & run the query with console sink.
+
+Trained model parameters are located at `state`
 column as a vector. Along with the state column, `stateKey` and `stateIndex` column can be used for indentifying
 different models and their incremented index.
 
@@ -142,7 +146,9 @@ from pyspark.ml.feature import VectorAssembler
 spark = SparkSession.builder.appName("RLSExample").getOrCreate()
 ```
 
-Define model parameters, #models and expressions to generate training data. Each feature and label can be associated with a 
+Define model parameters, #models and expressions to generate training data.
+
+Each feature and label can be associated with a 
 different model by creating a key column & specifying it with `setStateKeyCol`. Not specifying any key column will result
 in training a single model. Training data is generated using streaming rate source. Streaming rate source generates
 consecutive numbers with timestamps. These consecutive numbers are binned for different models and then used for 
@@ -175,7 +181,9 @@ measurements = assembler.transform(input_df)
 
 ```
 
-Initialize the filter & run the query with console sink. The trained model will be outputted in the `state`
+Initialize the filter & run the query with console sink.
+
+Trained model parameters are located at `state`
 column as a vector. Along with the state column, `stateKey` and `stateIndex` column can be used for indentifying
 different models and their incremented index.
 

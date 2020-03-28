@@ -22,6 +22,7 @@ At each time step `t`, the state would give an estimate of the model parameters.
 
 #### Scala
 
+Import Kalman filter and start spark session.
 ```scala
 import com.github.ozancicek.artan.ml.filter.LinearKalmanFilter
 import org.apache.spark.ml.linalg._
@@ -36,9 +37,13 @@ val spark = SparkSession
 import spark.implicits._
 val rowsPerSecond = 10
 val numStates = 10
-
 ```
 
+Define model parameters, #models and udf's to generate training data. 
+
+Since the aim is to estimate the model parameters,
+the state of the filter is model parameters. Label will become measurements vector with size 1. Features
+will be denoted with a 1x3 measurement model matrix, which will map the state to measurements with a dot product.  
 ```scala
 // OLS problem, states to be estimated are a, b and c
 // z = a*x + b * y + c + w, where w ~ N(0, 1)
@@ -47,11 +52,11 @@ val a = 0.5
 val b = 0.2
 val c = 1.2
 val stateSize = 3
-val measurementsSize = 1
+val measurementSize = 1
 val noiseParam = 1.0
 
 val featuresUDF = udf((x: Double, y: Double) => {
-  new DenseMatrix(measurementsSize, stateSize, Array(x, y, 1.0))
+  new DenseMatrix(measurementSize, stateSize, Array(x, y, 1.0))
 })
 
 val labelUDF = udf((x: Double, y: Double, r: Double) => {
@@ -68,9 +73,18 @@ val features = spark.readStream.format("rate")
   .withColumn("label", labelUDF($"x", $"y", randn() * noiseParam))
   .withColumn("features", featuresUDF($"x", $"y"))
 ```
+Initialize the filter & run the query with console sink.
+
+All of the filter parameters can be set either as an input dataframe column, or directly the value itself with
+`ml.linalg.Vector` or `ml.linalg.Matrix`. Specifying parameters from dataframe columns will allow you to have
+varying values across measurements/filters.
+
+For this example, measurement and measurement model should be varying across
+measurements, so they're set from dataframe columns. Process model, process noise, measurement noise and initial covariance
+can be same for all measurements/filters, so their values are set directly with matrices.
 
 ```scala
-val filter = new LinearKalmanFilter(stateSize, measurementsSize)
+val filter = new LinearKalmanFilter(stateSize, measurementSize)
   .setInitialCovariance(
     new DenseMatrix(3, 3, Array(10.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 10.0)))
   .setStateKeyCol("stateKey")
@@ -78,7 +92,7 @@ val filter = new LinearKalmanFilter(stateSize, measurementsSize)
   .setMeasurementModelCol("features")
   .setProcessModel(DenseMatrix.eye(stateSize))
   .setProcessNoise(DenseMatrix.zeros(stateSize, stateSize))
-  .setMeasurementNoise(DenseMatrix.eye(measurementsSize))
+  .setMeasurementNoise(DenseMatrix.eye(measurementSize))
 
 val truncate = udf((state: DenseVector) => state.values.map(t => (math floor t * 100)/100))
 
@@ -137,6 +151,9 @@ See [examples](/examples/src/main/scala/com/ozancicek/artan/examples/streaming/L
 
 
 #### Python
+
+Import Kalman filter and start spark session.
+
 ```python
 from artan.filter import LinearKalmanFilter
 
@@ -151,6 +168,11 @@ num_states = 10
 measurements_per_sec = 10
 ```
 
+Define model parameters, #models and udf's to generate training data.
+
+Since the aim is to estimate the model parameters,
+the state of the filter is model parameters. Label will become measurements vector with size 1. Features
+will be denoted with a 1x3 measurement model matrix, which will map the state to measurements with a dot product.
 ```python
 # OLS problem, states to be estimated are a, b and c
 # z = a*x + b * y + c + w, where w ~ N(0, 1)
@@ -173,6 +195,15 @@ features = spark.readStream.format("rate").option("rowsPerSecond", measurements_
     .withColumn("label", label_udf("x", "y", "w"))\
     .withColumn("features", features_udf("x", "y"))
 ```
+Initialize the filter & run the query with console sink.
+
+All of the filter parameters can be set either as an input dataframe column, or directly the value itself with
+`ml.linalg.Vector` or `ml.linalg.Matrix`. Specifying parameters from dataframe columns will allow you to have
+varying values across measurements/filters. 
+
+For this example, measurement and measurement model should be varying across
+measurements, so they're set from dataframe columns. Process model, process noise, measurement noise and initial covariance
+can be same for all measurements/filters, so their values are set directly with matrices.
 
 ```python
 lkf = LinearKalmanFilter(state_size, measurement_size)\
