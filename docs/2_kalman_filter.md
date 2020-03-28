@@ -1,14 +1,14 @@
 # Documentation
 
 
-This tutorial will show you a streaming Kalman filter example with this library. The example consists of
-online training of a model-parallel Recursive Least Squares, using a Kalman filter with
+This tutorial will show you a streaming Kalman Filter example with this library. The example consists of
+online training of a model-parallel linear regression, using the Kalman Filter with
 spark structured streaming.
 
 
-## Online Recursive Least Squares with Kalman filter
+## Online Linear Regression with Kalman Filter
 
-Recursive estimation of least squares can be easily done with a Kalman filter. Using state-space
+Recursive estimation of least squares can be easily done with a Kalman Filter. Using state-space
 representation, the following linear model:
 
 
@@ -39,7 +39,7 @@ val rowsPerSecond = 10
 val numStates = 10
 ```
 
-Define model parameters, #models and udf's to generate training data. 
+Define the model parameters and udf's to generate training data. 
 
 Since the aim is to estimate the model parameters,
 the state of the filter is model parameters. Label will become measurements vector with size 1. Features
@@ -152,7 +152,7 @@ See [examples](/examples/src/main/scala/com/ozancicek/artan/examples/streaming/L
 
 #### Python
 
-Import Kalman filter and start spark session.
+Import Kalman Filter and start spark session.
 
 ```python
 from artan.filter import LinearKalmanFilter
@@ -278,3 +278,5 @@ Batch: 33
 ```
 
 See [examples](/examples/src/main/python/streaming/lkf_rate_source_ols.py) for the full code
+
+[Next - Extended Kalman filter](3_extended_kalman_filter.md)

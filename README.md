@@ -8,7 +8,7 @@ Model-parallel bayesian filtering with Apache Spark.
 
 - [Overview](#overview)
 - [Download](#download)
-- [Examples](#examples)
+- [Docs and Examples](#docs-and-examples)
 - [Usage](#usage)
 
 ## Overview

@@ -5,7 +5,7 @@ This tutorial will show you how to setup a very simple spark application with th
 online training of a model-parallel Recursive Least Squares, using a recursive least squares filter with
 spark structured streaming.
 
-## Online Recursive Least Squares with RLS filter
+## Online Linear Regression with Recursive Least Squares filter
 
 As its name suggests, Recursive Least Squares (RLS) is a recursive solution to the least squares problem. RLS
 does not require the complete data for training, it can perform sequential updates to the model from a

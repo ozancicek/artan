@@ -49,12 +49,23 @@ object EKFRateSourceGLMLog {
     val numStates = args(0).toInt
     val rowsPerSecond = args(1).toInt
 
-    val noiseParam = 1.0
-
     // GLM with log link, states to be estimated are a, b
     // y = exp(a*x + b) + w, where w ~ N(0, 1)
     val a = 0.2
     val b = 0.7
+    val noiseParam = 1.0
+    val stateSize = 2
+    val measurementSize = 1
+
+    // UDF's for generating measurement vector ([y]) and measurement model matrix ([[x ,1]])
+    val measurementUDF = udf((x: Double, r: Double) => {
+      val measurement = scala.math.exp(a * x + b) + r
+      new DenseVector(Array(measurement))
+    })
+
+    val measurementModelUDF = udf((x: Double) => {
+      new DenseMatrix(1, 2, Array(x, 1.0))
+    })
 
     val measurementFunc = (in: Vector, model: Matrix) => {
       val measurement = model.multiply(in)
@@ -69,31 +80,21 @@ object EKFRateSourceGLMLog {
         model(0, 0) * res,
         res
       )
-      new DenseMatrix(1, 2, jacs.toArray)
+      new DenseMatrix(1, 2, jacs)
     }
 
-    val filter = new ExtendedKalmanFilter(2, 1)
+    val filter = new ExtendedKalmanFilter(stateSize, measurementSize)
       .setStateKeyCol("stateKey")
       .setInitialCovariance(
         new DenseMatrix(2, 2, Array(10.0, 0.0, 0.0, 10.0)))
       .setMeasurementCol("measurement")
       .setMeasurementModelCol("measurementModel")
       .setProcessModel(DenseMatrix.eye(2))
-      .setProcessNoise(new DenseMatrix(2, 2, Array(0.00, 0.0, 0.0, 0.00)))
+      .setProcessNoise(DenseMatrix.zeros(2, 2))
       .setMeasurementNoise(new DenseMatrix(1, 1, Array(10)))
       .setMeasurementFunction(measurementFunc)
       .setMeasurementStateJacobian(measurementJac)
       .setCalculateMahalanobis
-
-    // UDF's for generating measurement vector ([y]) and measurement model matrix ([[x ,1]])
-    val measurementUDF = udf((x: Double, r: Double) => {
-      val measurement = scala.math.exp(a * x + b) + r
-      new DenseVector(Array(measurement))
-    })
-
-    val measurementModelUDF = udf((x: Double) => {
-      new DenseMatrix(1, 2, Array(x.toDouble, 1.0))
-    })
 
     val measurements = spark.readStream.format("rate")
       .option("rowsPerSecond", rowsPerSecond)
