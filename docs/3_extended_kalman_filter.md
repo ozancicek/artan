@@ -146,3 +146,5 @@ Batch: 33
 ```
 
 See [examples](/examples/src/main/scala/com/ozancicek/artan/examples/streaming/EKFRateSourceGLMLog.scala) for the full code
+
+[Next - State and Fault Tolerance](4_state_and_fault_tolerance.md)
