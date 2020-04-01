@@ -28,6 +28,7 @@ import com.github.ozancicek.artan.ml.testutils.RegressionTestWrapper
 
 import scala.util.Random
 
+case class Measurement(measurement: DenseVector)
 
 case class LocalLinearMeasurement(measurement: DenseVector, eventTime: Timestamp)
 
@@ -101,6 +102,55 @@ class LinearKalmanFilterSpec
         assert(scala.math.abs(stats.getAs[DenseVector]("avg")(1) - 1.0) < 1.0)
       }
 
+    }
+
+    describe("Batch save and resume") {
+      val n = 100
+      val dist = breeze.stats.distributions.Gaussian(0, 1)
+
+      val ts = (0 until n).map(_.toDouble).toArray
+      val zs = ts.map(t => Measurement(new DenseVector(Array(t + dist.draw())))).toSeq
+
+      val filter = new LinearKalmanFilter(2, 1)
+        .setMeasurementCol("measurement")
+        .setProcessModel(
+          new DenseMatrix(2, 2, Array(1, 0, 1, 1)))
+        .setProcessNoise(
+          new DenseMatrix(2, 2, Array(0.01, 0.0, 0.0, 0.01)))
+        .setMeasurementNoise(
+          new DenseMatrix(1, 1, Array(1)))
+        .setMeasurementModel(
+          new DenseMatrix(1, 2, Array(1, 0)))
+
+      // Simulate save point, split the measurements to two
+      val (initial, resume) = zs.splitAt(n/2)
+
+      val initialFilter = filter
+        .setInitialCovariance(
+          new DenseMatrix(2, 2, Array(100, 0, 0, 100)))
+
+      val initalState = initialFilter.transform(initial.toDF("measurement"))
+        .filter(s"stateIndex == ${initial.size}")
+        .select("stateKey", "state", "stateCovariance")
+
+      val allState = initialFilter.transform(zs.toDF("measurement"))
+        .filter(s"stateIndex == $n")
+        .select("stateKey", "state", "stateCovariance")
+
+      val resumeFilter = filter
+        .setInitialStateCol("state")
+        .setInitialCovarianceCol("stateCovariance")
+
+      val resumeDF = resume.toDF("measurement")
+        .crossJoin(initalState)
+
+      val finalState = resumeFilter.transform(resumeDF)
+        .filter(s"stateIndex == ${n/2}")
+        .select("stateKey", "state", "stateCovariance")
+
+      it("should have same end state after resume") {
+        assert(finalState.collect().toList == allState.collect().toList)
+      }
     }
 
     describe("Ordinary least squares") {

@@ -3,10 +3,10 @@
 
 This tutorial will show you a streaming Extended Kalman Filter (EKF) example with this library. The example consists of
 online training of a model-parallel nonlinear regression, using EKF with
-spark structured streaming.
+spark structured streaming. At the moment, EKF is only supported with scala.
 
 
-## Online Regression with Extended Kalman Filter
+## Online Nonlinear Regression with Extended Kalman Filter
 
 EKF can be used for systems where measurement or state process updates are nonlinear
 functions. In order to do nonlinear updates with EKF, the update function along and its jacobian
