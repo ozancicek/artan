@@ -18,29 +18,29 @@
 package com.github.ozancicek.artan.examples.streaming
 
 import com.github.ozancicek.artan.ml.filter.LinearKalmanFilter
-import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.functions._
 import org.apache.spark.ml.linalg._
+import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.functions._
 
 
 /**
- * Continuously filters a local linear increasing trend with a rate source, primarily for a quick
+ * Kalman filter local linear trend, initialize with batch dataframe and continue with stream dataframe
  * local performance & capacity testing.
  *
  * To run the sample from source, build the assembly jar for artan-examples project and run:
  *
- * `spark-submit --class com.github.ozancicek.artan.examples.streaming.LKFRateSourceLLT artan-examples-assembly-VERSION.jar 10 10`
+ * `spark-submit --class com.github.ozancicek.artan.examples.streaming.LKFStreamBatchInit artan-examples-assembly-VERSION.jar 10 10`
  */
-object LKFRateSourceLLT {
+object LKFStreamBatchInit {
 
   def main(args: Array[String]): Unit = {
     if (args.length < 2) {
-      System.err.println("Usage: LKFRateSourceLLT <numStates> <measurementsPerSecond>")
+      System.err.println("Usage: LKFStreamBatchInit <numStates> <measurementsPerSecond>")
       System.exit(1)
     }
     val spark = SparkSession
       .builder
-      .appName("LLTRateSourceLKF")
+      .appName("LKFStreamBatchInit")
       .getOrCreate
     spark.sparkContext.setLogLevel("WARN")
 
@@ -53,7 +53,7 @@ object LKFRateSourceLLT {
 
     val measurementUdf = udf((t: Long, r: Double) => new DenseVector(Array(t.toDouble + r)))
 
-    val filter = new LinearKalmanFilter(2, 1)
+    val batchFilter = new LinearKalmanFilter(2, 1)
       .setStateKeyCol("stateKey")
       .setMeasurementCol("measurement")
       .setInitialCovariance(
@@ -67,16 +67,39 @@ object LKFRateSourceLLT {
       .setMeasurementModel(
         new DenseMatrix(1, 2, Array(1, 0)))
 
-    val measurements = spark.readStream.format("rate")
+    // Function to generate measurements dataframe
+    val generateMeasurements = (df: DataFrame) => {
+      df.withColumn("mod", $"value" % numStates)
+        .withColumn("stateKey", $"mod".cast("String"))
+        .withColumn("measurement", measurementUdf($"value"/numStates, randn() * noiseParam))
+    }
+
+    val batchMeasurementCount = 10 * rowsPerSecond
+    val batchMeasurements = generateMeasurements((0 to numStates * batchMeasurementCount).toDF("value"))
+    // Get the latest state from the filter trained in batch mode.
+    val batchState = batchFilter.transform(batchMeasurements)
+      .filter(s"stateIndex = $batchMeasurementCount")
+      .select("stateKey", "state", "stateCovariance").cache()
+    batchState.show(numStates)
+
+    // Copy batch filter, except initial state and covariance is read from dataframe column
+    val streamFilter = batchFilter
+      .setInitialStateCol("state")
+      .setInitialCovarianceCol("stateCovariance")
+
+    // Generate streaming DF, shift the value by batchMeasurementCount to remove overlap with batch train data
+    val streamDF = generateMeasurements(spark.readStream.format("rate")
       .option("rowsPerSecond", rowsPerSecond)
       .load()
-      .withColumn("mod", $"value" % numStates)
-      .withColumn("stateKey", $"mod".cast("String"))
-      .withColumn("measurement", measurementUdf($"value"/numStates, randn() * noiseParam))
+      .withColumn("value", $"value" + numStates * batchMeasurementCount))
 
-    val query = filter.transform(measurements)
+    // Static-stream join to add state & stateCovariance columns.
+    val streamMeasurements = streamDF
+      .join(batchState, "stateKey")
+
+    val query = streamFilter.transform(streamMeasurements)
       .writeStream
-      .queryName("LKFRateSourceLLT")
+      .queryName("LKFStreamBatchInit")
       .outputMode("append")
       .format("console")
       .start()
