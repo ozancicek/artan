@@ -88,9 +88,9 @@ Batch: 1
 +--------+----------+--------------------+--------------------+
 
  */
+```
 See [examples](/examples/src/main/scala/com/ozancicek/artan/examples/streaming/LKFStreamBatchInit.scala) for the full code
 
-```
 ## Restarts
 
 In case of a failure or intentional shutdown in streaming mode, spark checkpointing mechanism can be used as usual. 
