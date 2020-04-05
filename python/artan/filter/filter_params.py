@@ -419,3 +419,61 @@ class HasOutputSystemMatrices(Params):
         Gets the value of loglikelihood calculation flag.
         """
         return self.getOrDefault(self.outputSystemMatrices)
+
+
+class HasCalculateSlidingLikelihood(Params):
+    """
+    Mixin param for enabling sliding likelihood calculation
+    """
+    calculateSlidingLikelihood = Param(
+        Params._dummy(),
+        "calculateSlidingLikelihood",
+        "When true, sliding likelihood sum of residual will be calculated & added to output DataFrame. Default is false",
+        typeConverter=TypeConverters.toBoolean)
+
+    def __init__(self):
+        super(HasCalculateSlidingLikelihood, self).__init__()
+
+    def getCalculateSlidingLikelihood(self):
+        """
+        Gets the value of sliding likelihood calculation flag
+        """
+        return self.getOrDefault(self.calculateSlidingLikelihood)
+
+
+class HasSlidingLikelihoodWindow(Params):
+    """
+    Mixin param for sliding likelihood window duration
+    """
+    slidingLikelihoodWindow = Param(
+        Params._dummy(),
+        "slidingLikelihoodWindow",
+        "Number of consecutive measurements to include in the total likelihood calculation",
+        typeConverter=TypeConverters.toInt)
+
+    def __init__(self):
+        super(HasSlidingLikelihoodWindow, self).__init__()
+
+    def getSlidingLikelihoodWindow(self):
+        """
+        Gets the value of sliding likelihood window
+        """
+        return self.getOrDefault(self.slidingLikelihoodWindow)
+
+
+class HasMultipleModelMeasurementWindowDuration(Params):
+
+    multipleModelMeasurementWindowDuration = Param(
+        Params._dummy(),
+        "multipleModelMeasurementWindowDuration",
+        "Window duration for grouping measurements in same window for MMAE filter aggregation",
+        typeConverter=TypeConverters.toString)
+
+    def __init__(self):
+        super(HasMultipleModelMeasurementWindowDuration, self).__init__()
+
+    def getMultipleModelMeasurementWindowDuration(self):
+        """
+        Gets the value of mmae measureent window duration
+        """
+        return self.getOrDefault(self.multipleModelMeasurementWindowDuration)

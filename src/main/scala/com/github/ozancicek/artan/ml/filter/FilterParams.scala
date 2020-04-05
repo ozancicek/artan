@@ -426,6 +426,51 @@ private[artan] trait HasCalculateLoglikelihood extends Params {
   final def getCalculateLoglikelihood: Boolean = $(calculateLoglikelihood)
 }
 
+
+/**
+ * Param for enabling slidinglikelihood calculation
+ */
+private[artan] trait HasCalculateSlidingLikelihood extends Params {
+
+  final val calculateSlidingLikelihood: BooleanParam = new BooleanParam(
+    this,
+    "calculateSlidingLikelihood",
+    "When true, sliding likelihood sum of residual will be calculated & added to output DataFrame. Default is false")
+
+  setDefault(calculateSlidingLikelihood, false)
+
+  final def getCalculateSlidingLikelihood: Boolean = $(calculateSlidingLikelihood)
+}
+
+/**
+ * Param for sliding likelihood window
+ */
+
+private[artan] trait HasSlidingLikelihoodWindow extends Params {
+
+  final val slidingLikelihoodWindow: IntParam = new IntParam(
+    this,
+    "slidingLikelihoodWindow",
+    "Number of consecutive measurements to include in the total likelihood calculation",
+    ParamValidators.gtEq(1))
+
+  setDefault(slidingLikelihoodWindow, 1)
+
+  final def getSlidingLikelihoodWindow: Int = $(slidingLikelihoodWindow)
+}
+
+
+private[artan] trait HasMultipleModelMeasurementWindowDuration extends Params {
+
+  final val multipleModelMeasurementWindowDuration: Param[String] = new Param[String](
+    this,
+    "multipleModelMeasurementWindowDuration",
+    "Window duration for grouping measurements in same window for MMAE filter aggregation"
+  )
+
+  final def getMultipleModelMeasurementWindow: String = $(multipleModelMeasurementWindowDuration)
+}
+
 /**
  * Param for enabling output of system matrices
  */

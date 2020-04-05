@@ -146,7 +146,8 @@ class UnscentedKalmanFilter(
     getProcessFunctionOpt,
     getMeasurementFunctionOpt,
     outputResiduals,
-    getAdaptiveNoiseParamSet
+    getAdaptiveNoiseParamSet,
+    getSlidingLikelihoodWindow
   )
 }
 
@@ -159,7 +160,8 @@ private[filter] class UnscentedKalmanStateSpec(
     val processFunction: Option[(Vector, Matrix) => Vector],
     val measurementFunction: Option[(Vector, Matrix) => Vector],
     val storeResidual: Boolean,
-    val adaptiveNoiseParamSet: AdaptiveNoiseParamSet)
+    val adaptiveNoiseParamSet: AdaptiveNoiseParamSet,
+    val likelihoodWindow: Int)
   extends KalmanStateUpdateSpec[UnscentedKalmanStateCompute] {
 
   val kalmanCompute = new UnscentedKalmanStateCompute(
@@ -209,7 +211,7 @@ private[filter] class UnscentedKalmanStateCompute(
     KalmanState(
       state.stateIndex + 1, stateMean, stateCov,
       state.residual, state.residualCovariance,
-      state.processNoise)
+      state.processNoise, state.slidingLoglikelihood)
   }
 
   def getAdaptiveProcessNoise(
@@ -246,7 +248,8 @@ private[filter] class UnscentedKalmanStateCompute(
   def estimate(
     state: KalmanState,
     process: KalmanInput,
-    storeResidual: Boolean): KalmanState = {
+    storeResidual: Boolean,
+    likelihoodWindow: Int): KalmanState = {
 
     val (stateMean, stateCov) = (state.state.toDense, state.stateCovariance.toDense)
 
@@ -301,8 +304,10 @@ private[filter] class UnscentedKalmanStateCompute(
       gain
     )
 
+    val ll = updateSlidingLikelihood(state.slidingLoglikelihood, likelihoodWindow, res, resCov)
+
     KalmanState(
-      state.stateIndex, newMean, newCov, res, resCov, processNoise)
+      state.stateIndex, newMean, newCov, res, resCov, processNoise, ll)
   }
 }
 

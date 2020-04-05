@@ -99,7 +99,8 @@ class CubatureKalmanFilter(
     new CubaturePoints(stateSize),
     getProcessFunctionOpt,
     getMeasurementFunctionOpt,
-    outputResiduals
+    outputResiduals,
+    getSlidingLikelihoodWindow
   )
 }
 
@@ -111,7 +112,8 @@ private[filter] class CubatureKalmanStateSpec(
     val cubature: CubaturePoints,
     val processFunction: Option[(Vector, Matrix) => Vector],
     val measurementFunction: Option[(Vector, Matrix) => Vector],
-    val storeResidual: Boolean)
+    val storeResidual: Boolean,
+    val likelihoodWindow: Int)
   extends KalmanStateUpdateSpec[CubatureKalmanStateCompute] {
 
   val kalmanCompute = new CubatureKalmanStateCompute(
@@ -157,7 +159,7 @@ private[filter] class CubatureKalmanStateCompute(
     KalmanState(
       state.stateIndex + 1, stateMean, stateCov,
       state.residual, state.residualCovariance,
-      state.processNoise)
+      state.processNoise, state.slidingLoglikelihood)
   }
 
   private def estimateCrossCovariance(
@@ -177,7 +179,8 @@ private[filter] class CubatureKalmanStateCompute(
   def estimate(
     state: KalmanState,
     process: KalmanInput,
-    storeResidual: Boolean): KalmanState = {
+    storeResidual: Boolean,
+    likelihoodWindow: Int): KalmanState = {
 
     val (stateMean, stateCov) = (state.state.toDense, state.stateCovariance.toDense)
 
@@ -211,9 +214,10 @@ private[filter] class CubatureKalmanStateCompute(
     BLAS.axpy(-1.0, covUpdate, newCov)
 
     val (res, resCov) = if (storeResidual) (Some(residual), Some(estimateCov)) else (None, None)
+    val ll = updateSlidingLikelihood(state.slidingLoglikelihood, likelihoodWindow, res, resCov)
 
     KalmanState(
-      state.stateIndex, newMean, newCov, res, resCov, state.processNoise)
+      state.stateIndex, newMean, newCov, res, resCov, state.processNoise, ll)
   }
 }
 

@@ -175,6 +175,35 @@ class LinearKalmanFilterSpec
       }
     }
 
+    describe("mmae filter ols") {
+      val states = ('a' to 'z').map(_.toString)
+      val measurements = states.flatMap(generateMeasurements(m => m, _)._1)
+
+      val filter = new LinearKalmanFilter(3, 1)
+        .setStateKeyCol("stateKey")
+        .setInitialCovariance(
+          new DenseMatrix(3, 3, Array(10.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 10.0)))
+        .setMeasurementCol("measurement")
+        .setMeasurementModelCol("measurementModel")
+        .setProcessModel(DenseMatrix.eye(3))
+        .setProcessNoise(DenseMatrix.zeros(3, 3))
+        .setMeasurementNoise(new DenseMatrix(1, 1, Array(1)))
+        .setSlidingLikelihoodWindow(5)
+        .setCalculateSlidingLikelihood
+        .setCalculateLoglikelihood
+
+
+      val latestState = filter.multipleModelAdaptiveFilter(measurements.toDS)
+        .filter(s"stateIndex = $numSamples").head
+        .getAs[DenseVector]("state")
+
+      it("should estimate model") {
+        val target = Array(firstCoeff, secondCoeff, constCoeff)
+        val mae = target.zip(latestState.values).map(t => scala.math.abs(t._1 - t._2)).sum/target.length
+        assert(mae < 0.5)
+      }
+
+    }
     describe("linear regression with time varying params") {
       // Linear regression where params perform a random walk
       // z = a*x + b + N(0, R)
@@ -228,7 +257,7 @@ class LinearKalmanFilterSpec
           .agg(
             Summarizer.mean($"state").alias("avg"))
           .head
-        assert(scala.math.abs(stats.getAs[DenseVector]("avg")(0) - zs.reduce(_ + _)/zs.size) < 1.0)
+        assert(scala.math.abs(stats.getAs[DenseVector]("avg")(0) - zs.sum/zs.length) < 1.0)
       }
 
       it("should have same result for batch & stream mode") {

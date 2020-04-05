@@ -131,3 +131,33 @@ class LinearKalmanFilterTests(ReusedSparkTestCase):
         # Check equivalence with least squares solution with numpy
         expected, _, _, _ = np.linalg.lstsq(features, y, rcond=None)
         np.testing.assert_array_almost_equal(state, expected.reshape(2), decimal=5)
+
+    def test_multiple_model_adaptive_filter(self):
+        n = 100
+        a = 0.27
+        b = 1.2
+        x = np.concatenate([np.arange(0, n), np.arange(0, n)])
+        r = np.random.normal(0, 1, n * 2)
+        y = (a * x + b + r).reshape(n * 2, 1)
+        features = x.reshape(n * 2, 1)
+        features = np.concatenate([features, np.ones_like(features)], axis=1)
+        state_keys = ["1"] * n + ["2"] * n
+        df = self.spark.createDataFrame(
+            [(state_keys[i], Vectors.dense(y[i]), Matrices.dense(1, 2, features[i])) for i in range(n*2)],
+            ["state_key","measurement", "measurementModel"])
+
+        mmaeFilter = LinearKalmanFilter(2, 1)\
+            .setStateKeyCol("state_key")\
+            .setMeasurementModelCol("measurementModel")\
+            .setMeasurementCol("measurement")\
+            .setInitialCovariance(Matrices.dense(2, 2, (np.eye(2)*10).reshape(4, 1)))\
+            .setProcessModel(Matrices.dense(2, 2, np.eye(2).reshape(4, 1)))\
+            .setProcessNoise(Matrices.dense(2, 2, np.zeros(4)))\
+            .setMeasurementNoise(Matrices.dense(1, 1, [1.0]))\
+            .setSlidingLikelihoodWindow(5)
+
+        model = mmaeFilter.multipleModelAdaptiveFilter(df)
+        state = model.filter("stateIndex = {}".format(n)).collect()[0].state.values
+
+        expected, _, _, _ = np.linalg.lstsq(features, y, rcond=None)
+        np.testing.assert_array_almost_equal(state, expected.reshape(2), decimal=0)

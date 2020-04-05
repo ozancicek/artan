@@ -136,7 +136,14 @@ private[ml] abstract class StatefulTransformer[
     else {
       df.drop("eventTime")
     }
-    withEventTime
+
+    val withWatermark = if (isSet(watermarkDuration)) {
+      withEventTime.withWatermark(getEventTimeCol, $(watermarkDuration))
+    }
+    else {
+      withEventTime
+    }
+    withWatermark
   }
 
   def asDataFrameTransformSchema(schema: StructType): StructType = {

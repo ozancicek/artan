@@ -17,10 +17,10 @@
 
 package com.github.ozancicek.artan.ml.state
 
-import java.sql.Timestamp
-
 import org.apache.spark.ml.linalg.{Matrix, Vector}
 
+import scala.collection.immutable.Queue
+import java.sql.Timestamp
 
 /**
  * Case class for inputs of a kalman filter. Let state at step k be denoted with x_k, measurement with
@@ -83,7 +83,8 @@ case class KalmanOutput(
     eventTime: Option[Timestamp],
     processModel: Option[Matrix],
     processNoise: Option[Matrix],
-    measurementModel: Option[Matrix]) extends KeyedOutput[String]
+    measurementModel: Option[Matrix],
+    slidingLikelihood: Option[Double]) extends KeyedOutput[String]
 
 /**
  * Internal representation of the state of a kalman filter.
@@ -94,7 +95,8 @@ private[ml] case class KalmanState(
     stateCovariance: Matrix,
     residual: Option[Vector],
     residualCovariance: Option[Matrix],
-    processNoise: Option[Matrix]) extends State
+    processNoise: Option[Matrix],
+    slidingLoglikelihood: Queue[Double]) extends State
 
 
 case class RTSOutput(
@@ -103,4 +105,21 @@ case class RTSOutput(
     state: Vector,
     stateCovariance: Matrix,
     rtsGain: Matrix,
+    eventTime: Option[Timestamp]) extends KeyedOutput[String]
+
+
+private[ml] case class MMAEState(
+    loglikelihood: Queue[Double],
+    stateIndex: Long,
+    state: Vector,
+    stateCovariance: Matrix,
+    eventTime: Option[Timestamp]) extends State
+
+
+case class MMAEOutput(
+    stateKey: String,
+    stateIndex: Long,
+    state: Vector,
+    stateCovariance: Matrix,
+    likelihood: Double,
     eventTime: Option[Timestamp]) extends KeyedOutput[String]

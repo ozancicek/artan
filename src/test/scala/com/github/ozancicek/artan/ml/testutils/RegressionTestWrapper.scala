@@ -27,7 +27,7 @@ import org.apache.spark.ml.Transformer
 import scala.math.{sqrt}
 
 
-case class RegressionMeasurement(measurement: DenseVector, measurementModel: DenseMatrix)
+case class RegressionMeasurement(stateKey: String, measurement: DenseVector, measurementModel: DenseMatrix)
 
 
 trait RegressionTestWrapper
@@ -44,7 +44,9 @@ trait RegressionTestWrapper
   def constCoeff: Double = 2.0
   def numSamples: Int = 40
 
-  private def getMeasurements(f: Double => Double): (Seq[RegressionMeasurement], DenseMatrix, DenseVector) = {
+  def generateMeasurements(
+    f: Double => Double,
+    stateKey: String = "stateKey"): (Seq[RegressionMeasurement], DenseMatrix, DenseVector) = {
     // linear regression data
     // z = a*x + b*y + c + N(0, 1)
 
@@ -55,7 +57,7 @@ trait RegressionTestWrapper
       case(x,y)=> (x, y, f(firstCoeff*x + secondCoeff*y + constCoeff) + dist.draw())
     }
     val measurements = zs.map { case (x, y, z) =>
-      RegressionMeasurement(new DenseVector(Array(z)), new DenseMatrix(1, 3, Array(x, y, 1)))
+      RegressionMeasurement(stateKey, new DenseVector(Array(z)), new DenseMatrix(1, 3, Array(x, y, 1)))
     }.toSeq
     val features = new DenseMatrix(numSamples, 3, xs ++ ys ++ Array.fill(numSamples) {1.0})
     val target = new DenseVector(zs.map {case (x, y, z) => z})
@@ -65,7 +67,7 @@ trait RegressionTestWrapper
 
   def testLeastSquaresSolutionEquivalent[T <: Transformer](filter: T, threshold: Double): Unit = {
 
-    val (measurements, features, target) = getMeasurements(m => m)
+    val (measurements, features, target) = generateMeasurements(m => m)
     val query = (in: Dataset[RegressionMeasurement]) => filter.transform(in)
 
     val modelState = query(measurements.toDS)
@@ -82,7 +84,7 @@ trait RegressionTestWrapper
   }
 
   def testLeastSquaresBatchStreamEquivalent[T <: Transformer](filter: T, testName: String): Unit = {
-    val (measurements, features, target) = getMeasurements(m => m)
+    val (measurements, features, target) = generateMeasurements(m => m)
     val query = (in: Dataset[RegressionMeasurement]) => filter.transform(in)
     testAppendQueryAgainstBatch(measurements, query, testName)
   }
@@ -90,7 +92,7 @@ trait RegressionTestWrapper
 
   def testLogRegressionEquivalent[T <: Transformer](filter: T, threshold: Double): Unit = {
 
-    val (measurements, _, _) = getMeasurements(scala.math.exp)
+    val (measurements, _, _) = generateMeasurements(scala.math.exp)
 
     val query = (in: Dataset[RegressionMeasurement]) => filter.transform(in)
 
@@ -108,7 +110,7 @@ trait RegressionTestWrapper
   }
 
   def testLogRegressionBatchStreamEquivalent[T <: Transformer](filter: T, testName: String): Unit = {
-    val (measurements, features, target) = getMeasurements(scala.math.exp)
+    val (measurements, features, target) = generateMeasurements(scala.math.exp)
     val query = (in: Dataset[RegressionMeasurement]) => filter.transform(in)
     testAppendQueryAgainstBatch(measurements, query, testName)
   }

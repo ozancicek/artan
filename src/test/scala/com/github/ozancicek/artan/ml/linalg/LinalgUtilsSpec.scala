@@ -62,5 +62,30 @@ class LinalgUtilsSpec extends FunSpec with Matchers with SparkSessionTestWrapper
 
       assert(agg == new DenseMatrix(2, 2, Array(6.0, 0.0, 0.0, 6.0)))
     }
+
+    it("should aggregate latest state likelihood") {
+      val df = Seq(
+        (5.0, 1, new DenseVector(Array(1.0)), new DenseMatrix(1, 1, Array(1.0))),
+        (5.0, 2, new DenseVector(Array(2.0)), new DenseMatrix(1, 1, Array(2.0))),
+        (5.0, 3, new DenseVector(Array(3.0)), new DenseMatrix(1, 1, Array(3.0))),
+        (5.0, 4, new DenseVector(Array(4.0)), new DenseMatrix(1, 1, Array(4.0))))
+        .toDF("loglikelihood", "stateIndex", "state", "stateCovariance")
+
+      val aggFunc = LinalgUtils.latestStateLikelihood
+      val head = df.groupBy(lit(1))
+        .agg(aggFunc($"loglikelihood", $"stateIndex", $"state", $"stateCovariance").alias("s"))
+        .select("s.sumLoglikelihood", "s.stateIndex", "s.state", "s.stateCovariance")
+        .head
+
+      val sumll = head.getAs[Double](0)
+      val index = head.getAs[Long](1)
+      val state = head.getAs[DenseVector](2)
+      val cov = head.getAs[DenseMatrix](3)
+
+      assert(sumll == 20.0)
+      assert(index == 4)
+      assert(state == new DenseVector(Array(4.0)))
+      assert(cov == new DenseMatrix(1, 1, Array(4.0)))
+    }
   }
 }

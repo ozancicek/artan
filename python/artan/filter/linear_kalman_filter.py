@@ -17,6 +17,7 @@
 
 from artan.state import StatefulTransformer
 from artan.filter.filter_params import *
+from pyspark.sql import DataFrame
 
 
 class LinearKalmanFilterParams(HasInitialState, HasInitialCovariance, HasInitialStateCol,
@@ -25,7 +26,8 @@ class LinearKalmanFilterParams(HasInitialState, HasInitialCovariance, HasInitial
                                HasMeasurementModelCol, HasMeasurementNoiseCol, HasProcessModelCol,
                                HasProcessNoiseCol, HasControlCol, HasControlFunctionCol,
                                HasCalculateMahalanobis, HasCalculateLoglikelihood,
-                               HasOutputSystemMatrices):
+                               HasOutputSystemMatrices, HasCalculateSlidingLikelihood,
+                               HasSlidingLikelihoodWindow, HasMultipleModelMeasurementWindowDuration):
     """
     Mixin for linear kalman filter parameters
     """
@@ -240,7 +242,7 @@ class LinearKalmanFilterParams(HasInitialState, HasInitialCovariance, HasInitial
 
     def setCalculateMahalanobis(self):
         """
-        Optionally calculate mahalanobis distance metric of each measuremenet & add it to output dataframe.
+        Optionally calculate mahalanobis distance metric of each measurement & add it to output dataframe.
         Mahalanobis distance is calculated from residual vector & residual covariance matrix.
 
         Not enabled by default.
@@ -257,6 +259,36 @@ class LinearKalmanFilterParams(HasInitialState, HasInitialCovariance, HasInitial
         :return: LinearKalmanFilter
         """
         return self._set(outputSystemMatrices=True)
+
+    def setCalculateSlidingLikelihood(self):
+        """
+        Optionally calculate a sliding likelihood across consecutive measurements
+
+        Default is false
+        :return: LinearKalmanFilter
+        """
+        return self._set(calculateSlidingLikelihood=True)
+
+    def setSlidingLikelihoodWindow(self, value):
+        """
+        Set the param for number of consecutive measurements to include in the total likelihood calculation
+
+        Default is 1
+        :param value: Integer
+        :return: LinearKalmanFilter
+        """
+        return self._set(slidingLikelihoodWindow=value)\
+            .setCalculateSlidingLikelihood()
+
+    def setMultipleModelMeasurementWindowDuration(self, value):
+        """
+        Optionally set the window duration for grouping measurements in same window for MMAE filter aggregation.
+        Could be used for limiting the state on streaming if event time column is set.
+
+        :param value: String
+        :return: LinearKalmanFilter
+        """
+        return self._set(multipleModelMeasurementWindowDuration=value)
 
 
 class LinearKalmanFilter(StatefulTransformer, LinearKalmanFilterParams):
@@ -294,3 +326,7 @@ class LinearKalmanFilter(StatefulTransformer, LinearKalmanFilterParams):
         super(LinearKalmanFilter, self).__init__()
         self._java_obj = self._new_java_obj("com.github.ozancicek.artan.ml.filter.LinearKalmanFilter",
                                             stateSize, measurementSize, self.uid)
+
+    def multipleModelAdaptiveFilter(self, dataset):
+        self._transfer_params_to_java()
+        return DataFrame(self._java_obj.multipleModelAdaptiveFilter(dataset._jdf), dataset.sql_ctx)

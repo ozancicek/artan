@@ -78,7 +78,8 @@ class LinearKalmanFilter(
 
   protected def stateUpdateSpec: LinearKalmanStateSpec = new LinearKalmanStateSpec(
     getFadingFactor,
-    outputResiduals
+    outputResiduals,
+    getSlidingLikelihoodWindow
   )
 }
 
@@ -90,7 +91,8 @@ class LinearKalmanFilter(
  */
 private[filter] class LinearKalmanStateSpec(
     val fadingFactor: Double,
-    val storeResidual: Boolean)
+    val storeResidual: Boolean,
+    val likelihoodWindow: Int)
   extends KalmanStateUpdateSpec[LinearKalmanStateCompute] {
 
   val kalmanCompute = new LinearKalmanStateCompute(fadingFactor)
@@ -191,13 +193,15 @@ private[filter] class LinearKalmanStateCompute(
       newMean, newCov,
       state.residual,
       state.residualCovariance,
-      state.processNoise)
+      state.processNoise,
+      state.slidingLoglikelihood)
   }
 
   def estimate(
     state: KalmanState,
     process: KalmanInput,
-    storeResidual: Boolean): KalmanState = {
+    storeResidual: Boolean,
+    likelihoodWindow: Int): KalmanState = {
 
     // r = z_k - H * x_k
     val residual = calculateResidual(
@@ -239,12 +243,15 @@ private[filter] class LinearKalmanStateCompute(
 
     val (res, resCov) = if (storeResidual) (Some(residual), Some(residualCovariance)) else (None, None)
 
+    val slidingll = updateSlidingLikelihood(state.slidingLoglikelihood, likelihoodWindow, res, resCov)
+
     KalmanState(
       state.stateIndex,
       estMean,
       estCov,
       res,
       resCov,
-      state.processNoise)
+      state.processNoise,
+      slidingll)
   }
 }

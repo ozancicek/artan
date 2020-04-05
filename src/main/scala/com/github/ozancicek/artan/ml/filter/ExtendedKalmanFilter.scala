@@ -144,7 +144,8 @@ class ExtendedKalmanFilter(
     getMeasurementFunctionOpt,
     getMeasurementStateJacobianOpt,
     getMeasurementNoiseJacobianOpt,
-    outputResiduals
+    outputResiduals,
+    getSlidingLikelihoodWindow
   )
 }
 
@@ -159,7 +160,8 @@ private[filter] class ExtendedKalmanStateSpec(
     val measurementFunction: Option[(Vector, Matrix) => Vector],
     val measurementStateJacobian: Option[(Vector, Matrix) => Matrix],
     val measurementNoiseJacobian: Option[(Vector, Matrix) => Matrix],
-    val storeResidual: Boolean)
+    val storeResidual: Boolean,
+    val likelihoodWindow: Int)
   extends KalmanStateUpdateSpec[ExtendedKalmanStateCompute] {
 
   override def getOutputProcessModel(
