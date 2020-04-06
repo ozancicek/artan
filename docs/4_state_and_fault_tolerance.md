@@ -89,7 +89,7 @@ Batch: 1
 
  */
 ```
-See [examples](/examples/src/main/scala/com/ozancicek/artan/examples/streaming/LKFStreamBatchInit.scala) for the full code
+See [example](/examples/src/main/scala/com/ozancicek/artan/examples/streaming/LKFStreamBatchInit.scala) for the complete code
 
 ## Restarts
 
@@ -107,7 +107,7 @@ df
 The internal state of this library is maintained with avro, so the state will be restored from checkpoints successfully
 most of the time. If you make a change that's not allowed by spark (i.e changes listed [here](https://spark.apache.org/docs/latest/structured-streaming-programming-guide.html#recovery-semantics-after-changes-in-a-streaming-query))
 and need to migrate the state, you can use the pattern in the [previous section](#batch---stream-compatibility) to recover from
-a seperate data store.
+a separate data store.
 
 ## Event time and watermarks
 

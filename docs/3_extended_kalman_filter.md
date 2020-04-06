@@ -36,6 +36,15 @@ val numStates = 10
 
 Define the model parameters and udf's to generate training data.
 
+For EKF, we need to define the nonlinear function and its jacobian if there is any. In this example, only the measurement function 
+is nonlinear, so it's enough to define the function mapping the state to measurement and measurement jacobian. 
+
+In order to help these functions define evolving behaviour across measurements, they also accept `processModel` or `measurementModel`
+as a second argument. So the signature of the function must be  ```(Vector, Matrix) => Vector``` for the nonlinear
+function and ```(Vector, Matrix) => Matrix``` for its jacobian. The second argument to these functions can be
+set with ```setMeasurementModelCol```or ```setProcessModelCol```. In this example, measurement model is used
+for defining the features matrix, and the nonlinear update is done with the defined function.
+
 ```scala
 // GLM with log link, states to be estimated are a, b
 // y = exp(a*x + b) + w, where w ~ N(0, 1)
@@ -54,7 +63,8 @@ val measurementUDF = udf((x: Double, r: Double) => {
 val measurementModelUDF = udf((x: Double) => {
   new DenseMatrix(1, 2, Array(x, 1.0))
 })
-    
+
+// Measurement function and its jacobian
 val measurementFunc = (in: Vector, model: Matrix) => {
   val measurement = model.multiply(in)
   measurement.values(0) = scala.math.exp(measurement.values(0))
