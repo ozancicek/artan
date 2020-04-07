@@ -80,12 +80,14 @@ class CubatureKalmanFilter(
   /**
    * Set process function which governs state transition. It should accept the current stateVector
    * and processModel as arguments, and should output a vector of size (stateSize)
+   * @group setParam
    */
   def setProcessFunction(value: (Vector, Matrix) => Vector): this.type = set(processFunction, value)
 
   /**
    * Set measurement function which maps state to measurements. It should accept the current state vector
    * and measurementModel matrix as arguments, and should output a measurement vector of size (measurementSize)
+   * @group setParam
    */
   def setMeasurementFunction(value: (Vector, Matrix) => Vector): this.type = set(measurementFunction, value)
 

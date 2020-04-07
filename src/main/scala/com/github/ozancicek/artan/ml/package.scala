@@ -21,6 +21,8 @@ package com.github.ozancicek.artan
  *
  * @groupname param Parameters
  * @groupprio param -5
+ * @groupname stateParam State Parameters
+ * @groupprio stateParam -4
  * @groupname setParam Parameter setters
  * @groupprio setParam 5
  * @groupname getParam Parameter getters

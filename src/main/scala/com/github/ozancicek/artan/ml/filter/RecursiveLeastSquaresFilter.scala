@@ -56,7 +56,11 @@ class RecursiveLeastSquaresFilter(
   with HasLabelCol with HasFeaturesCol with HasForgettingFactor
   with HasInitialState with HasRegularizationMatrix with HasInitialStateCol with HasRegularizationMatrixCol {
 
-  implicit val stateKeyEncoder = Encoders.STRING
+  protected implicit val stateKeyEncoder = Encoders.STRING
+
+  /**
+   * Define state size equal to features vector size
+   */
   def stateSize: Int = featuresSize
 
   def this(featuresSize: Int) = this(featuresSize, Identifiable.randomUID("recursiveLeastSquaresFilter"))
@@ -240,6 +244,12 @@ private[filter] class RecursiveLeastSquaresUpdateSpec(
 
 private[filter] trait HasForgettingFactor extends Params {
 
+  /**
+   * Forgetting factor for having more weight in recent measurements, between 0.0 and 1.0
+   * Default value of 1.0 weights all measurements equally. Smaller values increases the weight in recent
+   * measurements. Typically around 0.95~0.99
+   * @group param
+   */
   final val forgettingFactor: DoubleParam = new DoubleParam(
     this,
     "forgettingFactor",
@@ -250,6 +260,10 @@ private[filter] trait HasForgettingFactor extends Params {
 
   setDefault(forgettingFactor, 1.0)
 
+  /**
+   * Getter for forgetting factor
+   * @group getParam
+   */
   final def getForgettingFactor: Double = $(forgettingFactor)
 }
 
@@ -257,6 +271,13 @@ private[filter] trait HasRegularizationMatrix extends Params {
 
   def featuresSize: Int
 
+  /**
+   * Positive definite regularization matrix for RLS filter, typically a factor multiplied by identity matrix.
+   * Small factors (factor>1) give more weight to the initial state, whereas large factors (>>1) decrease
+   * regularization and cause RLS filter to behave like ordinary least squares.
+   *
+   * @group param
+   */
   final val regularizationMatrix: Param[Matrix] = new Param[Matrix](
     this,
     "regularizationMatrix",
@@ -267,6 +288,10 @@ private[filter] trait HasRegularizationMatrix extends Params {
 
   setDefault(regularizationMatrix, DenseMatrix.eye(featuresSize))
 
+  /**
+   * Getter for regularization matrix param
+   * @group getParam
+   */
   final def getRegularizationMatrix: Matrix = $(regularizationMatrix)
 
 }
@@ -275,12 +300,20 @@ private[filter] trait HasRegularizationMatrixCol extends Params {
 
   def featuresSize: Int
 
+  /**
+   * Param for regularization matrix column for specifying different reg matrices across filters.
+   * Overrides [[regularizationMatrix]] setting.
+   * @group param
+   */
   final val regularizationMatrixCol: Param[String] = new Param[String](
     this,
     "regularizationMatrixCol",
     "Regularization matrix column for specifying different reg matrices across filters")
 
-
+  /**
+   * Getter for regularization matrix column
+   * @group getParam
+   */
   final def getRegularizationMatrixCol: String = $(regularizationMatrixCol)
 
 }

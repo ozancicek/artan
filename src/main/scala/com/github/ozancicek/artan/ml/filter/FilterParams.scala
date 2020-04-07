@@ -171,7 +171,7 @@ private[artan] trait HasMeasurementModel extends Params {
 
   /**
    * Getter for measurement model matrix param
-   * @return
+   * @group getParam
    */
   final def getMeasurementModel: Matrix = $(measurementModel)
 
@@ -519,6 +519,7 @@ private[artan] trait HasMeasurementNoiseCol extends Params {
   /**
    * Param for column name to specify measurement noise from input DataFrame rather than
    * a constant measurement noise for all filters. Overrides [[measurementNoise]] param
+   * @group param
    */
   final val measurementNoiseCol: Param[String] = new Param[String](
     this,
@@ -565,6 +566,7 @@ private[artan] trait HasProcessNoiseCol extends Params {
   /**
    * Param for column name to specify process noise matrix from input DataFrame rather than
    * a constant process noise for all filters. Overrides [[processNoise]] param
+   * @group param
    */
   final val processNoiseCol: Param[String] = new Param[String](
     this,

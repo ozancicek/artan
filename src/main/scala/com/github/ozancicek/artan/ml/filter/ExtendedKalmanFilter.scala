@@ -137,6 +137,9 @@ class ExtendedKalmanFilter(
    */
   def setMeasurementNoiseJacobian(value: (Vector, Matrix) => Matrix): this.type = set(measurementNoiseJacobian, value)
 
+  /**
+   * Creates a copy of this instance with the same UID and some extra params.
+   */
   override def copy(extra: ParamMap): ExtendedKalmanFilter =  {
     val that = new ExtendedKalmanFilter(stateSize, measurementSize)
     copyValues(that, extra)

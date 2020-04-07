@@ -58,8 +58,11 @@ class LeastMeanSquaresFilter(
   with HasLabelCol with HasFeaturesCol with HasInitialState with HasLearningRate with HasRegularizationConstant
   with HasInitialStateCol {
 
-  implicit val stateKeyEncoder = Encoders.STRING
+  protected implicit val stateKeyEncoder = Encoders.STRING
 
+  /**
+   * Define state size equal to features vector size
+   */
   def stateSize: Int = featuresSize
 
   def this(stateSize: Int) = this(stateSize, Identifiable.randomUID("leastMeanSquaresFilter"))

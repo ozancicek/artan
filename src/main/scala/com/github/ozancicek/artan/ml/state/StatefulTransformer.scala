@@ -204,7 +204,7 @@ private[state] trait HasStateKeyCol[KeyType] extends Params {
   /**
    * Param for state key column. State keys uniquely identify the each state in stateful transformers,
    * thus controlling the number of states and the degree of parallelization"
-   * @group param
+   * @group stateParam
    */
   final val stateKeyCol: Param[String] = new Param[String](
     this, "stateKeyCol",
@@ -233,7 +233,7 @@ private[state] trait HasEventTimeCol extends Params {
   /**
    * Param for event time column name, which marks the event time of the received measurements. If set,
    * the measurements will be processed in ascending order according to event time.
-   * @group param
+   * @group stateParam
    */
   final val eventTimeCol: Param[String] = new Param[String](
     this,
@@ -258,7 +258,7 @@ private[state] trait HasWatermarkDuration extends Params {
   /**
    * Param for watermark duration as string, measured from the [[eventTimeCol]] column. If set, measurements will
    * be processed in append mode with the specified watermark duration.
-   * @group param
+   * @group stateParam
    */
   final val watermarkDuration: Param[String] = new Param[String](
     this,
@@ -282,6 +282,7 @@ private[state] trait HasStateTimeoutDuration extends Params {
 
   /**
    * Param for state timeout duration.
+   * @group stateParam
    */
   final val stateTimeoutDuration: Param[String] = new Param[String](
     this,
@@ -308,7 +309,7 @@ private[state] trait HasStateTimeoutMode extends Params {
 
   /**
    * Param for timeout mode, controlling the eviction of states which receive no measurement for a certain duration
-   * @group param
+   * @group stateParam
    */
   final val timeoutMode: Param[String] = new Param[String](
     this,

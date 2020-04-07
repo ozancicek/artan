@@ -274,7 +274,7 @@ private[filter] abstract class KalmanTransformer[
   with HasCalculateSlidingLikelihood with HasSlidingLikelihoodWindow with HasMultipleModelMeasurementWindowDuration
   with HasMultipleModelAdaptiveEstimationEnabled {
 
-  implicit val stateKeyEncoder = Encoders.STRING
+  protected implicit val stateKeyEncoder = Encoders.STRING
 
   def stateSize: Int
 
@@ -326,6 +326,7 @@ private[filter] abstract class KalmanTransformer[
 
   /**
    * Optionally enable MMAE output mode
+   * @group setParam
    */
   def setEnableMultipleModelAdaptiveEstimation: ImplType = {
     set(multipleModelAdaptiveEstimationEnabled, true).asInstanceOf[ImplType]
