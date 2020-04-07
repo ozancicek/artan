@@ -114,12 +114,3 @@ private[ml] case class MMAEState(
     state: Vector,
     stateCovariance: Matrix,
     eventTime: Option[Timestamp]) extends State
-
-
-case class MMAEOutput(
-    stateKey: String,
-    stateIndex: Long,
-    state: Vector,
-    stateCovariance: Matrix,
-    likelihood: Double,
-    eventTime: Option[Timestamp]) extends KeyedOutput[String]

@@ -70,12 +70,14 @@ class RecursiveLeastSquaresFilter(
 
   /**
    * Set label column. Default is "label"
+   * @group setParam
    */
   def setLabelCol(value: String): this.type = set(labelCol, value)
   setDefault(labelCol, "label")
 
   /**
    * Set features column. Default is "features"
+   * @group setParam
    */
   def setFeaturesCol(value: String): this.type = set(featuresCol, value)
   setDefault(featuresCol, "features")
@@ -85,6 +87,7 @@ class RecursiveLeastSquaresFilter(
    *
    * Default value of 1.0 weights all measurements equally. With smaller values, recent measurements will have
    * more weights. Generally set around 0.95 ~ 0.99
+   * @group setParam
    */
   def setForgettingFactor(value: Double): this.type = set(forgettingFactor, value)
 
@@ -94,12 +97,14 @@ class RecursiveLeastSquaresFilter(
    * values accross filters.
    *
    * Default is 10E5 * I
+   * @group setParam
    */
   def setRegularizationMatrix(value: Matrix): this.type = set(regularizationMatrix, value)
 
   /**
    * Set regularization matrix factor, which results in setting the regularization matrix as
    * factor * identity matrix.
+   * @group setParam
    */
   def setRegularizationMatrixFactor(value: Double): this.type = set(regularizationMatrix, getFactoredIdentity(value))
   setDefault(regularizationMatrix, getFactoredIdentity(10E5))
@@ -107,16 +112,19 @@ class RecursiveLeastSquaresFilter(
   /**
    * Set initial estimate for model parameters for all filters. Use setInitialEstimateCol for different
    * initial estimates across filters. Default is zero vector.
+   * @group setParam
    */
   def setInitialEstimate(value: Vector): this.type = set(initialState, value)
 
   /**
    * Set initial estimate column.
+   * @group setParam
    */
   def setInitialEstimateCol(value: String): this.type = set(initialStateCol, value)
 
   /**
    * Set regularization matrix column.
+   * @group setParam
    */
   def setRegularizationMatrixCol(value: String): this.type = set(regularizationMatrixCol, value)
 

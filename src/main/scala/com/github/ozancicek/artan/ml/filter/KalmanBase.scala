@@ -49,6 +49,7 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
    * It will be applied to all states. If the state timeouts and starts receiving
    * measurements after timeout, it will again start from this initial state vector. Default is zero. For different
    * initial state vector across filters or measurements, set the dataframe column with setInitialStateCol
+   * @group setParam
    */
   def setInitialState(value: Vector): ImplType = set(initialState, value).asInstanceOf[ImplType]
 
@@ -56,6 +57,7 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
    * Set the column corresponding to initial state vector.
    *
    * The vectors in the column should be of size (stateSize).
+   * @group setParam
    */
   def setInitialStateCol(value: String): ImplType = set(initialStateCol, value).asInstanceOf[ImplType]
 
@@ -64,6 +66,7 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
    *
    * It will be applied to all states. If the state timeouts and starts receiving
    * measurements after timeout, it will again start from this initial covariance vector. Default is identity matrix.
+   * @group setParam
    */
   def setInitialCovariance(value: Matrix): ImplType = set(initialCovariance, value).asInstanceOf[ImplType]
 
@@ -71,12 +74,14 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
    * Set the column corresponding to initial covariance matrix.
    *
    * The matrices in the column should be of dimensions (stateSize, statesize).
+   * @group setParam
    */
   def setInitialCovarianceCol(value: String): ImplType = set(initialCovarianceCol, value).asInstanceOf[ImplType]
 
   /**
    * Fading factor for giving more weights to more recent measurements. If needed, it should be greater than one.
    * Typically set around 1.01 ~ 1.05. Default is 1.0, which will result in equally weighted measurements.
+   * @group setParam
    */
   def setFadingFactor(value: Double): ImplType = set(fadingFactor, value).asInstanceOf[ImplType]
 
@@ -88,6 +93,7 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
    * model from setProcessModelCol.
    *
    * Default is identity matrix.
+   * @group setParam
    */
   def setProcessModel(value: Matrix): ImplType = set(processModel, value).asInstanceOf[ImplType]
 
@@ -99,6 +105,7 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
    * for process noise from setProcessNoiseCol.
    *
    * Default is identity matrix.
+   * @group setParam
    */
   def setProcessNoise(value: Matrix): ImplType = set(processNoise, value).asInstanceOf[ImplType]
 
@@ -111,6 +118,7 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
    * measurement model from setMeasurementModelCol.
    *
    * Default value maps the first state value to measurements.
+   * @group setParam
    */
   def setMeasurementModel(value: Matrix): ImplType = set(measurementModel, value).asInstanceOf[ImplType]
 
@@ -122,6 +130,7 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
    * set a dataframe column for measurement noise from setMeasurementNoiseCol.
    *
    * Default is identity matrix.
+   * @group setParam
    */
   def setMeasurementNoise(value: Matrix): ImplType = set(measurementNoise, value).asInstanceOf[ImplType]
 
@@ -130,6 +139,7 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
    *
    * The vectors in the column should be of size (measurementSize). null values are allowed,
    * which will result in only state prediction step.
+   * @group setParam
    */
   def setMeasurementCol(value: String): ImplType = set(measurementCol, value).asInstanceOf[ImplType]
 
@@ -137,6 +147,7 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
    * Set the column for input process model matrices.
    *
    * Process model matrices should have dimensions (stateSize, stateSize)
+   * @group setParam
    */
   def setProcessModelCol(value: String): ImplType = set(processModelCol, value).asInstanceOf[ImplType]
 
@@ -144,6 +155,7 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
    * Set the column for input process noise matrices.
    *
    * Process noise matrices should have dimensions (stateSize, stateSize)
+   * @group setParam
    */
   def setProcessNoiseCol(value: String): ImplType = set(processNoiseCol, value).asInstanceOf[ImplType]
 
@@ -151,6 +163,7 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
    * Set the column for input measurement model matrices
    *
    * Measurement model matrices should have dimensions (stateSize, measurementSize)
+   * @group setParam
    */
   def setMeasurementModelCol(value: String): ImplType = set(measurementModelCol, value).asInstanceOf[ImplType]
 
@@ -158,6 +171,7 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
    * Set the column for input measurement noise matrices.
    *
    * Measurement noise matrices should have dimensions (measurementSize, measurementSize)
+   * @group setParam
    */
   def setMeasurementNoiseCol(value: String): ImplType = set(measurementNoiseCol, value).asInstanceOf[ImplType]
 
@@ -166,6 +180,7 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
    *
    * Control matrices should have dimensions (stateSize, controlVectorSize). null values are allowed, which will
    * result in state transition without control input
+   * @group setParam
    */
   def setControlFunctionCol(value: String): ImplType = set(controlFunctionCol, value).asInstanceOf[ImplType]
 
@@ -175,6 +190,7 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
    * Control vectors should have compatible size with control function (controlVectorSize). The product of
    * control matrix & vector should produce a vector with stateSize. null values are allowed,
    * which will result in state transition without control input.
+   * @group setParam
    */
   def setControlCol(value: String): ImplType = set(controlCol, value).asInstanceOf[ImplType]
 
@@ -182,6 +198,7 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
    * Enable outputting system matrices
    *
    * Default is false
+   * @group setParam
    */
   def setOutputSystemMatrices: ImplType = set(outputSystemMatrices, true).asInstanceOf[ImplType]
 
@@ -266,6 +283,7 @@ private[filter] abstract class KalmanTransformer[
    * from residual vector & residual covariance matrix.
    *
    * Not enabled by default.
+   * @group setParam
    */
   def setCalculateLoglikelihood: ImplType = set(calculateLoglikelihood, true).asInstanceOf[ImplType]
 
@@ -274,19 +292,22 @@ private[filter] abstract class KalmanTransformer[
    * Mahalanobis distance is calculated from residual vector & residual covariance matrix.
    *
    * Not enabled by default.
+   * @group setParam
    */
   def setCalculateMahalanobis: ImplType = set(calculateMahalanobis, true).asInstanceOf[ImplType]
 
   /**
    * Optionally calculate likelihood in a sliding window.
    *
-   * Not enabled by default
+   * Not enabled by default.
+   * @group setParam
    */
   def setCalculateSlidingLikelihood: ImplType = set(calculateSlidingLikelihood, true).asInstanceOf[ImplType]
 
 
   /**
    * Set number of consecutive measurements for total likelihood calculation
+   * @group setParam
    */
   def setSlidingLikelihoodWindow(value: Int): ImplType = {
     set(calculateSlidingLikelihood, true).set(slidingLikelihoodWindow, value).asInstanceOf[ImplType]
@@ -294,6 +315,7 @@ private[filter] abstract class KalmanTransformer[
 
   /**
    * Set window duration for grouping measurements into same window for MMAE filter
+   * @group setParam
    */
   def setMultipleModelMeasurementWindowDuration(value: String): ImplType = {
     set(multipleModelMeasurementWindowDuration, value)
@@ -326,7 +348,7 @@ private[filter] abstract class KalmanTransformer[
     getCalculateLoglikelihood || getCalculateMahalanobis || getCalculateSlidingLikelihood
   }
 
-  override def asDataFrame(in: Dataset[KalmanOutput]): DataFrame = {
+  override protected def asDataFrame(in: Dataset[KalmanOutput]): DataFrame = {
     val outDF = super.asDataFrame(in)
 
     val resFiltered = if (outputResiduals) {
@@ -353,7 +375,7 @@ private[filter] abstract class KalmanTransformer[
     systemFiltered
   }
 
-  override def asDataFrameTransformSchema(schema: StructType): StructType = {
+  override protected def asDataFrameTransformSchema(schema: StructType): StructType = {
     val outSchema = super.asDataFrameTransformSchema(schema)
 
     // add columns depending on the residual calculation, mahalanobis and likelihoods

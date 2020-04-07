@@ -14,36 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.github.ozancicek.artan
 
-package com.github.ozancicek.artan.ml.stats
-
-import com.github.ozancicek.artan.ml.linalg.LinalgUtils
-import org.apache.spark.ml.LAPACK
-import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector}
-
-import scala.math.{Pi, log}
-
-private[ml] object MultivariateGaussian {
-
-  def unnormalizedlogpdf(
-    point: DenseVector,
-    mean: DenseVector,
-    cov: DenseMatrix): Double = {
-    val dSquare = LinalgUtils.squaredMahalanobis(point, mean, cov)
-    val res = - dSquare/ 2.0
-    res
-  }
-
-  def logpdf(
-    point: DenseVector,
-    mean: DenseVector,
-    cov: DenseMatrix): Double = {
-
-    val root = cov.copy
-    LAPACK.dpotrf(root)
-    val det = LinalgUtils.diag(root).values
-      .map(log).reduce(_ + _)
-
-    unnormalizedlogpdf(point, mean, cov) - (mean.size / 2.0 * log(2 * Pi) + det)
-  }
-}
+/**
+ * Bayesian and Kalman filters for spark-ml
+ *
+ * @groupname param Parameters
+ * @groupprio param -5
+ * @groupname setParam Parameter setters
+ * @groupprio setParam 5
+ * @groupname getParam Parameter getters
+ * @groupprio getParam 6
+ *
+ * @groupname Ungrouped Members
+ * @groupprio Ungrouped 0
+ */
+package object ml

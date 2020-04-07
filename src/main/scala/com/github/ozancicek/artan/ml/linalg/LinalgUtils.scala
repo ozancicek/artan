@@ -27,7 +27,7 @@ import org.apache.spark.ml.linalg.SQLDataTypes
 import scala.math.{sqrt => scalarSqrt}
 
 
-object LinalgUtils {
+private[ml] object LinalgUtils {
 
   private class VectorAxpy(size: Int) extends UserDefinedAggregateFunction {
 

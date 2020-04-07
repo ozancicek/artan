@@ -73,12 +73,14 @@ class LeastMeanSquaresFilter(
 
   /**
    * Set label column. Default is "features"
+   * @group setParam
    */
   def setLabelCol(value: String): this.type = set(labelCol, value)
   setDefault(labelCol, "label")
 
   /**
    * Set features column. Default is "features"
+   * @group setParam
    */
   def setFeaturesCol(value: String): this.type = set(featuresCol, value)
   setDefault(featuresCol, "features")
@@ -88,11 +90,13 @@ class LeastMeanSquaresFilter(
    * estimates, use setInitialEstimateCol
    *
    * Default is zero vector
+   * @group setParam
    */
   def setInitialEstimate(value: Vector): this.type = set(initialState, value)
 
   /**
    * Set initial estimate vector column. It will override setInitialEstimate.
+   * @group setParam
    */
   def setInitialEstimateCol(value: String): this.type = set(initialStateCol, value)
 
@@ -100,6 +104,7 @@ class LeastMeanSquaresFilter(
    * Set learning rate controlling the speed of convergence. Without noise, 1.0 is optimal since filter is normalized.
    *
    * Default is 1.0
+   * @group setParam
    */
   def setLearningRate(value: Double): this.type = set(learningRate, value)
 
@@ -108,6 +113,7 @@ class LeastMeanSquaresFilter(
    * degrade convergence performance. Generally set to a small constant.
    *
    * Default is 1.0
+   * @group setParam
    */
   def setRegularization(value: Double): this.type = set(regularizationConstant, value)
 

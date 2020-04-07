@@ -31,7 +31,7 @@ import java.sql.Timestamp
 import scala.reflect.runtime.universe.TypeTag
 
 
-trait StatefulTransformerParams[
+private[state] trait StatefulTransformerParams[
   ImplType,
   GroupKeyType] extends Params with HasStateTimeoutMode with HasEventTimeCol
   with HasWatermarkDuration with HasStateKeyCol[GroupKeyType] with HasStateTimeoutDuration {
@@ -128,7 +128,7 @@ private[ml] abstract class StatefulTransformer[
     }
   }
 
-  def asDataFrame(in: Dataset[OutType]): DataFrame = {
+  protected def asDataFrame(in: Dataset[OutType]): DataFrame = {
     val df = in.toDF
     val withEventTime = if (isSet(eventTimeCol)) {
       df.withColumnRenamed("eventTime", getEventTimeCol)
@@ -146,7 +146,7 @@ private[ml] abstract class StatefulTransformer[
     withWatermark
   }
 
-  def asDataFrameTransformSchema(schema: StructType): StructType = {
+  protected def asDataFrameTransformSchema(schema: StructType): StructType = {
     val filtered = schema.filter(f => f.name == "eventTime")
     if (isSet(eventTimeCol)) {
       StructType(filtered :+ StructField(getEventTimeCol, TimestampType, nullable = true))

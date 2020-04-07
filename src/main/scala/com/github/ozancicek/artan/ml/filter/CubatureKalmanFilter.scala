@@ -224,7 +224,7 @@ private[filter] class CubatureKalmanStateCompute(
 /**
  * Class for sampling cubature points
  */
-class CubaturePoints(val stateSize: Int) extends Serializable {
+private[filter] class CubaturePoints(val stateSize: Int) extends Serializable {
 
   def rotateRight[A](seq: Seq[A], i: Int): Seq[A] = {
     val size = seq.size

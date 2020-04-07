@@ -45,7 +45,7 @@ case class RLSOutput(
  * @param initialState initial state vector
  * @param initialCovariance initial covariance matrix
  */
-case class RLSInput(
+private[ml] case class RLSInput(
     stateKey: String,
     label: Double,
     features: Vector,

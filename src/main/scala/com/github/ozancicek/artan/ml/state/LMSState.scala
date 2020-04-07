@@ -28,7 +28,7 @@ import java.sql.Timestamp
  * @param eventTime event time of the input
  * @param initialState initial state vector
  */
-case class LMSInput(
+private[ml] case class LMSInput(
     stateKey: String,
     label: Double,
     features: Vector,

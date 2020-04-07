@@ -36,6 +36,7 @@ lazy val root = (project in file("."))
     (packageBin in Compile) := {
       spPackage.value
     },
+    scalacOptions in (Compile, doc) += "-groups",
     settings)
 
 lazy val examples = (project in file("examples"))

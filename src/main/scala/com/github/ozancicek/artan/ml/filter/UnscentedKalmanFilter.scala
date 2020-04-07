@@ -85,12 +85,14 @@ class UnscentedKalmanFilter(
   /**
    * Set process function which governs state transition. It should accept the current stateVector
    * and processModel as arguments, and should output a vector of size (stateSize)
+   * @group setParam
    */
   def setProcessFunction(value: (Vector, Matrix) => Vector): this.type = set(processFunction, value)
 
   /**
    * Set measurement function which maps state to measurements. It should accept the current state vector
    * and measurementModel matrix as arguments, and should output a measurement vector of size (measurementSize)
+   * @group setParam
    */
   def setMeasurementFunction(value: (Vector, Matrix) => Vector): this.type = set(measurementFunction, value)
 
@@ -99,6 +101,7 @@ class UnscentedKalmanFilter(
    *
    * - 'merwe' (default) - E. Merwe (2000) The Unscented kalman filter for nonlinear estimation
    * - 'julier' - S. Julier (1997) A new extension to kalman filter to nonlinear systems
+   * @group setParam
    */
   def setSigmaPoints(value: String): this.type = set(sigmaPoints, value)
 
@@ -106,6 +109,7 @@ class UnscentedKalmanFilter(
    * Set alpha parameter for merwe algorithm
    *
    * Default is 0.3.
+   * @group setParam
    */
   def setMerweAlpha(value: Double): this.type = set(merweAlpha, value)
 
@@ -113,6 +117,7 @@ class UnscentedKalmanFilter(
    * Set beta parameter for merwe algorithm.
    *
    * Default is 2.0, tuned for gaussian noise.
+   * @group setParam
    */
   def setMerweBeta(value: Double): this.type = set(merweBeta, value)
 
@@ -120,6 +125,7 @@ class UnscentedKalmanFilter(
    * Set kappa parameter for merwe algorithm
    *
    * Default is 0.1. Suggested value is (3 - stateSize)
+   * @group setParam
    */
   def setMerweKappa(value: Double): this.type = set(merweKappa, value)
 
@@ -127,11 +133,13 @@ class UnscentedKalmanFilter(
    * Set kappa parameter for julier algorithm
    *
    * Default is 1.0.
+   * @group setParam
    */
   def setJulierKappa(value: Double): this.type = set(julierKappa, value)
 
   /**
    * Enable adaptive process noise according to B. Zheng (2018) RAUKF paper
+   * @group setParam
    */
   def setEnableAdaptiveProcessNoise: this.type = set(adaptiveProcessNoise, true)
 
