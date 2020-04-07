@@ -63,6 +63,9 @@ class RecursiveLeastSquaresFilter(
 
   protected val defaultStateKey: String = "filter.recursiveLeastSquaresFilter.defaultStateKey"
 
+  /**
+   * Creates a copy of this instance with the same UID and some extra params.
+   */
   override def copy(extra: ParamMap): RecursiveLeastSquaresFilter =  {
     val that = new RecursiveLeastSquaresFilter(featuresSize)
     copyValues(that, extra)
@@ -141,6 +144,9 @@ class RecursiveLeastSquaresFilter(
     require(schema($(featuresCol)).dataType == SQLDataTypes.VectorType)
   }
 
+  /**
+   * Applies the transformation to dataset schema
+   */
   def transformSchema(schema: StructType): StructType = {
     validateSchema(schema)
     asDataFrameTransformSchema(outEncoder.schema)
@@ -172,6 +178,9 @@ class RecursiveLeastSquaresFilter(
     transformWithState(rlsUpdateDS)
   }
 
+  /**
+   * Transforms dataset of features & label to dataframe of estimated states
+   */
   def transform(dataset: Dataset[_]): DataFrame = asDataFrame(filter(dataset))
 
   protected def stateUpdateSpec: RecursiveLeastSquaresUpdateSpec = new RecursiveLeastSquaresUpdateSpec(

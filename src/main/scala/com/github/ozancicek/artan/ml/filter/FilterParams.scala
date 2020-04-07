@@ -749,6 +749,34 @@ private[artan] trait HasMultipleModelMeasurementWindowDuration extends Params {
 }
 
 /**
+ * Param for MMAE output mode
+ */
+private[artan] trait HasMultipleModelAdaptiveEstimationEnabled extends Params {
+
+  /**
+   * Param for enabling Multiple Model Adaptive Estimation (MMAE) output mode. When enabled,
+   * MMAE mode outputs a single state estimate from the output of all kalman states of the transformer.
+   * States are weighted based on their sliding likelihood.
+   * Not enabled by default
+   * @group param
+   */
+  final val multipleModelAdaptiveEstimationEnabled: BooleanParam = new BooleanParam(
+    this,
+    "multipleModelAdaptiveEstimationEnabled",
+    "Flag for enabling  Multiple Model Adaptive Estimation (MMAE) output mode. When enabled," + "" +
+      "MMAE mode outputs a single state estimate from the output of all kalman states of the transformer." +
+      "States are weighted based on their sliding likelihood"
+  )
+  setDefault(multipleModelAdaptiveEstimationEnabled, false)
+
+  /**
+   * Getter for MMAE output mode flag
+   * @group getParam
+   */
+  def getMultipleModelAdaptiveEstimationEnabled: Boolean = $(multipleModelAdaptiveEstimationEnabled)
+}
+
+/**
  * Param for enabling output of system matrices
  */
 private[artan] trait HasOutputSystemMatrices extends Params {

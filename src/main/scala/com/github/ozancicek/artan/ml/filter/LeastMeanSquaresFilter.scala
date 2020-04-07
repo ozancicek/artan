@@ -66,6 +66,9 @@ class LeastMeanSquaresFilter(
 
   protected val defaultStateKey: String = "filter.leastMeanSquaresFilter.defaultStateKey"
 
+  /**
+   * Creates a copy of this instance with the same UID and some extra params.
+   */
   override def copy(extra: ParamMap): LeastMeanSquaresFilter =  {
     val that = new LeastMeanSquaresFilter(featuresSize)
     copyValues(that, extra)
@@ -126,6 +129,9 @@ class LeastMeanSquaresFilter(
     require(schema($(featuresCol)).dataType == SQLDataTypes.VectorType)
   }
 
+  /**
+   * Applies the transformation to dataset schema
+   */
   def transformSchema(schema: StructType): StructType = {
     validateSchema(schema)
     asDataFrameTransformSchema(outEncoder.schema)
@@ -146,6 +152,9 @@ class LeastMeanSquaresFilter(
     transformWithState(lmsUpdateDS)
   }
 
+  /**
+   * Transforms dataset of features & label to dataframe of estimated states
+   */
   def transform(dataset: Dataset[_]): DataFrame = asDataFrame(filter(dataset))
 
   protected def stateUpdateSpec: LeastMeanSquaresUpdateSpec = new LeastMeanSquaresUpdateSpec(

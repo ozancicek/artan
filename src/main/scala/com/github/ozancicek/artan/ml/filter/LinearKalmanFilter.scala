@@ -71,6 +71,9 @@ class LinearKalmanFilter(
 
   protected val defaultStateKey: String = "filter.linearKalmanFilter.defaultStateKey"
 
+  /**
+   * Creates a copy of this instance with the same UID and some extra params.
+   */
   override def copy(extra: ParamMap): LinearKalmanFilter =  {
     val that = new LinearKalmanFilter(stateSize, measurementSize)
     copyValues(that, extra)

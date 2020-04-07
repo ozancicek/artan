@@ -88,11 +88,12 @@ object MMAERateSourceOLS {
       .setSlidingLikelihoodWindow(10)
       .setEventTimeCol("timestamp")
       .setWatermarkDuration("2 seconds")
+      .setEnableMultipleModelAdaptiveEstimation
       .setMultipleModelMeasurementWindowDuration("5 seconds")
 
     val truncate = udf((state: DenseVector) => state.values.map(t => (math floor t * 100)/100))
 
-    val query = filter.multipleModelAdaptiveFilter(features)
+    val query = filter.transform(features)
       .select( $"stateIndex", truncate($"state").alias("modelParameters"), $"timestamp")
       .writeStream
       .queryName("MMAERateSourceOLS")

@@ -143,6 +143,9 @@ class UnscentedKalmanFilter(
    */
   def setEnableAdaptiveProcessNoise: this.type = set(adaptiveProcessNoise, true)
 
+  /**
+   * Creates a copy of this instance with the same UID and some extra params.
+   */
   override def copy(extra: ParamMap): UnscentedKalmanFilter =  {
     val that = new UnscentedKalmanFilter(stateSize, measurementSize)
     copyValues(that, extra)

@@ -68,10 +68,14 @@ private[ml] case class KalmanInput(
  * @param stateKey Key of the state
  * @param stateIndex index of the filter, incremented only on state evolution
  * @param state x_k, the state vector with length n_state
- * @param stateCovariance state covariance matrix with dimensions n_state, n_stae
+ * @param stateCovariance state covariance matrix with dimensions n_state, n_state
  * @param residual residual of x_k and z_k, vector with length n_obs
  * @param residualCovariance covariance of residual, matrix with dimensions n_obs, n_obs
- * @param eventTime event time of input
+ * @param eventTime event time of input measurement
+ * @param processModel process model used at this state
+ * @param processNoise process noise used at this state
+ * @param measurementModel measurement model used at this state
+ * @param slidingLikelihood likelihood of consecutive measurements in a sliding window at this state
  */
 case class KalmanOutput(
     stateKey: String,
@@ -99,6 +103,15 @@ private[ml] case class KalmanState(
     slidingLoglikelihood: Queue[Double]) extends State
 
 
+/**
+ * Case class representing output state of kalman RTS smoother
+ * @param stateKey Key of the state
+ * @param stateIndex index of the filter, incremented only on state evolution
+ * @param state x_k, the state vector with length n_state
+ * @param stateCovariance state covariance matrix with dimensions n_state, n_state
+ * @param rtsGain Smoother gain calculated from RTS Smoother
+ * @param eventTime event time of input measurement
+ */
 case class RTSOutput(
     stateKey: String,
     stateIndex: Long,

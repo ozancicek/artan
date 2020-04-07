@@ -154,9 +154,10 @@ class LinearKalmanFilterTests(ReusedSparkTestCase):
             .setProcessModel(Matrices.dense(2, 2, np.eye(2).reshape(4, 1)))\
             .setProcessNoise(Matrices.dense(2, 2, np.zeros(4)))\
             .setMeasurementNoise(Matrices.dense(1, 1, [1.0]))\
-            .setSlidingLikelihoodWindow(5)
+            .setSlidingLikelihoodWindow(5)\
+            .setEnableMultipleModelAdaptiveEstimation()
 
-        model = mmaeFilter.multipleModelAdaptiveFilter(df)
+        model = mmaeFilter.transform(df)
         state = model.filter("stateIndex = {}".format(n)).collect()[0].state.values
 
         expected, _, _, _ = np.linalg.lstsq(features, y, rcond=None)

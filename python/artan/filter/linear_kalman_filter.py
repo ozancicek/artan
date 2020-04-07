@@ -17,7 +17,6 @@
 
 from artan.state import StatefulTransformer
 from artan.filter.filter_params import *
-from pyspark.sql import DataFrame
 
 
 class LinearKalmanFilterParams(HasInitialState, HasInitialCovariance, HasInitialStateCol,
@@ -27,7 +26,7 @@ class LinearKalmanFilterParams(HasInitialState, HasInitialCovariance, HasInitial
                                HasProcessNoiseCol, HasControlCol, HasControlFunctionCol,
                                HasCalculateMahalanobis, HasCalculateLoglikelihood,
                                HasOutputSystemMatrices, HasCalculateSlidingLikelihood,
-                               HasSlidingLikelihoodWindow, HasMultipleModelMeasurementWindowDuration):
+                               HasSlidingLikelihoodWindow):
     """
     Mixin for linear kalman filter parameters
     """
@@ -280,18 +279,9 @@ class LinearKalmanFilterParams(HasInitialState, HasInitialCovariance, HasInitial
         return self._set(slidingLikelihoodWindow=value)\
             .setCalculateSlidingLikelihood()
 
-    def setMultipleModelMeasurementWindowDuration(self, value):
-        """
-        Optionally set the window duration for grouping measurements in same window for MMAE filter aggregation.
-        Could be used for limiting the state on streaming if event time column is set.
 
-        :param value: String
-        :return: LinearKalmanFilter
-        """
-        return self._set(multipleModelMeasurementWindowDuration=value)
-
-
-class LinearKalmanFilter(StatefulTransformer, LinearKalmanFilterParams):
+class LinearKalmanFilter(StatefulTransformer, LinearKalmanFilterParams, HasMultipleModelAdaptiveEstimationEnabled,
+                         HasMultipleModelMeasurementWindowDuration):
     """
     Linear Kalman Filter, implemented with a stateful spark Transformer for running parallel filters /w spark
     dataframes. Transforms an input dataframe of noisy measurements to dataframe of state estimates using stateful
@@ -327,6 +317,20 @@ class LinearKalmanFilter(StatefulTransformer, LinearKalmanFilterParams):
         self._java_obj = self._new_java_obj("com.github.ozancicek.artan.ml.filter.LinearKalmanFilter",
                                             stateSize, measurementSize, self.uid)
 
-    def multipleModelAdaptiveFilter(self, dataset):
-        self._transfer_params_to_java()
-        return DataFrame(self._java_obj.multipleModelAdaptiveFilter(dataset._jdf), dataset.sql_ctx)
+
+    def setMultipleModelMeasurementWindowDuration(self, value):
+        """
+        Optionally set the window duration for grouping measurements in same window for MMAE filter aggregation.
+        Could be used for limiting the state on streaming if event time column is set.
+
+        :param value: String
+        :return: LinearKalmanFilter
+        """
+        return self._set(multipleModelMeasurementWindowDuration=value)
+
+    def setEnableMultipleModelAdaptiveEstimation(self):
+        """
+        Enable MMAE output mode
+        :return: LinearKalmanFilter
+        """
+        return self._set(multipleModelAdaptiveEstimationEnabled=True)

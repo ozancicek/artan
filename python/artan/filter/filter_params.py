@@ -477,3 +477,23 @@ class HasMultipleModelMeasurementWindowDuration(Params):
         Gets the value of mmae measureent window duration
         """
         return self.getOrDefault(self.multipleModelMeasurementWindowDuration)
+
+
+class HasMultipleModelAdaptiveEstimationEnabled(Params):
+
+    multipleModelAdaptiveEstimationEnabled = Param(
+        Params._dummy(),
+        "multipleModelAdaptiveEstimationEnabled",
+        "Flag for enabling  Multiple Model Adaptive Estimation (MMAE) output mode. When enabled," + "" +
+        "MMAE mode outputs a single state estimate from the output of all kalman states of the transformer." +
+        "States are weighted based on their sliding likelihood",
+        typeConverter=TypeConverters.toBoolean)
+
+    def __init__(self):
+        super(HasMultipleModelAdaptiveEstimationEnabled, self).__init__()
+
+    def getMultipleModelAdaptiveEstimationEnabled(self):
+        """
+        Gets the value of MMAE output mode flag
+        """
+        return self.getOrDefault(self.multipleModelAdaptiveEstimationEnabled)

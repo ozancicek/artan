@@ -271,7 +271,8 @@ private[filter] abstract class KalmanTransformer[
   ImplType <: KalmanTransformer[Compute, SpecType, ImplType]]
   extends StatefulTransformer[String, KalmanInput, KalmanState, KalmanOutput, ImplType]
   with KalmanUpdateParams[ImplType] with HasCalculateMahalanobis with HasCalculateLoglikelihood
-  with HasCalculateSlidingLikelihood with HasSlidingLikelihoodWindow with HasMultipleModelMeasurementWindowDuration {
+  with HasCalculateSlidingLikelihood with HasSlidingLikelihoodWindow with HasMultipleModelMeasurementWindowDuration
+  with HasMultipleModelAdaptiveEstimationEnabled {
 
   implicit val stateKeyEncoder = Encoders.STRING
 
@@ -310,7 +311,8 @@ private[filter] abstract class KalmanTransformer[
    * @group setParam
    */
   def setSlidingLikelihoodWindow(value: Int): ImplType = {
-    set(calculateSlidingLikelihood, true).set(slidingLikelihoodWindow, value).asInstanceOf[ImplType]
+    set(calculateSlidingLikelihood, true)
+      .set(slidingLikelihoodWindow, value).asInstanceOf[ImplType]
   }
 
   /**
@@ -322,6 +324,16 @@ private[filter] abstract class KalmanTransformer[
       .asInstanceOf[ImplType]
   }
 
+  /**
+   * Optionally enable MMAE output mode
+   */
+  def setEnableMultipleModelAdaptiveEstimation: ImplType = {
+    set(multipleModelAdaptiveEstimationEnabled, true).asInstanceOf[ImplType]
+  }
+
+  /**
+   * Applies the transformation to dataset schema
+   */
   def transformSchema(schema: StructType): StructType = {
     validateWatermarkColumns(schema)
     asDataFrameTransformSchema(outEncoder.schema)
@@ -442,29 +454,37 @@ private[filter] abstract class KalmanTransformer[
     }
   )
 
-  def multipleModelAdaptiveFilter(dataset: Dataset[_]): DataFrame = {
-    require(getCalculateSlidingLikelihood)
+  /**
+   * Transforms dataset of measurements to dataframe of estimated states
+   */
+  def transform(dataset: Dataset[_]): DataFrame = {
+    val stateEstimates = asDataFrame(filter(dataset))
 
-    val normExpr = lit(1.0)/sum("slidingLikelihood")
-    val aggVecFunc = LinalgUtils.axpyVectorAggregate(stateSize)
-    val aggMatFunc = LinalgUtils.axpyMatrixAggregate(stateSize, stateSize)
+    // If MMAE is enabled, aggregate estimated states by their sliding likelihood weights
+    if (getMultipleModelAdaptiveEstimationEnabled) {
+      require(getCalculateSlidingLikelihood)
 
-    val aggStateExpr = scalVector(normExpr, aggVecFunc(col("slidingLikelihood"), col("state")))
-    val aggCovExpr = scalMatrix(normExpr, aggMatFunc(col("slidingLikelihood"), col("stateCovariance")))
+      val normExpr = lit(1.0)/sum("slidingLikelihood")
+      val aggVecFunc = LinalgUtils.axpyVectorAggregate(stateSize)
+      val aggMatFunc = LinalgUtils.axpyMatrixAggregate(stateSize, stateSize)
 
-    val windowKeys = if (isSet(multipleModelMeasurementWindowDuration)) {
-      Seq(window(col(getEventTimeCol), getMultipleModelMeasurementWindow).alias(getEventTimeCol))
+      val aggStateExpr = scalVector(normExpr, aggVecFunc(col("slidingLikelihood"), col("state")))
+      val aggCovExpr = scalMatrix(normExpr, aggMatFunc(col("slidingLikelihood"), col("stateCovariance")))
+
+      val windowKeys = if (isSet(multipleModelMeasurementWindowDuration)) {
+        Seq(window(col(getEventTimeCol), getMultipleModelMeasurementWindow).alias(getEventTimeCol))
+      } else {
+        Seq.empty[Column]
+      }
+      val groupKeys = windowKeys :+ col("stateIndex")
+
+      stateEstimates
+        .groupBy(groupKeys: _*)
+        .agg(aggStateExpr.alias("state"), aggCovExpr.alias("stateCovariance"))
     } else {
-      Seq.empty[Column]
+      stateEstimates
     }
-    val groupKeys = windowKeys :+ col("stateIndex")
-
-    transform(dataset)
-      .groupBy(groupKeys: _*)
-      .agg(aggStateExpr.alias("state"), aggCovExpr.alias("stateCovariance"))
   }
-
-  def transform(dataset: Dataset[_]): DataFrame = asDataFrame(filter(dataset))
 
   private def toKalmanInput(dataset: Dataset[_]): DataFrame = {
     /* Get the column expressions and convert to Dataset[KalmanInput]*/

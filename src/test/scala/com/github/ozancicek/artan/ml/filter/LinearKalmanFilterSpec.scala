@@ -191,9 +191,10 @@ class LinearKalmanFilterSpec
         .setSlidingLikelihoodWindow(5)
         .setCalculateSlidingLikelihood
         .setCalculateLoglikelihood
+        .setEnableMultipleModelAdaptiveEstimation
 
 
-      val latestState = filter.multipleModelAdaptiveFilter(measurements.toDS)
+      val latestState = filter.transform(measurements.toDS)
         .filter(s"stateIndex = $numSamples").head
         .getAs[DenseVector]("state")
 

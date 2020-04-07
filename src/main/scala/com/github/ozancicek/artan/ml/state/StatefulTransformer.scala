@@ -39,6 +39,7 @@ private[state] trait StatefulTransformerParams[
   /**
    * Sets the state key column. Each value in the column should uniquely identify a stateful transformer. Each
    * unique value will result in a separate state.
+   * @group setParam
    */
   def setStateKeyCol(value: String): ImplType = set(stateKeyCol, value).asInstanceOf[ImplType]
 
@@ -60,7 +61,7 @@ private[state] trait StatefulTransformerParams[
    * than the watermark.
    *
    * Default is 'none'
-   *
+   * @group setParam
    */
   def setStateTimeoutMode(value: String): ImplType = set(timeoutMode, value).asInstanceOf[ImplType]
   setDefault(timeoutMode, "none")
@@ -68,17 +69,20 @@ private[state] trait StatefulTransformerParams[
   /**
    * Sets the state timeout duration for all states, only valid when state timeout mode is not 'none'.
    * Must be a valid duration string, such as '10 minutes'.
+   * @group setParam
    */
   def setStateTimeoutDuration(value: String): ImplType = set(stateTimeoutDuration, value).asInstanceOf[ImplType]
 
   /**
    * Sets the event time column in the input DataFrame for event time based state timeout.
+   * @group setParam
    */
   def setEventTimeCol(value: String): ImplType = set(eventTimeCol, value).asInstanceOf[ImplType]
 
   /**
    * Set the watermark duration for all states, only valid when state timeout mode is 'event'.
    * Must be a valid duration string, such as '10 minutes'.
+   * @group setParam
    */
   def setWatermarkDuration(value: String): ImplType = set(watermarkDuration, value).asInstanceOf[ImplType]
 }
@@ -185,7 +189,6 @@ private[ml] abstract class StatefulTransformer[
       .flatMapGroupsWithState(
         OutputMode.Append,
         getTimeoutMode.conf)(stateUpdateSpec.stateFunc(ops))
-
     outDS
   }
 }
@@ -198,13 +201,26 @@ private[state] trait HasStateKeyCol[KeyType] extends Params {
 
   protected val defaultStateKey: KeyType
 
+  /**
+   * Param for state key column. State keys uniquely identify the each state in stateful transformers,
+   * thus controlling the number of states and the degree of parallelization"
+   * @group param
+   */
   final val stateKeyCol: Param[String] = new Param[String](
     this, "stateKeyCol",
     "State key column. State keys uniquely identify the each state in stateful transformers," +
       "thus controlling the number of states and the degree of parallelization")
 
+  /**
+   * Getter for state key column name parameter
+   * @group getParam
+   */
   final def getStateKeyColname: String = $(stateKeyCol)
 
+  /**
+   * Getter for state key column
+   * @group getParam
+   */
   final def getStateKeyColumn: Column = if (isSet(stateKeyCol)) col($(stateKeyCol)) else lit(defaultStateKey)
 }
 
@@ -213,12 +229,23 @@ private[state] trait HasStateKeyCol[KeyType] extends Params {
  * Param for event time column name
  */
 private[state] trait HasEventTimeCol extends Params {
+
+  /**
+   * Param for event time column name, which marks the event time of the received measurements. If set,
+   * the measurements will be processed in ascending order according to event time.
+   * @group param
+   */
   final val eventTimeCol: Param[String] = new Param[String](
     this,
     "eventTimeCol",
-    "Column marking the event time of the received measurements"
+    "Column marking the event time of the received measurements" +
+    "If set, the measurements will be processed in ascending order according to event time."
   )
 
+  /**
+   * Getter for event time column parameter
+   * @group getParam
+   */
   def getEventTimeCol: String = $(eventTimeCol)
 }
 
@@ -227,12 +254,23 @@ private[state] trait HasEventTimeCol extends Params {
  * Param for watermark duration
  */
 private[state] trait HasWatermarkDuration extends Params {
+
+  /**
+   * Param for watermark duration as string, measured from the [[eventTimeCol]] column. If set, measurements will
+   * be processed in append mode with the specified watermark duration.
+   * @group param
+   */
   final val watermarkDuration: Param[String] = new Param[String](
     this,
     "watermarkDuration",
-    "Watermark duration"
+    "Watermark duration measured from the event time column. If set, measurements will" +
+      "be processed in append mode with the specified watermark duration."
   )
 
+  /**
+   * Getter for watermark duration parameter
+   * @group getParam
+   */
   def getWatermarkDuration: String = $(watermarkDuration)
 }
 
@@ -241,12 +279,20 @@ private[state] trait HasWatermarkDuration extends Params {
  * Param for state timeout duration
  */
 private[state] trait HasStateTimeoutDuration extends Params {
+
+  /**
+   * Param for state timeout duration.
+   */
   final val stateTimeoutDuration: Param[String] = new Param[String](
     this,
     "stateTimeoutDuration",
     "State timeout duration"
   )
 
+  /**
+   * Getter for state timeout duration parameter
+   * @group getParam
+   */
   def getStateTimeoutDuration: Option[String] = {
     if (isSet(stateTimeoutDuration)) Some($(stateTimeoutDuration)) else None
   }
@@ -260,13 +306,23 @@ private[state] trait HasStateTimeoutMode extends Params {
 
   private val supportedTimeoutMods = Set("none", "process", "event")
 
+  /**
+   * Param for timeout mode, controlling the eviction of states which receive no measurement for a certain duration
+   * @group param
+   */
   final val timeoutMode: Param[String] = new Param[String](
     this,
     "timeoutMode",
-    "Group state timeout mode. Supported options:" +
+    "Group state timeout mode, to control the eviction of states which receive no measurement for a certain duration." +
+      "Supported options:" +
     s"${supportedTimeoutMods.mkString(", ")} . (Default none)"
   )
 
+  /**
+   * Getter for timeout mode
+   * @group getParam
+   * @return TimeoutMode
+   */
   def getTimeoutMode: TimeoutMode = $(timeoutMode) match {
     case "none" => NoTimeout
     case "process" => ProcessingTimeTimeout

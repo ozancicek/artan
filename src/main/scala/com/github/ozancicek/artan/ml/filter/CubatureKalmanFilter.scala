@@ -89,6 +89,9 @@ class CubatureKalmanFilter(
    */
   def setMeasurementFunction(value: (Vector, Matrix) => Vector): this.type = set(measurementFunction, value)
 
+  /**
+   * Creates a copy of this instance with the same UID and some extra params.
+   */
   override def copy(extra: ParamMap): CubatureKalmanFilter =  {
     val that = new CubatureKalmanFilter(stateSize, measurementSize)
     copyValues(that, extra)
