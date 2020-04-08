@@ -18,6 +18,7 @@
 
 from pyspark.ml.param import Params, Param, TypeConverters
 from pyspark.ml.wrapper import JavaTransformer
+from pyspark.ml.common import inherit_doc
 
 
 class HasStateKeyCol(Params):
@@ -126,6 +127,7 @@ class HasStateTimeoutDuration(Params):
         return self.getOrDefault(self.stateTimeoutDuration)
 
 
+@inherit_doc
 class StatefulTransformer(JavaTransformer,
                           HasStateKeyCol, HasEventTimeCol, HasWatermarkDuration,
                           HasStateTimeoutDuration, HasStateTimeoutMode):
@@ -158,12 +160,18 @@ class StatefulTransformer(JavaTransformer,
             than the watermark.
 
         Default is 'none'
+
+        :param value: String, one of 'none', 'process' or 'event'
+        :return: StatefulTransformer
         """
         return self._set(timeoutMode=value)
 
     def setEventTimeCol(self, value):
         """
-        Sets the event time column in the input DataFrame for event time based state timeout.
+        Sets the event time column in the input DataFrame.
+
+        :param value: String, column name of the eventTime timestamp
+        :return: StatefulTransformer
         """
         return self._set(eventTimeCol=value)
 
@@ -171,6 +179,9 @@ class StatefulTransformer(JavaTransformer,
         """
         Set the watermark duration for all states, only valid when state timeout mode is 'event'.
         Must be a valid duration string, such as '10 minutes'.
+
+        :param value: String, duration specifying watermark from eventTime timestamp
+        :return: StatefulTransformer
         """
         return self._set(watermarkDuration=value)
 
@@ -178,6 +189,10 @@ class StatefulTransformer(JavaTransformer,
     def setStateTimeoutDuration(self, value):
         """
         Sets the state timeout duration for all states, only valid when state timeout mode is not 'none'.
+
         Must be a valid duration string, such as '10 minutes'.
+
+        :param value: String, duration specifying state timeout
+        :return: StatefulTransformer
         """
         return self._set(stateTimeoutDuration=value)

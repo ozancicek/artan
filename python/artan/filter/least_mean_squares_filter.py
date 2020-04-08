@@ -15,16 +15,14 @@
 #  limitations under the License.
 #
 
-import numpy as np
-
 from pyspark.ml.param import Params, Param, TypeConverters
-from pyspark.ml.linalg import DenseMatrix
+from pyspark.ml.common import inherit_doc
 from pyspark.ml.param.shared import HasLabelCol, HasFeaturesCol
 from artan.state import StatefulTransformer
 from artan.filter.filter_params import HasInitialState
 
 
-class HasLearningRate(Params):
+class _HasLearningRate(Params):
     """
     Mixin for param Normalized LMS learning rate
     """
@@ -36,7 +34,7 @@ class HasLearningRate(Params):
         typeConverter=TypeConverters.toFloat)
 
     def __init__(self):
-        super(HasLearningRate, self).__init__()
+        super(_HasLearningRate, self).__init__()
 
     def getLearningRate(self):
         """
@@ -45,7 +43,7 @@ class HasLearningRate(Params):
         return self.getOrDefault(self.learningRate)
 
 
-class HasRegularizationConstant(Params):
+class _HasRegularizationConstant(Params):
     """
     Mixin for param for regularization constant.
     """
@@ -57,7 +55,7 @@ class HasRegularizationConstant(Params):
         typeConverter=TypeConverters.toFloat)
 
     def __init__(self):
-        super(HasRegularizationConstant, self).__init__()
+        super(_HasRegularizationConstant, self).__init__()
 
     def getRegularizationConstant(self):
         """
@@ -66,8 +64,9 @@ class HasRegularizationConstant(Params):
         return self.getOrDefault(self.regularizationConstant)
 
 
+@inherit_doc
 class LeastMeanSquaresFilter(StatefulTransformer, HasInitialState,
-                             HasLearningRate, HasRegularizationConstant,
+                             _HasLearningRate, _HasRegularizationConstant,
                              HasLabelCol, HasFeaturesCol):
     """
     Normalized Least Mean Squares filter, implemented with a stateful spark Transformer for running parallel
@@ -77,15 +76,20 @@ class LeastMeanSquaresFilter(StatefulTransformer, HasInitialState,
     Belonging to stochastic gradient descent type of methods, LMS minimizes SSE on each measurement
     based on the expectation of steepest descending gradient.
 
-    Let w denote the model parameter vector, u denote the features vector, and d for label corresponding to u.
-    Normalized LMS computes w at step k recursively by;
+    Let :math:`w` denote the model parameter vector, :math:`u` denote the features vector,
+    and :math:`d` the label corresponding to :math:`u`. Normalized LMS computes :math:`w` at step :math:`k`
+    recursively by:
 
-    e = d - u.T * w_k-1
-    w_k = w_k-1 + m * e * u /(c + u.T*u)
+    .. math ::
+
+        e &= d - u \cdot w_{k-1} \\
+
+        w_k &= w_{k-1} + m * e * u * (c + u \cdot u)^{-1}
+
 
     Where
-        m: Learning rate
-        c: Regularization constant
+    - :math:`m`: Learning rate
+    - :math:`c`: Regularization constant
     """
     def __init__(self, featuresSize):
         super(LeastMeanSquaresFilter, self).__init__()

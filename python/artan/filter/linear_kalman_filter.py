@@ -16,296 +16,38 @@
 #
 
 from artan.state import StatefulTransformer
-from artan.filter.filter_params import *
+from artan.filter.filter_params import (
+    KalmanFilterParams, HasMultipleModelAdaptiveEstimationEnabled,
+    HasMultipleModelMeasurementWindowDuration)
 
 
-class LinearKalmanFilterParams(HasInitialState, HasInitialCovariance, HasInitialStateCol,
-                               HasInitialCovarianceCol, HasProcessModel, HasFadingFactor, HasMeasurementModel,
-                               HasMeasurementNoise, HasProcessNoise, HasMeasurementCol,
-                               HasMeasurementModelCol, HasMeasurementNoiseCol, HasProcessModelCol,
-                               HasProcessNoiseCol, HasControlCol, HasControlFunctionCol,
-                               HasCalculateMahalanobis, HasCalculateLoglikelihood,
-                               HasOutputSystemMatrices, HasCalculateSlidingLikelihood,
-                               HasSlidingLikelihoodWindow):
-    """
-    Mixin for linear kalman filter parameters
-    """
-    def setInitialState(self, value):
-        """
-        Set the initial state vector with size (stateSize).
-
-        It will be applied to all states. If the state timeouts and starts receiving
-        measurements after timeout, it will again start from this initial state vector. Default is zero.
-
-        Note that if this parameter is set through here, it will result in same initial state for all filters.
-        For different initial states across filters, set the dataframe column for corresponding to initial state
-        with setInitialStateCol.
-
-        :param value: pyspark.ml.linalg.Vector with size (stateSize)
-        :return: LinearKalmanFilter
-        """
-        return self._set(initialState=value)
-
-    def setInitialStateCol(self, value):
-        """
-        Set the column corresponding to initial state vector. Overrides setInitialState setting.
-
-        :param value: String
-        :return: LinearKalmanFilter
-        """
-        return self._set(initialStateCol=value)
-
-    def setInitialCovariance(self, value):
-        """
-        Set the initial covariance matrix with dimensions (stateSize, stateSize)
-
-        It will be applied to all states. If the state timeouts and starts receiving
-        measurements after timeout, it will again start from this initial covariance vector. Default is identity matrix.
-        :param value: pyspark.ml.linalg.Matrix with dimensions (stateSize, stateSize)
-        :return: LinearKalmanFilter
-        """
-        return self._set(initialCovariance=value)
-
-    def setInitialCovarianceCol(self, value):
-        """
-        Set the column corresponding to initial covariance matrix. Overrides setInitialCovariance setting.
-
-        :param value: String
-        :return: LinearKalmanFilter
-        """
-        return self._set(initialCovarianceCol=value)
-
-    def setFadingFactor(self, value):
-        """
-        Fading factor for giving more weights to more recent measurements. If needed, it should be greater than one.
-        Typically set around 1.01 ~ 1.05. Default is 1.0, which will result in equally weighted measurements.
-
-        :param value: Float >= 1.0
-        :return: LinearKalmanFilter
-        """
-        return self._set(fadingFactor=value)
-
-    def setProcessModel(self, value):
-        """
-        Set default value for process model matrix with dimensions (stateSize, stateSize) which governs
-        state transition.
-
-        Note that if this parameter is set through here, it will result in same process model for all filters &
-        measurements. For different process models across filters or measurements, set a dataframe column for process
-        model from setProcessModelCol.
-
-        Default is identity matrix.
-
-        :param value: pyspark.ml.linalg.Matrix with dimensions (stateSize, stateSize)
-        :return:
-        """
-        return self._set(processModel=value)
-
-    def setProcessNoise(self, value):
-        """
-        Set default value for process noise matrix with dimensions (stateSize, stateSize).
-
-        Note that if this parameter is set through here, it will result in same process noise for all filters &
-        measurements. For different process noise values across filters or measurements, set a dataframe column
-        for process noise from setProcessNoiseCol.
-
-        Default is identity matrix.
-
-        :param value: pyspark.ml.linalg.Matrix with dimensions (stateSize, StateSize)
-        :return: LinearKalmanFilter
-        """
-        return self._set(processNoise=value)
-
-    def setMeasurementModel(self, value):
-        """
-        Set default value for measurement model matrix with dimensions (stateSize, measurementSize)
-        which maps states to measurement.
-
-        Note that if this parameter is set through here, it will result in same measurement model for all filters &
-        measurements. For different measurement models across filters or measurements, set a dataframe column for
-        measurement model from setMeasurementModelCol.
-
-        Default value maps the first state value to measurements.
-
-        :param value: pyspark.ml.linalg.Matrix with dimensions (stateSize, measurementSize)
-        :return: LinearKalmanFilter
-        """
-        return self._set(measurementModel=value)
-
-    def setMeasurementNoise(self, value):
-        """
-        Set default value for measurement noise matrix with dimensions (measurementSize, measurementSize).
-
-        Note that if this parameter is set through here, it will result in same measurement noise for all filters &
-        measurements. For different measurement noise values across filters or measurements,
-        set a dataframe column for measurement noise from setMeasurementNoiseCol.
-
-        Default is identity matrix.
-
-        :param value: pyspark.ml.linalg.Matrix with dimensions (measurementSize, measurementSize)
-        :return: LinearKalmanFilter
-        """
-        return self._set(measurementNoise=value)
-
-    def setMeasurementCol(self, value):
-        """
-        Set the column corresponding to measurements.
-
-        The vectors in the column should be of size (measurementSize). null values are allowed,
-        which will result in only state prediction step.
-
-        :param value: pyspark.ml.linalg.Vector with size measurementSize
-        :return: LinearKalmanFilter
-        """
-        return self._set(measurementCol=value)
-
-    def setMeasurementModelCol(self, value):
-        """
-        Set the column for input measurement model matrices
-
-        Measurement model matrices should have dimensions (stateSize, measurementSize)
-
-        :param value: String
-        :return: LinearKalmanFilter
-        """
-        return self._set(measurementModelCol=value)
-
-    def setProcessModelCol(self, value):
-        """
-        Set the column for input process model matrices.
-
-        Process model matrices should have dimensions (stateSize, stateSize)
-
-        :param value: String
-        :return: LinearKalmanFilter
-        """
-        return self._set(processModelCol=value)
-
-    def setProcessNoiseCol(self, value):
-        """
-        Set the column for input process noise matrices.
-
-        Process noise matrices should have dimensions (stateSize, stateSize)
-
-        :param value: String
-        :return: LinearKalmanFilter
-        """
-        return self._set(processNoiseCol=value)
-
-    def setMeasurementNoiseCol(self, value):
-        """
-        Set the column for input measurement noise matrices.
-
-        Measurement noise matrices should have dimensions (measurementSize, measurementSize)
-
-        :param value: String
-        :return: LinearKalmanFilter
-        """
-        return self._set(measurementNoiseCol=value)
-
-    def setControlCol(self, value):
-        """
-        Set the column for input control vectors.
-
-        Control vectors should have compatible size with control function (controlVectorSize). The product of
-        control matrix & vector should produce a vector with stateSize. null values are allowed,
-        which will result in state transition without control input.
-
-        :param value: String
-        :return: LinearKalmanFilter
-        """
-        return self._set(controlCol=value)
-
-    def setControlFunctionCol(self, value):
-        """
-        Set the column for input control matrices.
-
-        Control matrices should have dimensions (stateSize, controlVectorSize). null values are allowed, which will
-        result in state transition without control input
-
-        :param value: String
-        :return: LinearKalmanFilter
-        """
-        return self._set(controlFunctionCol=value)
-
-    def setCalculateLogLikelihood(self):
-        """
-        Optionally calculate loglikelihood of each measurement & add it to output dataframe. Loglikelihood is calculated
-        from residual vector & residual covariance matrix.
-
-        Not enabled by default.
-
-        :return: LinearKalmanFilter
-        """
-        return self._set(calculateLoglikelihood=True)
-
-    def setCalculateMahalanobis(self):
-        """
-        Optionally calculate mahalanobis distance metric of each measurement & add it to output dataframe.
-        Mahalanobis distance is calculated from residual vector & residual covariance matrix.
-
-        Not enabled by default.
-
-        :return: LinearKalmanFilter
-        """
-        return self._set(calculateMahalanobis=True)
-
-    def setOutputSystemMatrices(self):
-        """
-        Optionally add system matrices to output dataframe returned by the transformer.
-
-        Default is false
-        :return: LinearKalmanFilter
-        """
-        return self._set(outputSystemMatrices=True)
-
-    def setCalculateSlidingLikelihood(self):
-        """
-        Optionally calculate a sliding likelihood across consecutive measurements
-
-        Default is false
-        :return: LinearKalmanFilter
-        """
-        return self._set(calculateSlidingLikelihood=True)
-
-    def setSlidingLikelihoodWindow(self, value):
-        """
-        Set the param for number of consecutive measurements to include in the total likelihood calculation
-
-        Default is 1
-        :param value: Integer
-        :return: LinearKalmanFilter
-        """
-        return self._set(slidingLikelihoodWindow=value)\
-            .setCalculateSlidingLikelihood()
-
-
-class LinearKalmanFilter(StatefulTransformer, LinearKalmanFilterParams, HasMultipleModelAdaptiveEstimationEnabled,
+class LinearKalmanFilter(StatefulTransformer, KalmanFilterParams, HasMultipleModelAdaptiveEstimationEnabled,
                          HasMultipleModelMeasurementWindowDuration):
     """
     Linear Kalman Filter, implemented with a stateful spark Transformer for running parallel filters /w spark
     dataframes. Transforms an input dataframe of noisy measurements to dataframe of state estimates using stateful
     spark transformations, which can be used in both streaming and batch applications.
 
-    Assuming a state (x_k) with size n_s, and measurements (z_k) with size n_m,
-    following parameters should be specified;
+    Assuming a state vector :math:`x_k` with size `stateSize`, and measurements vector :math:`z_k`
+    with size `measurementSize`, below parameters can be specified.
 
-    - F_k, process model, matrix with dimensions (n_s, n_s)
-    - H_k, measurement model, matrix with dimensions (n_s, n_m)
-    - Q_k, process noise covariance, matrix with dimensions (n_s, n_s)
-    - R_k, measurement noise covariance, matrix with dimensions (n_m, n_m)
-    - B_k, optional control model, matrix with dimensions (n_s, n_control)
-    - u_k, optional control vector, vector with size (n_control)
+    - :math:`F_k`, process model, matrix with dimensions `stateSize` x `stateSize`
+    - :math:`H_k`, measurement model, matrix with dimensions `stateSize` x `measurementSize`
+    - :math:`Q_k`, process noise covariance, matrix with dimensions `stateSize` x `stateSize`
+    - :math:`R_k`, measurement noise covariance, matrix with dimensions `measurementSize` x `measurementSize`
+    - :math:`u_k`, optional control vector, vector with size `controlSize`
+    - :math:`B_k`, optional control model, matrix with dimensions `stateSize` x `controlSize`
 
-    Linear Kalman Filter will predict & estimate the state according to following equations
+    Linear Kalman Filter will predict & estimate the state according to following state and measurement equations.
 
-    State prediction:
-    x_k = F_k * x_k-1 + B_k * u_k + w_k
+    .. math::
 
-    Measurement incorporation:
-    z_k = H_k * x_k + v_k
+        x_k &= F_k x_{k-1} + B_k u_k + v_k \\
 
-    Where v_k and w_k are noise vectors drawn from zero mean, Q_k and R_k covariance distributions.
+        z_k &= H_k x_k + w_k
+
+    Where :math:`v_k` and :math:`w_k` are noise vectors drawn from zero mean,
+    :math:`Q_k` and :math:`R_k` covariance distributions.
 
     The default values of system matrices will not give you a functioning filter, but they will be initialized
     with reasonable values given the state and measurement sizes. All of the inputs to the filter can
@@ -331,6 +73,7 @@ class LinearKalmanFilter(StatefulTransformer, LinearKalmanFilterParams, HasMulti
     def setEnableMultipleModelAdaptiveEstimation(self):
         """
         Enable MMAE output mode
+
         :return: LinearKalmanFilter
         """
         return self._set(multipleModelAdaptiveEstimationEnabled=True)

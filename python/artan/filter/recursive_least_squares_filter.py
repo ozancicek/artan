@@ -20,11 +20,12 @@ import numpy as np
 from pyspark.ml.param import Params, Param, TypeConverters
 from pyspark.ml.param.shared import HasLabelCol, HasFeaturesCol
 from pyspark.ml.linalg import DenseMatrix
+from pyspark.ml.common import inherit_doc
 from artan.state import StatefulTransformer
 from artan.filter.filter_params import HasInitialState, HasInitialStateCol
 
 
-class HasForgettingFactor(Params):
+class _HasForgettingFactor(Params):
     """
     Mixin for param forgetting factor, between 0 and 1.
     """
@@ -34,7 +35,7 @@ class HasForgettingFactor(Params):
         "forgettingFactor", "Forgetting factor between 0 and 1", typeConverter=TypeConverters.toFloat)
 
     def __init__(self):
-        super(HasForgettingFactor, self).__init__()
+        super(_HasForgettingFactor, self).__init__()
 
     def getForgettingFactor(self):
         """
@@ -43,7 +44,7 @@ class HasForgettingFactor(Params):
         return self.getOrDefault(self.forgettingFactor)
 
 
-class HasRegularizationMatrix(Params):
+class _HasRegularizationMatrix(Params):
     """
     Mixin for param regularization matrix.
     """
@@ -57,7 +58,7 @@ class HasRegularizationMatrix(Params):
         typeConverter=TypeConverters.toMatrix)
 
     def __init__(self):
-        super(HasRegularizationMatrix, self).__init__()
+        super(_HasRegularizationMatrix, self).__init__()
 
     def getRegularizationMatrix(self):
         """
@@ -66,7 +67,7 @@ class HasRegularizationMatrix(Params):
         return self.getOrDefault(self.regularizationMatrix)
 
 
-class HasRegularizationMatrixCol(Params):
+class _HasRegularizationMatrixCol(Params):
     """
     Mixin for param regularization matrix column.
     """
@@ -78,7 +79,7 @@ class HasRegularizationMatrixCol(Params):
         typeConverter=TypeConverters.toString)
 
     def __init__(self):
-        super(HasRegularizationMatrixCol, self).__init__()
+        super(_HasRegularizationMatrixCol, self).__init__()
 
     def getRegularizationMatrixCol(self):
         """
@@ -87,8 +88,9 @@ class HasRegularizationMatrixCol(Params):
         return self.getOrDefault(self.regularizationMatrixCol)
 
 
+@inherit_doc
 class RecursiveLeastSquaresFilter(StatefulTransformer, HasInitialState, HasInitialStateCol,
-                                  HasForgettingFactor, HasRegularizationMatrix, HasRegularizationMatrixCol,
+                                  _HasForgettingFactor, _HasRegularizationMatrix, _HasRegularizationMatrixCol,
                                   HasLabelCol, HasFeaturesCol):
     """
     Recursive formulation of least squares with exponential weighting & regularization, implemented with
@@ -96,16 +98,19 @@ class RecursiveLeastSquaresFilter(StatefulTransformer, HasInitialState, HasIniti
     of observations to a dataframe of model parameters using stateful spark transformations, which can be used
     in both streaming and batch applications.
 
-    Let w denote the model parameters and w_est denote our prior belief. RLS minimizes following regularization
-    & weighted SSE terms;
+    Let :math:`w` denote the model parameters and :math:`w_{est}` denote our prior belief. RLS minimizes following
+    regularization and weighted SSE terms;
 
-    (w - w_est).T * (lambda^(-N-1) * P)^(-1) * (w - w_est) + Sum(lambda(N - j)*(d_k - u_k.T * w),  k = 0,1, .. N)
+    .. math::
+
+        (w - w_{est}) \cdot (\lambda^{-N-1}P)^{-1} \cdot (w - w_{est}) + \sum_{k=1}^{N} \lambda^{N - k} (d_k - u_k \cdot w)
 
     Where:
-    - lambda: forgetting factor, or exponential weighting factor. Between 0 and 1.
-    - P: regularization matrix. Smaller values increseas the weight of regularization term, whereas larger values
-      increases the weight of weighted SSE term.
-    - d_k, u_k: label and features vector at time step k.
+
+    - :math:`\lambda`: forgetting factor, or exponential weighting factor. Between 0 and 1.
+    - :math:`P`: regularization matrix. Smaller values increseas the weight of regularization term, whereas larger
+        values increase the weight of weighted SSE term.
+    - :math:`d_k`, :math:`u_k`: label and features vector at time step k.
     """
     def __init__(self, featuresSize):
         super(RecursiveLeastSquaresFilter, self).__init__()

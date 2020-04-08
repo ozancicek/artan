@@ -15,9 +15,11 @@
 #  limitations under the License.
 #
 
+from pyspark.ml.common import inherit_doc
+from pyspark.ml.param import Params, Param, TypeConverters
+
 from artan.state import StatefulTransformer
-from artan.filter.linear_kalman_filter import LinearKalmanFilterParams
-from artan.filter.filter_params import *
+from artan.filter.filter_params import KalmanFilterParams
 
 
 class HasFixedLag(Params):
@@ -39,7 +41,8 @@ class HasFixedLag(Params):
         return self.getOrDefault(self.fixedLag)
 
 
-class LinearKalmanSmoother(StatefulTransformer, LinearKalmanFilterParams, HasFixedLag):
+@inherit_doc
+class LinearKalmanSmoother(StatefulTransformer, KalmanFilterParams, HasFixedLag):
     """
     Fixed lag linear kalman smoother using Rauch-Tung-Striebel method. The smoother is implemented with a
     stateful spark transformer for running parallel smoother /w spark dataframes.
