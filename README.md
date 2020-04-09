@@ -3,6 +3,8 @@
 [![codecov](https://codecov.io/gh/ozancicek/artan/branch/master/graph/badge.svg)](https://codecov.io/gh/ozancicek/artan)
 [![Maven Central](https://img.shields.io/maven-central/v/com.github.ozancicek/artan_2.11)](https://mvnrepository.com/artifact/com.github.ozancicek/artan)
 [![PyPI](https://img.shields.io/pypi/v/artan)](https://pypi.org/project/artan/)
+[![Documentation Status](https://readthedocs.org/projects/artan/badge/?version=latest)](https://artan.readthedocs.io/en/latest/?badge=latest)
+
 
 Model-parallel bayesian filtering with Apache Spark.
 
@@ -44,7 +46,7 @@ Note that pip will only install the python dependencies. To submit pyspark jobs,
 
 ## Docs and Examples
 
-Visit [docs](https://ozancicek.github.io/docs/sphinx/artan/0.2.0-SNAPSHOT/index.html) (in progress) and [examples](https://github.com/ozancicek/artan/blob/master/examples/src/main) for all sample scripts.
+Visit [docs](https://artan.readthedocs.io/) (in progress) and [examples](https://github.com/ozancicek/artan/blob/master/examples/src/main) for all sample scripts.
 
 ### Streaming examples
 - Local linear trend filtering with Linear Kalman Filter ([python](https://github.com/ozancicek/artan/blob/master/examples/src/main/python/streaming/lkf_rate_source_llt.py), [scala](https://github.com/ozancicek/artan/blob/master/examples/src/main/scala/com/ozancicek/artan/examples/streaming/LKFRateSourceLLT.scala))
