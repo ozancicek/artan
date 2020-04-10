@@ -113,8 +113,103 @@ most of the time. If you make a change that's not allowed by spark (i.e changes 
 and need to migrate the state, you can use the pattern in the :ref:`previous section <Batch - stream compatibility>` to recover from
 a separate data store.
 
-## Event time and watermarks
+Event time and ordering
+=======================
 
-## Expiring State
+If measurements are associated with a timestamp and ordered processing of measurements is desired, event time column
+can be set from the input dataframe. This will cause measurements to be processed in ascending order of event time column.
 
-## Version upgrades
+    .. code-block::scala
+
+        // Filter for estimating local linear increasing trend
+
+        val filter = new LinearKalmanFilter(2, 1)
+          .setMeasurementCol("measurement")
+          .setEventTimeCol("eventTime")
+          .setProcessModel(
+            new DenseMatrix(2, 2, Array(1, 0, 1, 1)))
+          .setProcessNoise(
+             new DenseMatrix(2, 2, Array(0.0001, 0.0, 0.0, 0.0001)))
+          .setMeasurementNoise(
+             new DenseMatrix(1, 1, Array(1)))
+          .setMeasurementModel(
+            new DenseMatrix(1, 2, Array(1, 0)))
+
+        measurements.show()
+        /*
+        Shuffled and randomized measurements between 0 ~ 20, eventTime in range 00:00 ~ 03:10
+        +--------------------+-------------------+
+        |         measurement|          eventTime|
+        +--------------------+-------------------+
+        |[16.600396246906673]|2010-01-01 02:40:00|
+        |[11.642160456918376]|2010-01-01 02:00:00|
+        | [5.431510805673608]|2010-01-01 00:50:00|
+        |[-0.7805794640849...|2010-01-01 00:00:00|
+        | [5.557702620333938]|2010-01-01 01:00:00|
+        |[18.480509639899093]|2010-01-01 03:10:00|
+        | [8.686614705917332]|2010-01-01 01:30:00|
+        |[15.953639806250733]|2010-01-01 02:30:00|
+        |[10.292525128550421]|2010-01-01 01:40:00|
+        | [18.09287613172998]|2010-01-01 03:00:00|
+        |[15.992810861426456]|2010-01-01 02:20:00|
+        |[1.1198568487766754]|2010-01-01 00:20:00|
+        | [2.336889367434245]|2010-01-01 00:30:00|
+        |[0.7527924959565742]|2010-01-01 00:10:00|
+        |[17.076684843431103]|2010-01-01 02:50:00|
+        |[3.1705195503744017]|2010-01-01 00:40:00|
+        |[12.836952969639569]|2010-01-01 02:10:00|
+        | [9.909880718374762]|2010-01-01 01:50:00|
+        | [7.182921708460937]|2010-01-01 01:10:00|
+        | [9.348675648154412]|2010-01-01 01:20:00|
+        +--------------------+-------------------+
+        */
+
+        filter.transform(measurements).select($"state", $"stateIndex", $"eventTime").show()
+
+        /*
+        Measurements processed in sorted order of evenTime, state estimates the trend.
+        +--------------------+----------+-------------------+
+        |               state|stateIndex|          eventTime|
+        +--------------------+----------+-------------------+
+        |[-0.7434091904155...|         1|2010-01-01 00:00:00|
+        |[0.52340687614430...|         2|2010-01-01 00:10:00|
+        |[1.19584880362555...|         3|2010-01-01 00:20:00|
+        |[2.22208956892591...|         4|2010-01-01 00:30:00|
+        |[3.14516277305829...|         5|2010-01-01 00:40:00|
+        |[4.75434051069336...|         6|2010-01-01 00:50:00|
+        |[5.71256409043123...|         7|2010-01-01 01:00:00|
+        |[6.94015466318830...|         8|2010-01-01 01:10:00|
+        |[8.52330679854214...|         9|2010-01-01 01:20:00|
+        |[9.35400473381713...|        10|2010-01-01 01:30:00|
+        |[10.4189235290492...|        11|2010-01-01 01:40:00|
+        |[11.0576627546505...|        12|2010-01-01 01:50:00|
+        |[11.9821996520512...|        13|2010-01-01 02:00:00|
+        |[12.9725789388260...|        14|2010-01-01 02:10:00|
+        |[14.4862990766982...|        15|2010-01-01 02:20:00|
+        |[15.6573047856747...|        16|2010-01-01 02:30:00|
+        |[16.7165552945660...|        17|2010-01-01 02:40:00|
+        |[17.653806140306,...|        18|2010-01-01 02:50:00|
+        |[18.6023959572674...|        19|2010-01-01 03:00:00|
+        |[19.4403349199569...|        20|2010-01-01 03:10:00|
+        +--------------------+----------+-------------------+
+        */
+
+Note that this will not guarantee ordering in streaming mode for all cases, ordering is only guaranteed per minibatch.
+`Append` output mode is used in the filters, so if strict ordering in streaming mode is desired measurements can be
+aggregated within a time window with watermark before transforming them with filters. All filters also support
+setting watermark duration along with event time column to help propagating watermarks.
+
+    .. code-block:: scala
+
+      val filter = new LinearKalmanFilter(2, 1)
+        .setMeasurementCol("measurement")
+        .setEventTimeCol("eventTime")
+        .setWatermarkDuration("10 seconds")
+
+
+Expiring State
+==============
+
+
+Version upgrades
+================

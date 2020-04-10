@@ -39,7 +39,7 @@ is nonlinear, so it's enough to define the function mapping the state to measure
 In order to help these functions define evolving behaviour across measurements, they also accept `processModel` or `measurementModel`
 as a second argument. So the signature of the function must be  ``(Vector, Matrix) => Vector`` for the nonlinear
 function and ``(Vector, Matrix) => Matrix`` for its jacobian. The second argument to these functions can be
-set with ``setMeasurementModelCol```or ```setProcessModelCol``. In this example, measurement model is used
+set with ``setMeasurementModelCol``or ``setProcessModelCol``. In this example, measurement model is used
 for defining the features matrix, and the nonlinear update is done with the defined function.
 
     .. code-block:: scala
