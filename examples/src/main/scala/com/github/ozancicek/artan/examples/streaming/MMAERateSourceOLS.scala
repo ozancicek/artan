@@ -50,7 +50,6 @@ object MMAERateSourceOLS {
 
     // OLS problem, states to be estimated are a, b and c
     // z = a*x + b * y + c + w, where w ~ N(0, 1)
-
     val a = 0.5
     val b = 0.2
     val c = 1.2

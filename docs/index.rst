@@ -47,10 +47,14 @@ Guides
 ******
 
     .. toctree::
-       :maxdepth: 2
-       :glob:
+        :maxdepth: 2
+        :glob:
 
-       *guide
+        Recursive Least Squares <rlsguide>
+        Kalman Filter <lkfguide>
+        Extended Kalman Filter <ekfguide>
+        Unscented Kalman Filter <ukfguide>
+        stateguide
 
 
 Python API Reference
