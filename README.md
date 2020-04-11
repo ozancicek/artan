@@ -46,13 +46,14 @@ Note that pip will only install the python dependencies. To submit pyspark jobs,
 
 ## Docs and Examples
 
-Visit [docs](https://artan.readthedocs.io/) (in progress) and [examples](https://github.com/ozancicek/artan/blob/master/examples/src/main) for all sample scripts.
+Visit [docs](https://artan.readthedocs.io/) and [examples](https://github.com/ozancicek/artan/blob/master/examples/src/main) for all sample scripts.
 
 ### Streaming examples
-- Local linear trend filtering with Linear Kalman Filter ([python](https://github.com/ozancicek/artan/blob/master/examples/src/main/python/streaming/lkf_rate_source_llt.py), [scala](https://github.com/ozancicek/artan/blob/master/examples/src/main/scala/com/ozancicek/artan/examples/streaming/LKFRateSourceLLT.scala))
+- Local linear trend filtering with Linear Kalman Filter ([python](https://github.com/ozancicek/artan/blob/master/examples/src/main/python/streaming/lkf_rate_source_llt.py), [scala](https://github.com/ozancicek/artan/blob/master/examples/src/main/scala/com/github/ozancicek/artan/examples/streaming/LKFRateSourceLLT.scala))
 - Recursive least squares ([python](https://github.com/ozancicek/artan/blob/master/examples/src/main/python/streaming/rls_rate_source_ols.py), [scala](examples/src/main/scala/com/ozancicek/artan/examples/streaming/RLSRateSourceOLS.scala))
-- GLM estimation with Extended Kalman Filter, gaussian noise & log link ([scala](https://github.com/ozancicek/artan/blob/master/examples/src/main/scala/com/ozancicek/artan/examples/streaming/EKFRateSourceGLMLog.scala))
-
+- Nonlinear estimation with Extended Kalman Filter ([scala](https://github.com/ozancicek/artan/blob/master/examples/src/main/scala/com/github/ozancicek/artan/examples/streaming/EKFRateSourceGLMLog.scala))
+- Nonlinear estimation with Unscented Kalman Filter ([scala](https://github.com/ozancicek/artan/blob/master/examples/src/main/scala/com/github/ozancicek/artan/examples/streaming/UKFRateSourceGLMLog.scala))
+- Multiple-Model Adaptive estimation ([scala](https://github.com/ozancicek/artan/blob/master/examples/src/main/scala/com/github/ozancicek/artan/examples/streaming/MMAERateSourceOLS.scala))
 
 ## Usage
 

@@ -125,7 +125,7 @@ different models and their incremented index.
         +--------+----------+-------------------+
         */
 
-See `examples <https://github.com/ozancicek/artan/blob/master/examples/src/main/scala/com/ozancicek/artan/examples/streaming/RLSRateSourceOLS.scala>`_ for the full code
+See `examples <https://github.com/ozancicek/artan/blob/master/examples/src/main/scala/com/github/ozancicek/artan/examples/streaming/RLSRateSourceOLS.scala>`_ for the full code
 
 Python
 ------

@@ -142,7 +142,7 @@ can be same for all measurements/filters, so their values are set directly with 
         +--------+----------+-------------------+
 
 
-See `examples <https://github.com/ozancicek/artan/blob/master/examples/src/main/scala/com/ozancicek/artan/examples/streaming/LKFRateSourceOLS.scala>`_ for the full code
+See `examples <https://github.com/ozancicek/artan/blob/master/examples/src/main/scala/com/github/ozancicek/artan/examples/streaming/LKFRateSourceOLS.scala>`_ for the full code
 
 
 Python

@@ -15,8 +15,6 @@ The above model can be represented in state-space form by:
 
 The process updates are linear whereas measurement updates are nonlinear.
 
-Scala
------
 
 Import EKF and start spark session.
 

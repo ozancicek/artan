@@ -90,7 +90,7 @@ these columns with setInitialStateCol and setInitialCovarianceCol settings and r
 
          */
 
-See `examples <https://github.com/ozancicek/artan/blob/master/examples/src/main/scala/com/ozancicek/artan/examples/streaming/LKFStreamBatchInit.scala>`_ for the complete code
+See `examples <https://github.com/ozancicek/artan/blob/master/examples/src/main/scala/com/github/ozancicek/artan/examples/streaming/LKFStreamBatchInit.scala>`_ for the complete code
 
 Restarts
 ========
