@@ -194,10 +194,11 @@ can be set from the input dataframe. This will cause measurements to be processe
         +--------------------+----------+-------------------+
         */
 
-Note that this will not guarantee ordering in streaming mode for all cases, ordering is only guaranteed per minibatch.
-`Append` output mode is used in the filters, so if strict ordering in streaming mode is desired measurements can be
-aggregated within a time window with watermark before transforming them with filters. All filters also support
-setting watermark duration along with event time column to help propagating watermarks.
+Note that **setting event time column will not guarantee end-to-end ordered processing in stream mode**.
+Ordering is only guaranteed per minibatch. `Append` output mode is used in the filters,
+so if strict ordering in streaming mode is desired aggregated measurements with a specific time window and watermark
+should be used as an input to filters. All filters also support setting watermark duration along with event time
+column to help propagating watermarks.
 
     .. code-block:: scala
 
@@ -210,6 +211,48 @@ setting watermark duration along with event time column to help propagating wate
 Expiring State
 ==============
 
+To cleanup unused state, state timeout can be enabled. Enabling state timeout will clear the state after the
+specified timeout duration passes. If a state receives measurements after it times out,
+the state will be initialized as if it received no measurements. Supported values are  ``none``,
+``process`` and ``event``
+
+*  ``none``: No state timeout, state is kept indefinitely.
+
+* ``process``: Process time based state timeout, state will be cleared if no measurements are received for
+    a duration based on processing time. Effects all states. Timeout duration must be set with
+    setStateTimeoutDuration.
+
+* ``event``: Event time based state timeout, state will be cleared if no measurements are received for a duration]
+    based on event time determined by watermark. Effects all states. Timeout duration must be set with
+    setStateTimeoutDuration. Additionally, event time column and it's watermark duration must be set with
+    setEventTimeCol and setWatermarkDuration. Note that this will result in dropping measurements occuring later
+    than the watermark.
+
+    .. code-block:: scala
+
+        // Event time based state timeout. States receiving no measurements for 12 hours will be cleared.
+        // Timeout duration is measured with event time, so event time column must be set.
+        val filter = new LinearKalmanFilter(2, 1)
+          .setStateKeyCol("modelId")
+          .setMeasurementCol("measurement")
+          .setEventTimeCol("eventTime")
+          .setStateTimeoutDuration("12 hours")
+          .setStateTimeoutMode("event")
+
+        // Process time based state timeout. States receiving no measurements for 12 hours will be cleared.
+        // Timeout duration is measured with processing time. Therefore, it's not necessary to set event time column
+        val filter = new LinearKalmanFilter(2, 1)
+          .setStateKeyCol("modelId")
+          .setMeasurementCol("measurement")
+          .setStateTimeoutDuration("12 hours")
+          .setStateTimeoutMode("process")
+
 
 Version upgrades
 ================
+
+Semantic versioning is used. In principle, in streaming mode you can update the version of this library without any state
+incompatibilities from previously checkpointed state. If a release of this library to cause state incompatibility, this will only
+happen in major releases. However, spark version upgrades might render checkpointed state unusable (Due to other stateful
+transormations in the code, etc..) so it's always advised to save the state variables in a separate data store
+and resume the streaming pipeline using the pattern in the :ref:`previous section <Batch - stream compatibility>`.
