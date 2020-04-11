@@ -68,7 +68,7 @@ Python API Reference
 Scaladoc
 ********
 
-See `scaladoc <https://ozancicek.github.io/docs/scala/artan/0.2.0-SNAPSHOT/index.html#com.github.ozancicek.artan.ml.package>`_
+See `scaladoc <https://ozancicek.github.io/docs/scala/artan/latest/index.html#com.github.ozancicek.artan.ml.package>`_
 
 Indices and tables
 ******************
