@@ -1,5 +1,5 @@
-Documentation
-#############
+Artan Documentation
+###################
 
     .. toctree::
        :maxdepth: 2
@@ -15,22 +15,21 @@ Install Spark 2.4+, Scala 2.11 and Python 3.6+. Spark shell or pyspark shell can
 using ``--packages`` argument. This will place all required jars and python files to appropriate executor and driver
 paths.
 
-    .. code-block:: bash
 
-        spark-shell --packages com.github.ozancicek:artan_2.11:0.1.0
-        pyspark --packages com.github.ozancicek:artan_2.11:0.1.0
-        spark-submit --packages com.github.ozancicek:artan_2.11:0.1.0
+        spark-shell --packages com.github.ozancicek:artan_2.11:|artan_version|
+
+        pyspark --packages com.github.ozancicek:artan_2.11:|artan_version|
+
+        spark-submit --packages com.github.ozancicek:artan_2.11:|artan_version|
 
 
 For developing with Scala, the dependencies can be retrieved from Maven Central.
 
-    .. code-block:: scala
 
-        libraryDependencies += "com.github.ozancicek" %% "artan" % "0.1.0"
+        libraryDependencies += "com.github.ozancicek" %% "artan" % "|artan_version|"
 
 For developing with Python, the dependencies can be installed with pip.
 
-    .. code-block:: bash
 
         pip install artan
 
@@ -38,10 +37,10 @@ Note that pip will only install the python dependencies, which is not enough to 
 To submit pyspark jobs, ``--packages`` argument to pyspark or spark-submit command should still be specified in
 order to download necessary jars from maven central.
 
-    .. code-block:: bash
 
-        pyspark --packages com.github.ozancicek:artan_2.11:0.1.0
-        spark-submit --packages com.github.ozancicek:artan_2.11:0.1.0
+        pyspark --packages com.github.ozancicek:artan_2.11:|artan_version|
+
+        spark-submit --packages com.github.ozancicek:artan_2.11:|artan_version|
 
 Guides
 ******
