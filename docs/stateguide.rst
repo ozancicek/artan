@@ -219,14 +219,14 @@ the state will be initialized as if it received no measurements. Supported value
 *  ``none``: No state timeout, state is kept indefinitely.
 
 * ``process``: Process time based state timeout, state will be cleared if no measurements are received for
-    a duration based on processing time. Effects all states. Timeout duration must be set with
-    setStateTimeoutDuration.
+  a duration based on processing time. Effects all states. Timeout duration must be set with
+  setStateTimeoutDuration.
 
-* ``event``: Event time based state timeout, state will be cleared if no measurements are received for a duration]
-    based on event time determined by watermark. Effects all states. Timeout duration must be set with
-    setStateTimeoutDuration. Additionally, event time column and it's watermark duration must be set with
-    setEventTimeCol and setWatermarkDuration. Note that this will result in dropping measurements occuring later
-    than the watermark.
+* ``event``: Event time based state timeout, state will be cleared if no measurements are received for a duration
+  based on event time determined by watermark. Effects all states. Timeout duration must be set with
+  setStateTimeoutDuration. Additionally, event time column and it's watermark duration must be set with
+  setEventTimeCol and setWatermarkDuration. Note that this will result in dropping measurements occuring later
+  than the watermark.
 
     .. code-block:: scala
 
