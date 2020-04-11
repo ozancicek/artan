@@ -54,7 +54,7 @@ Guides
         Kalman Filter <lkfguide>
         Extended Kalman Filter <ekfguide>
         Unscented Kalman Filter <ukfguide>
-        Multiple-Model Adaptive Estimation <mmaeguide>
+        Multiple-Model Adaptive Filter <mmaeguide>
         stateguide
 
 

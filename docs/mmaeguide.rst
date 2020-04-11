@@ -1,8 +1,15 @@
 Multiple-Model Adaptive Estimation
 ==================================
+Multiple-Model Adaptive Estimation (MMAE) mostly consists of a parallel bank of kalman filters to
+provide multiple estimates. From these parallel bank of filters, the state is estimated weighted by the likelihood
+of the residuals conditioned on the measurement sequence.
+
+Since all Kalman filters in this library are model-parallel filters, they naturally fit to the definition
+of MMAE. All implemented Kalman filters have an alternative output mode which they provide a MMAE state estimate by
+joining all estimated states with a sliding likelihood.
 
 The example demonstrated here is same with the one in :ref:`Kalman Filter section <Online Linear Regression with Kalman Filter>`
-
+Although the example demonstrates MMAE with Linear Kalman Filter, all kalman filters can output a MMAE estimate.
 
 Import Kalman filter and start spark session.
 
@@ -44,6 +51,15 @@ Define the model parameters and udf's to generate training data.
           new DenseVector(Array(a*x + b*y + c + r))
         })
 
+Define the filter and enable MMAE output. MMAE outputs a single state estimate by joining all the states weighted
+by their likelihoods. The likelihood of each filter is defined in a sliding window of consecutive measurements. This
+window can be set from ``setSlidingLikelihoodWindow``. Also since multiple measurements are aggregated to output a
+single estimate, without a time window in streaming mode the aggregation of multiple states would result in an unbounded
+state. Therefore, it's advised to set event time column and a large enough time window to fit parallel measurements into
+the same window. This window can be set from ``setMultipleModelMeasurementWindowDuration``
+
+    .. code-block:: scala
+
         val filter = new LinearKalmanFilter(stateSize, measurementsSize)
           .setInitialCovariance(
             new DenseMatrix(3, 3, Array(10.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 10.0)))
@@ -58,7 +74,6 @@ Define the model parameters and udf's to generate training data.
           .setWatermarkDuration("2 seconds")
           .setEnableMultipleModelAdaptiveEstimation
           .setMultipleModelMeasurementWindowDuration("5 seconds")
-
 
 Generate the data & run the query with console sink.
 
