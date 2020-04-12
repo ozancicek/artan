@@ -50,10 +50,10 @@ Guides
         :glob:
 
         Recursive Least Squares <rlsguide>
-        Kalman Filter <lkfguide>
-        Extended Kalman Filter <ekfguide>
-        Unscented Kalman Filter <ukfguide>
-        Multiple-Model Adaptive Filter <mmaeguide>
+        lkfguide
+        ekfguide
+        ukfguide
+        mmaeguide
         stateguide
 
 

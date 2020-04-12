@@ -152,17 +152,17 @@ Import Kalman Filter and start spark session.
 
     .. code-block:: python
 
-    from artan.filter import LinearKalmanFilter
+        from artan.filter import LinearKalmanFilter
 
-    from pyspark.sql import SparkSession
-    import pyspark.sql.functions as F
-    from pyspark.ml.linalg import Matrices, Vectors, MatrixUDT, VectorUDT
-    from pyspark.sql.types import StringType
+        from pyspark.sql import SparkSession
+        import pyspark.sql.functions as F
+        from pyspark.ml.linalg import Matrices, Vectors, MatrixUDT, VectorUDT
+        from pyspark.sql.types import StringType
 
-    spark = SparkSession.builder.appName("LKFRateSourceOLS").getOrCreate()
+        spark = SparkSession.builder.appName("LKFRateSourceOLS").getOrCreate()
 
-    num_states = 10
-    measurements_per_sec = 10
+        num_states = 10
+        measurements_per_sec = 10
 
 
 Define model parameters, #models and udf's to generate training data.
