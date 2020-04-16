@@ -7,11 +7,24 @@ must be specified.
 
 To demonstrate a simple nonlinear example, the following generalized linear model with log link & gaussian noise is used.
 
-    .. image:: https://latex.codecogs.com/svg.latex?%5C%5C%20Y_t%3D%5Cexp%28%5Cbeta%20X_t%29%20&plus;%20%5Cepsilon%20%3A%20e%20%5Csim%20N%280%2C%20R%29
+     .. math::
+        Y_t &= \exp(\beta X_t) + \epsilon : \epsilon \sim N(0, \sigma) \quad t=0,1,..T
 
 The above model can be represented in state-space form by:
 
-    .. image:: https://latex.codecogs.com/svg.latex?%5C%5C%20V_t%20%3D%20A_t%20V_%7Bt-1%7D%20&plus;%20q_t%20%3A%20q_t%20%5Csim%20N%280%2C%20Q%29%20%5Cquad%20%28state%20%5C%20process%20%5C%20equation%29%5C%5C%20Z_t%20%3D%20H_t%28V_t%29%20&plus;%20r_t%20%3A%20r_t%20%5Csim%20N%280%2C%20R%29%20%5Cquad%20%28measurement%20%5C%20equation%29%5C%5C%20%5C%5C%20A_t%20%3D%20I%5C%5C%20q_t%20%3D%200%5C%5C%20H_t%28V_t%29%20%3D%20%5Cexp%28X_tV_t%29%5C%5C%20%5Cfrac%7B%5Cpartial%20H_t%7D%7B%5Cpartial%20V_t%7D%20%3D%20X_t%5Cexp%28X_tV_t%29%5C%5C
+    .. math::
+
+        V_t &= A_t V_{t-1} + u_t + q_t : q_t \sim N(0, Q) \\
+        Z_t &= H_t(V_t) + r_t: r_t \sim N(0, R) \\
+
+        A_t &= I \\
+        u_t &= 0 \\
+        Q &= 0 \\
+        Z_t &= Y_t \\
+        R &= \sigma \\
+        H_t(V_t) &= \exp(V_t X_t) \\
+        \frac{\partial H_t}{\partial V_t} &= X_t \exp(V_t X_t)
+
 
 The process updates are linear whereas measurement updates are nonlinear.
 
