@@ -20,7 +20,7 @@ package com.github.ozancicek.artan.ml.state
 import org.apache.spark.ml.Transformer
 import org.apache.spark.sql.streaming.{GroupState, GroupStateTimeout, OutputMode}
 import org.apache.spark.sql._
-import org.apache.spark.sql.functions.{col, lit}
+import org.apache.spark.sql.functions.{col, lit, udf}
 
 import scala.collection.immutable.Queue
 import scala.reflect.ClassTag
@@ -157,6 +157,18 @@ private[ml] abstract class StatefulTransformer[
     }
     else {
       StructType(filtered)
+    }
+  }
+
+  protected def getUDFWithDefault[
+  DefaultType: TypeTag](defaultParam: Param[DefaultType], colParam: Param[String]): Column = {
+
+    if (isSet(colParam)) {
+      col($(colParam))
+    } else {
+      val defaultVal = $(defaultParam)
+      val col = udf(() => defaultVal)
+      col()
     }
   }
 

@@ -20,39 +20,26 @@ package com.github.ozancicek.artan.ml.state
 import org.apache.spark.ml.linalg.Vector
 import java.sql.Timestamp
 
-/**
- * Case class for the inputs of a least mean squares filter.
- * @param stateKey Key of the filter
- * @param label Label corresponding to the features.
- * @param features Features vector.
- * @param eventTime event time of the input
- * @param initialState initial state vector
- */
-private[ml] case class LMSInput(
+
+private[ml] case class PoissonMixtureInput(
     stateKey: String,
-    label: Double,
-    features: Vector,
-    eventTime: Option[Timestamp],
-    initialState: Vector) extends KeyedInput[String]
+    count: Long,
+    stepSize: Double,
+    initialMixtureCoefficients: Vector,
+    initialRates: Vector,
+    eventTime: Option[Timestamp]) extends KeyedInput[String]
+
+private[ml] case class PoissonMixtureState(
+    stateIndex: Long,
+    mixtureSummary: Vector,
+    ratesSummary: Vector,
+    mixtureCoefficients: Vector,
+    rates: Vector) extends State
 
 
-/**
- * Case class for the output state of a least mean squares filter.
- *
- * @param stateKey   Key of the filter.
- * @param stateIndex Index of state.
- * @param state      State vector.
- * @param eventTime  event time of the of the output
- */
-case class LMSOutput(
+case class PoissonMixtureOutput(
     stateKey: String,
     stateIndex: Long,
-    state: Vector,
+    mixtureCoefficients: Vector,
+    rates: Vector,
     eventTime: Option[Timestamp]) extends KeyedOutput[String]
-
-/**
- * Internal representation of the state of a least mean squares filter.
- */
-private[ml] case class LMSState(
-    stateIndex: Long,
-    state: Vector) extends State

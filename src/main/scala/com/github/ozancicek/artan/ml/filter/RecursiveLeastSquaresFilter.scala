@@ -159,25 +159,11 @@ class RecursiveLeastSquaresFilter(
   private[artan] def filter(dataset: Dataset[_]): Dataset[RLSOutput] = {
     transformSchema(dataset.schema)
 
-    val initialStateExpr = if (isSet(initialStateCol)) {
-      col(getInitialStateCol)
-    } else {
-      val f = udf(() => getInitialState)
-      f()
-    }
-
-    val regMatExpr = if (isSet(regularizationMatrixCol)) {
-      col(getRegularizationMatrixCol)
-    } else {
-      val f = udf(() => getRegularizationMatrix)
-      f()
-    }
-
     val rlsUpdateDS = dataset
       .withColumn("label", col($(labelCol)))
       .withColumn("features", col($(featuresCol)))
-      .withColumn("initialState", initialStateExpr)
-      .withColumn("initialCovariance", regMatExpr)
+      .withColumn("initialState", getUDFWithDefault(initialState, initialStateCol))
+      .withColumn("initialCovariance", getUDFWithDefault(regularizationMatrix, regularizationMatrixCol))
 
     transformWithState(rlsUpdateDS)
   }

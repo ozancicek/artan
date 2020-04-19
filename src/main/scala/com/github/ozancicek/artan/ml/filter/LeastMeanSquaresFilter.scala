@@ -142,16 +142,10 @@ class LeastMeanSquaresFilter(
 
   private[artan] def filter(dataset: Dataset[_]): Dataset[LMSOutput] = {
     transformSchema(dataset.schema)
-    val initialStateExpr = if (isSet(initialStateCol)) {
-      col(getInitialStateCol)
-    } else {
-      val f = udf(() => getInitialState)
-      f()
-    }
     val lmsUpdateDS = dataset
       .withColumn("label", col($(labelCol)))
       .withColumn("features", col($(featuresCol)))
-      .withColumn("initialState", initialStateExpr)
+      .withColumn("initialState", getUDFWithDefault(initialState, initialStateCol))
     transformWithState(lmsUpdateDS)
   }
 

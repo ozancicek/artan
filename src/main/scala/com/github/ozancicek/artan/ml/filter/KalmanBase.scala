@@ -202,18 +202,6 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
    */
   def setOutputSystemMatrices: ImplType = set(outputSystemMatrices, true).asInstanceOf[ImplType]
 
-  protected def getUDFWithDefault[
-    DefaultType: TypeTag](defaultParam: Param[DefaultType], colParam: Param[String]): Column = {
-
-    if (isSet(colParam)) {
-      col($(colParam))
-    } else {
-      val defaultVal = $(defaultParam)
-      val col = udf(() => defaultVal)
-      col()
-    }
-  }
-
   protected def getMeasurementExpr: Column = col($(measurementCol)).cast(SQLDataTypes.VectorType)
 
   protected def getControlExpr: Column = {

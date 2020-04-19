@@ -42,6 +42,16 @@ object BLAS {
 
   def dot(x: Vector, y: Vector): Double = SparkBLAS.dot(x, y)
 
+  def elemMult(alpha: Double, a: DenseVector, x: DenseVector): DenseVector = {
+    val result = new DenseVector(Array.fill(a.size) {0.0})
+    dsbmv(alpha, a, x, 0.0, result)
+    result
+  }
+
+  def dsbmv(alpha: Double, a: DenseVector, x: DenseVector, beta: Double, b: DenseVector): Unit = {
+    nativeBLAS.dsbmv(
+      "U", a.size, 0, alpha, a.values, 1, x.values, 1, beta, b.values, 1)
+  }
   /* c := alpha * a * b + beta * c  */
   def gemm(
     alpha: Double,
