@@ -18,9 +18,10 @@
 package com.github.ozancicek.artan.ml.em
 
 import breeze.stats.distributions.RandBasis
+import com.github.ozancicek.artan.ml.state.PoissonMixtureModel
 import com.github.ozancicek.artan.ml.testutils.StructuredStreamingTestWrapper
 import org.scalatest.{FunSpec, Matchers}
-import org.apache.spark.ml.linalg._
+
 import scala.util.Random
 
 case class PoissonSeq(count: Long)
@@ -51,27 +52,31 @@ class PoissonMixtureSpec
       val counts = generatePoissonSequence(inputRates, size).map(PoissonSeq(_))
 
       val em = new PoissonMixture(3)
-        .setInitialPoissonRates(new DenseVector(Array(1.0, 7.0, 10.0)))
+        .setInitialRates(Array(1.0, 7.0, 10.0))
+        .setStepSize(0.01)
 
       val state = em.transform(counts.toDF)
 
-      val lastState = state.filter(s"stateIndex = ${size.sum}").head()
+      val lastState = state
+        .filter(s"stateIndex = ${size.sum}")
+        .select("mixtureModel.*").as[PoissonMixtureModel].head()
 
       it("should find the clusters") {
-        val rates = lastState.getAs[DenseVector]("rates")
-        val coeffs = lastState.getAs[DenseVector]("mixtureCoefficients")
 
-        val expectedCoeffs = new DenseVector(size.map(i=> i.toDouble/size.sum).toArray)
-        val expectedRates = new DenseVector(inputRates.toArray)
+        val rates = lastState.distributions.map(_.rate)
+        val coeffs = lastState.weights
 
-        val maeCoeffs = (0 until expectedCoeffs.size).foldLeft(0.0) {
+        val expectedCoeffs = size.map(i=> i.toDouble/size.sum).toArray
+        val expectedRates = inputRates.toArray
+
+        val maeCoeffs = expectedCoeffs.indices.foldLeft(0.0) {
           case(s, i) => s + scala.math.abs(expectedCoeffs(i) - coeffs(i))
-        } / coeffs.size
+        } / coeffs.length
         val coeffThreshold = 0.1
 
-        val maeRates = (0 until rates.size).foldLeft(0.0) {
+        val maeRates = rates.indices.foldLeft(0.0) {
           case(s, i) => s + scala.math.abs(expectedRates(i) - rates(i))
-        } / coeffs.size
+        } / coeffs.length
         val rateThreshold = 1.0
         assert(maeCoeffs < coeffThreshold)
         assert(maeRates < rateThreshold)

@@ -17,7 +17,8 @@
 
 package com.github.ozancicek.artan.ml.state
 
-import org.apache.spark.ml.linalg.Vector
+import com.github.ozancicek.artan.ml.stats.PoissonDistribution
+
 import java.sql.Timestamp
 
 
@@ -25,21 +26,21 @@ private[ml] case class PoissonMixtureInput(
     stateKey: String,
     count: Long,
     stepSize: Double,
-    initialMixtureCoefficients: Vector,
-    initialRates: Vector,
+    initialMixtureModel: PoissonMixtureModel,
     eventTime: Option[Timestamp]) extends KeyedInput[String]
 
 private[ml] case class PoissonMixtureState(
     stateIndex: Long,
-    mixtureSummary: Vector,
-    ratesSummary: Vector,
-    mixtureCoefficients: Vector,
-    rates: Vector) extends State
+    weightsSummary: Array[Double],
+    ratesSummary: Array[Double],
+    mixtureModel: PoissonMixtureModel) extends State
 
+case class PoissonMixtureModel(
+    weights: Array[Double],
+    distributions: Array[PoissonDistribution])
 
 case class PoissonMixtureOutput(
     stateKey: String,
     stateIndex: Long,
-    mixtureCoefficients: Vector,
-    rates: Vector,
+    mixtureModel: PoissonMixtureModel,
     eventTime: Option[Timestamp]) extends KeyedOutput[String]

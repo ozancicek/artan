@@ -17,16 +17,17 @@
 
 package com.github.ozancicek.artan.ml.em
 
-import com.github.ozancicek.artan.ml.state.{PoissonMixtureInput, PoissonMixtureOutput, PoissonMixtureState}
+import com.github.ozancicek.artan.ml.state.{PoissonMixtureInput, PoissonMixtureOutput}
+import com.github.ozancicek.artan.ml.state.{PoissonMixtureModel, PoissonMixtureState}
 import com.github.ozancicek.artan.ml.state.{StateUpdateSpec, StatefulTransformer}
-import com.github.ozancicek.artan.ml.stats.Poisson
-import org.apache.spark.ml.linalg.{DenseVector, Vector}
+import com.github.ozancicek.artan.ml.stats.PoissonDistribution
+import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.BLAS
 import org.apache.spark.sql._
 import org.apache.spark.sql.Encoders
-import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.types._
 
 
@@ -39,11 +40,10 @@ class PoissonMixture(
     val mixtureCount: Int,
     override val uid: String)
   extends StatefulTransformer[String, PoissonMixtureInput, PoissonMixtureState, PoissonMixtureOutput, PoissonMixture]
-  with HasMixtureCoefficients with HasMixtureCoefficientsCol with HasPoissonRates with HasPoissonRatesCol
-  with HasStepSize with HasStepSizeCol with HasCountCol {
+  with HasInitialWeights with HasInitialWeightsCol with HasInitialRates with HasInitialRatesCol
+  with HasPoissonMixtureModelCol with HasStepSize with HasStepSizeCol with HasCountCol {
 
   protected implicit val stateKeyEncoder = Encoders.STRING
-
 
   def this(mixtureCount: Int) = this(mixtureCount, Identifiable.randomUID("PoissonMixture"))
 
@@ -64,19 +64,48 @@ class PoissonMixture(
     asDataFrameTransformSchema(outEncoder.schema)
   }
 
-  def setInitialPoissonRates(value: Vector): PoissonMixture = {
-    set(poissonRates, value)
+  def setInitialRates(value: Array[Double]): PoissonMixture = {
+    set(initialRates, value)
+  }
+
+  def setInitialWeights(value: Array[Double]): PoissonMixture = {
+    set(initialWeights, value)
+  }
+
+  def setInitialWeightsCol(value: String): PoissonMixture = {
+    set(initialWeightsCol, value)
+  }
+
+  def setStepSize(value: Double): PoissonMixture = {
+    set(stepSize, value)
+  }
+
+  def setStepSizeCol(value: String): PoissonMixture = {
+    set(stepSizeCol, value)
   }
   /**
    * Transforms dataset of count to dataframe of estimated states
    */
   def transform(dataset: Dataset[_]): DataFrame = {
     transformSchema(dataset.schema)
-    val mixtureInput = dataset
+
+    val counts = dataset
       .withColumn("count", col($(countCol)))
       .withColumn("stepSize", getUDFWithDefault(stepSize, stepSizeCol))
-      .withColumn("initialMixtureCoefficients", getUDFWithDefault(mixtureCoefficients, mixtureCoefficientsCol))
-      .withColumn("initialRates", getUDFWithDefault(poissonRates, poissonRatesCol))
+
+    val mixtureInput = if (isSet(poissonMixtureModelCol)) {
+      counts.withColumn("initialMixtureModel", col(getPoissonMixtureModelCol))
+    } else {
+      val mixtureModelFunc = udf(
+        (weights: Seq[Double], rates: Seq[Double]) =>
+          PoissonMixtureModel(weights.toArray, rates.toArray.map(r => PoissonDistribution(r))))
+      val mixtureModelExpr = mixtureModelFunc(col("initialWeights"), col("initialRates"))
+      counts
+        .withColumn("initialWeights", getUDFWithDefault(initialWeights, initialWeightsCol))
+        .withColumn("initialRates", getUDFWithDefault(initialRates, initialRatesCol))
+        .withColumn("initialMixtureModel", mixtureModelExpr)
+    }
+
     asDataFrame(transformWithState(mixtureInput))
   }
 
@@ -94,8 +123,7 @@ private[em] class PoissonMixtureUpdateSpec(updateHoldout: Int)
     List(PoissonMixtureOutput(
       key,
       state.stateIndex,
-      state.mixtureCoefficients,
-      state.rates,
+      state.mixtureModel,
       row.eventTime))
   }
 
@@ -105,120 +133,65 @@ private[em] class PoissonMixtureUpdateSpec(updateHoldout: Int)
     state: Option[PoissonMixtureState]): Option[PoissonMixtureState] = {
 
     val getInitialState = () => {
-      val initialRateState = BLAS.elemMult(1.0, row.initialMixtureCoefficients.toDense, row.initialRates.toDense)
-      PoissonMixtureState(0L, row.initialMixtureCoefficients, initialRateState, row.initialMixtureCoefficients, row.initialRates)
+      val rates = row.initialMixtureModel.distributions.map(_.rate)
+      val initialRateState = BLAS
+        .elemMult(1.0, new DenseVector(row.initialMixtureModel.weights), new DenseVector(rates))
+      val model = row.initialMixtureModel
+      PoissonMixtureState(0L, row.initialMixtureModel.weights, initialRateState.values, model)
     }
 
     val currentState = state
       .getOrElse(getInitialState())
 
-    val probs = new DenseVector(currentState.rates.toDense.values.map(r => Poisson.pmf(row.count, r)))
-    val weightedProbs = BLAS.elemMult(1.0, probs, currentState.mixtureCoefficients.toDense)
-    BLAS.scal(row.stepSize/weightedProbs.values.sum, weightedProbs)
-
-    val mixtureSummary = weightedProbs.copy
-    BLAS.axpy(1.0 - row.stepSize, currentState.mixtureSummary, mixtureSummary)
-
-    val ratesSummary = weightedProbs.copy
-    BLAS.scal(row.count.toDouble, ratesSummary)
-    BLAS.axpy(1.0 - row.stepSize, currentState.ratesSummary, ratesSummary)
-
-    val (coeffs, rates) = if (currentState.stateIndex < updateHoldout) {
-      (currentState.mixtureCoefficients, currentState.rates)
-    } else {
-      val weights = mixtureSummary
-      val invWeights = new DenseVector(weights.values.map(d => 1.0/d))
-      val rates = BLAS.elemMult(1.0, ratesSummary, invWeights)
-      (weights, rates)
+    val likelihood = currentState.mixtureModel.distributions.zip(currentState.mixtureModel.weights).map {
+      case (dist, weight) => dist.pmf(row.count) * weight
     }
-    val nextState = PoissonMixtureState(
-      currentState.stateIndex + 1,
-      mixtureSummary,
-      ratesSummary,
-      coeffs,
-      rates
-    )
+
+    val sumLikelihood = likelihood.sum
+    val normLikelihood = likelihood.map(_ * row.stepSize/sumLikelihood)
+
+    val weightsSummary = currentState.weightsSummary
+      .zip(normLikelihood).map(s => (1 - row.stepSize) * s._1 + s._2)
+
+    val ratesSummary = currentState.ratesSummary
+      .zip(normLikelihood).map(s => (1 - row.stepSize) * s._1 + s._2 * row.count.toDouble)
+
+    val newModel = if (currentState.stateIndex < updateHoldout) {
+      currentState.mixtureModel
+    } else {
+      val weights = weightsSummary
+      val rates = ratesSummary.zip(weights).map(s => PoissonDistribution(s._1 / s._2))
+      PoissonMixtureModel(weights, rates)
+    }
+    val nextState = PoissonMixtureState(currentState.stateIndex + 1, weightsSummary, ratesSummary, newModel)
     Some(nextState)
   }
 }
 
 
-private[em] trait HasMixtureCoefficients extends Params {
+private[em] trait HasInitialRates extends Params {
 
   def mixtureCount: Int
 
-  final val mixtureCoefficients: Param[Vector] = new Param[Vector](
+  final val initialRates:  Param[Array[Double]] = new DoubleArrayParam(
     this,
-    "mixtureCoefficients",
-    "mixtureCoefficients")
+    "initialRates",
+    "initialRates")
+  setDefault(initialRates, Array.tabulate(mixtureCount)(_ + 1.0))
 
-  setDefault(mixtureCoefficients, new DenseVector(Array.fill(mixtureCount) {1.0/mixtureCount}))
-
-  final def getMixtureCoefficients: Vector = $(mixtureCoefficients)
+  final def getInitialRates: Array[Double] = $(initialRates)
 }
 
 
-private[em] trait HasMixtureCoefficientsCol extends Params {
+private[em] trait HasInitialRatesCol extends Params {
 
-  final val mixtureCoefficientsCol: Param[String] = new Param[String](
+  final val initialRatesCol: Param[String] = new Param[String](
     this,
-    "mixtureCoefficientsCol",
-    "mixtureCoefficientsCol"
+    "initialRatesCol",
+    "initialRatesCol"
   )
 
-  final def getMixtureCoefficientsCol: String = $(mixtureCoefficientsCol)
-}
-
-
-private[em] trait HasPoissonRates extends Params {
-
-  def mixtureCount: Int
-
-  final val poissonRates: Param[Vector] = new Param[Vector](
-    this,
-    "poissonRates",
-    "poissonRates")
-
-
-  final def getPoissonRates: Vector = $(poissonRates)
-}
-
-
-private[em] trait HasPoissonRatesCol extends Params {
-
-  final val poissonRatesCol: Param[String] = new Param[String](
-    this,
-    "poissonRatesCol",
-    "poissonRatesCol"
-  )
-
-  final def getPoissonRatesCol: String = $(poissonRatesCol)
-}
-
-
-private[em] trait HasStepSize extends Params {
-
-  final val stepSize: Param[Double] = new DoubleParam(
-    this,
-    "stepSize",
-    "stepSize",
-    ParamValidators.lt(1.0)
-  )
-
-  setDefault(stepSize, 0.01)
-
-  final def getStepSize: Double = $(stepSize)
-}
-
-
-private[em] trait HasStepSizeCol extends Params {
-
-  final val stepSizeCol: Param[String] = new Param[String](
-    this,
-    "stepSizeCol",
-    "stepSizeCol")
-
-  final def getStepSizeCol: String = $(stepSizeCol)
+  final def getInitialRatesCol: String = $(initialRatesCol)
 }
 
 
@@ -232,4 +205,15 @@ private[em] trait HasCountCol extends Params {
   setDefault(countCol, "count")
 
   final def getCountCol: String = $(countCol)
+}
+
+
+private[em] trait HasPoissonMixtureModelCol extends Params {
+
+  final val poissonMixtureModelCol: Param[String] = new Param[String](
+    this,
+    "poissonMixtureModelCol",
+    "poissonMixtureModelCol")
+
+  final def getPoissonMixtureModelCol: String = $(poissonMixtureModelCol)
 }

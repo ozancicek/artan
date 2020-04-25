@@ -19,6 +19,11 @@ package com.github.ozancicek.artan.ml.stats
 import com.google.common.math.BigIntegerMath
 import scala.math.{exp, pow}
 
+
+case class PoissonDistribution(rate: Double) {
+  def pmf(count: Long): Double = Poisson.pmf(count, rate)
+}
+
 private[ml] object Poisson {
 
   def pmf(count: Long, rate: Double): Double = {

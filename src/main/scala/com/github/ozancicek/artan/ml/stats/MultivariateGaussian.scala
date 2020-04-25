@@ -19,9 +19,15 @@ package com.github.ozancicek.artan.ml.stats
 
 import com.github.ozancicek.artan.ml.linalg.LinalgUtils
 import org.apache.spark.ml.LAPACK
-import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector}
+import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector, Vector, Matrix}
 
-import scala.math.{Pi, log}
+import scala.math.{Pi, log, exp}
+
+
+case class MultivariateGaussianDistribution(mean: Vector, covariance: Matrix) {
+  def pdf(point: DenseVector): Double = exp(MultivariateGaussian.logpdf(point, mean.toDense, covariance.toDense))
+}
+
 
 private[ml] object MultivariateGaussian {
 
