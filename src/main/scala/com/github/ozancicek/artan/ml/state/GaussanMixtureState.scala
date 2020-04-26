@@ -17,32 +17,28 @@
 
 package com.github.ozancicek.artan.ml.state
 
-import org.apache.spark.ml.linalg.{Vector, DenseVector, DenseMatrix}
+import org.apache.spark.ml.linalg.Vector
 import java.sql.Timestamp
-
-import com.github.ozancicek.artan.ml.stats.MultivariateGaussianDistribution
+import com.github.ozancicek.artan.ml.stats._
 
 
 private[ml] case class GaussianMixtureInput(
     stateKey: String,
-    measurement: Vector,
+    sample: Vector,
     stepSize: Double,
-    initialMixtureModel: GaussianMixtureModel,
-    eventTime: Option[Timestamp]) extends KeyedInput[String]
+    initialMixtureModel: GaussianMixtureDistribution,
+    eventTime: Option[Timestamp])
+  extends KeyedInput[String]
 
 private[ml] case class GaussianMixtureState(
     stateIndex: Long,
-    weightsSummary: Array[Double],
-    meansSummary: Array[DenseVector],
-    covariancesSummary: Array[DenseMatrix],
-    mixtureModel: GaussianMixtureModel) extends State
-
-case class GaussianMixtureModel(
-    weights: Array[Double],
-    distributions: Array[MultivariateGaussianDistribution])
+    summaryModel: GaussianMixtureDistribution,
+    mixtureModel: GaussianMixtureDistribution)
+  extends State
 
 case class GaussianMixtureOutput(
     stateKey: String,
     stateIndex: Long,
-    mixtureModel: GaussianMixtureModel,
-    eventTime: Option[Timestamp]) extends KeyedOutput[String]
+    mixtureModel: GaussianMixtureDistribution,
+    eventTime: Option[Timestamp])
+  extends KeyedOutput[String]

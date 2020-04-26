@@ -17,10 +17,9 @@
 
 package com.github.ozancicek.artan.ml.em
 
-import com.github.ozancicek.artan.ml.state.{PoissonMixtureInput, PoissonMixtureOutput}
-import com.github.ozancicek.artan.ml.state.{PoissonMixtureModel, PoissonMixtureState}
+import com.github.ozancicek.artan.ml.state.{PoissonMixtureInput, PoissonMixtureOutput, PoissonMixtureState}
 import com.github.ozancicek.artan.ml.state.{StateUpdateSpec, StatefulTransformer}
-import com.github.ozancicek.artan.ml.stats.PoissonDistribution
+import com.github.ozancicek.artan.ml.stats.{PoissonDistribution, PoissonMixtureDistribution}
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
@@ -90,7 +89,7 @@ class PoissonMixture(
     transformSchema(dataset.schema)
 
     val counts = dataset
-      .withColumn("count", col($(countCol)))
+      .withColumn("sample", col($(countCol)))
       .withColumn("stepSize", getUDFWithDefault(stepSize, stepSizeCol))
 
     val mixtureInput = if (isSet(poissonMixtureModelCol)) {
@@ -98,7 +97,7 @@ class PoissonMixture(
     } else {
       val mixtureModelFunc = udf(
         (weights: Seq[Double], rates: Seq[Double]) =>
-          PoissonMixtureModel(weights.toArray, rates.toArray.map(r => PoissonDistribution(r))))
+          PoissonMixtureDistribution(weights, rates.map(r => PoissonDistribution(r))))
       val mixtureModelExpr = mixtureModelFunc(col("initialWeights"), col("initialRates"))
       counts
         .withColumn("initialWeights", getUDFWithDefault(initialWeights, initialWeightsCol))
@@ -133,37 +132,24 @@ private[em] class PoissonMixtureUpdateSpec(updateHoldout: Int)
     state: Option[PoissonMixtureState]): Option[PoissonMixtureState] = {
 
     val getInitialState = () => {
-      val rates = row.initialMixtureModel.distributions.map(_.rate)
-      val initialRateState = BLAS
-        .elemMult(1.0, new DenseVector(row.initialMixtureModel.weights), new DenseVector(rates))
-      val model = row.initialMixtureModel
-      PoissonMixtureState(0L, row.initialMixtureModel.weights, initialRateState.values, model)
+      PoissonMixtureState(0L, row.initialMixtureModel.weightedDistributions, row.initialMixtureModel)
     }
 
     val currentState = state
       .getOrElse(getInitialState())
 
-    val likelihood = currentState.mixtureModel.distributions.zip(currentState.mixtureModel.weights).map {
-      case (dist, weight) => dist.pmf(row.count) * weight
-    }
-
-    val sumLikelihood = likelihood.sum
-    val normLikelihood = likelihood.map(_ * row.stepSize/sumLikelihood)
-
-    val weightsSummary = currentState.weightsSummary
-      .zip(normLikelihood).map(s => (1 - row.stepSize) * s._1 + s._2)
-
-    val ratesSummary = currentState.ratesSummary
-      .zip(normLikelihood).map(s => (1 - row.stepSize) * s._1 + s._2 * row.count.toDouble)
+    val summaryModel = currentState
+      .summaryModel.stochasticUpdate(currentState.mixtureModel, Seq(row.sample), row.stepSize)
 
     val newModel = if (currentState.stateIndex < updateHoldout) {
       currentState.mixtureModel
     } else {
-      val weights = weightsSummary
-      val rates = ratesSummary.zip(weights).map(s => PoissonDistribution(s._1 / s._2))
-      PoissonMixtureModel(weights, rates)
+      summaryModel.reWeightedDistributions
     }
-    val nextState = PoissonMixtureState(currentState.stateIndex + 1, weightsSummary, ratesSummary, newModel)
+    val nextState = PoissonMixtureState(
+      currentState.stateIndex + 1,
+      summaryModel,
+      newModel)
     Some(nextState)
   }
 }

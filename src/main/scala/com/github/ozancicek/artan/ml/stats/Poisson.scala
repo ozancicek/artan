@@ -20,7 +20,23 @@ import com.google.common.math.BigIntegerMath
 import scala.math.{exp, pow}
 
 
-case class PoissonDistribution(rate: Double) {
+case class PoissonDistribution(rate: Double) extends Distribution[Long, PoissonDistribution] {
+
+  override def likelihood(sample: Long): Double = pmf(sample)
+
+  override def weightedDistribution(weight: Double): PoissonDistribution = PoissonDistribution(weight * rate)
+
+  override def add(weight: Double, other: PoissonDistribution): PoissonDistribution = {
+    PoissonDistribution(other.rate * weight + rate)
+  }
+
+  override def summarize(weights: Seq[Double], samples: Seq[Long], norm: Double): PoissonDistribution = {
+    val newRate = weights.zip(samples).foldLeft(0.0) {
+      case(s, cur) => s + cur._1 * cur._2 / norm
+    }
+    PoissonDistribution(newRate)
+  }
+
   def pmf(count: Long): Double = Poisson.pmf(count, rate)
 }
 
@@ -30,4 +46,5 @@ private[ml] object Poisson {
     val fac = BigIntegerMath.factorial(count.toInt).doubleValue()
     pow(rate, count) * exp(-rate) / fac
   }
+
 }

@@ -18,14 +18,50 @@
 package com.github.ozancicek.artan.ml.stats
 
 import com.github.ozancicek.artan.ml.linalg.LinalgUtils
-import org.apache.spark.ml.LAPACK
-import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector, Vector, Matrix}
+import org.apache.spark.ml.{BLAS, LAPACK}
+import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector, Matrix, Vector}
 
-import scala.math.{Pi, log, exp}
+import scala.math.{Pi, exp, log}
 
 
-case class MultivariateGaussianDistribution(mean: Vector, covariance: Matrix) {
-  def pdf(point: DenseVector): Double = exp(MultivariateGaussian.logpdf(point, mean.toDense, covariance.toDense))
+case class MultivariateGaussianDistribution(mean: Vector, covariance: Matrix)
+  extends Distribution[Vector, MultivariateGaussianDistribution] {
+
+  override def likelihood(sample: Vector): Double = pdf(sample.toDense)
+
+  def summarize(weights: Seq[Double], samples: Seq[Vector], norm: Double): MultivariateGaussianDistribution = {
+    val meanSummary = new DenseVector(Array.fill(mean.size){0.0})
+    samples.zip(weights).foreach { case(v, d) =>
+      BLAS.axpy(d/norm, v, meanSummary)
+    }
+
+    val covSummary = DenseMatrix.zeros(covariance.numRows, covariance.numCols)
+    samples.zip(weights).foreach { case(meas, d) =>
+      val residual = meas.toDense.copy
+      BLAS.axpy(-1.0, mean, residual)
+      BLAS.dger(d/norm, residual, residual, covSummary)
+    }
+
+    MultivariateGaussianDistribution(meanSummary, covSummary)
+  }
+
+  override def weightedDistribution(weight: Double): MultivariateGaussianDistribution = {
+    val weightedMean = mean.toDense.copy
+    BLAS.scal(weight, weightedMean)
+    val weightedCov = DenseMatrix.zeros(mean.size, mean.size)
+    BLAS.axpy(weight, covariance.toDense, weightedCov)
+    MultivariateGaussianDistribution(weightedMean, weightedCov)
+  }
+
+  override def add(weight: Double, other: MultivariateGaussianDistribution): MultivariateGaussianDistribution = {
+    val newMean = mean.copy
+    BLAS.axpy(weight, other.mean, newMean)
+    val newCov = covariance.toDense.copy
+    BLAS.axpy(weight, other.covariance.toDense, newCov)
+    MultivariateGaussianDistribution(newMean, newCov)
+  }
+
+  def pdf(sample: DenseVector): Double = exp(MultivariateGaussian.logpdf(sample, mean.toDense, covariance.toDense))
 }
 
 

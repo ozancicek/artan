@@ -18,7 +18,7 @@
 package com.github.ozancicek.artan.ml.em
 
 import breeze.stats.distributions.RandBasis
-import com.github.ozancicek.artan.ml.state.PoissonMixtureModel
+import com.github.ozancicek.artan.ml.stats.PoissonMixtureDistribution
 import com.github.ozancicek.artan.ml.testutils.StructuredStreamingTestWrapper
 import org.scalatest.{FunSpec, Matchers}
 
@@ -59,7 +59,7 @@ class PoissonMixtureSpec
 
       val lastState = state
         .filter(s"stateIndex = ${size.sum}")
-        .select("mixtureModel.*").as[PoissonMixtureModel].head()
+        .select("mixtureModel.*").as[PoissonMixtureDistribution].head()
 
       it("should find the clusters") {
 

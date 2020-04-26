@@ -18,13 +18,12 @@
 package com.github.ozancicek.artan.ml.em
 
 import com.github.ozancicek.artan.ml.state.{GaussianMixtureInput, GaussianMixtureOutput}
-import com.github.ozancicek.artan.ml.state.{GaussianMixtureModel, GaussianMixtureState}
+import com.github.ozancicek.artan.ml.state.GaussianMixtureState
 import com.github.ozancicek.artan.ml.state.{StateUpdateSpec, StatefulTransformer}
-import com.github.ozancicek.artan.ml.stats.MultivariateGaussianDistribution
+import com.github.ozancicek.artan.ml.stats.{GaussianMixtureDistribution, MultivariateGaussianDistribution}
 import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.ml.BLAS
 import org.apache.spark.sql._
 import org.apache.spark.sql.Encoders
 import org.apache.spark.sql.functions.{col, udf}
@@ -102,8 +101,9 @@ class MultivariateGaussianMixture(
    */
   def transform(dataset: Dataset[_]): DataFrame = {
     transformSchema(dataset.schema)
+
     val measurements = dataset
-      .withColumn("measurement", col($(measurementCol)))
+      .withColumn("sample", col($(measurementCol)))
       .withColumn("stepSize", getUDFWithDefault(stepSize, stepSizeCol))
 
     val mixtureInput = if (isSet(gaussianMixtureModelCol)) {
@@ -116,7 +116,7 @@ class MultivariateGaussianMixture(
             val covMatrix = new DenseMatrix(getMeasurementSize, getMeasurementSize, s._2.toArray)
             MultivariateGaussianDistribution(meanVector, covMatrix)
           }
-          GaussianMixtureModel(weights.toArray, gaussians.toArray)
+          GaussianMixtureDistribution(weights, gaussians)
         }
       )
 
@@ -159,68 +159,24 @@ private[em] class GaussianMixtureUpdateSpec(updateHoldout: Int)
     state: Option[GaussianMixtureState]): Option[GaussianMixtureState] = {
 
     val getInitialState = () => {
-      val (ms, cs) = row.initialMixtureModel.distributions
-        .zip(row.initialMixtureModel.weights)
-        .map { case (dist, weight) =>
-          val meanSummary = dist.mean.toDense.copy
-          BLAS.scal(weight, meanSummary)
-          val covSummary = DenseMatrix.zeros(dist.mean.size, dist.mean.size)
-          BLAS.axpy(weight, dist.covariance.toDense, covSummary)
-          (meanSummary, covSummary)
-        }.unzip
-
-      GaussianMixtureState(0L, row.initialMixtureModel.weights, ms, cs, row.initialMixtureModel)
+      GaussianMixtureState(0L, row.initialMixtureModel.weightedDistributions, row.initialMixtureModel)
     }
 
     val currentState = state
       .getOrElse(getInitialState())
 
-    val likelihood = currentState.mixtureModel.distributions.zip(currentState.mixtureModel.weights).map {
-      case (dist, weight) => dist.pdf(row.measurement.toDense) * weight
-    }
-
-    val sumLikelihood = likelihood.sum
-    val likelihoodWeights = likelihood.map(_ * row.stepSize/sumLikelihood)
-
-    val weightsSummary = currentState.weightsSummary
-      .zip(likelihoodWeights).map(s => (1 - row.stepSize) * s._1 + s._2)
-
-    val meansSummary = currentState.meansSummary.zip(likelihoodWeights).map { case(ms, w) =>
-      val meanSummary = ms.copy
-      BLAS.scal(1 - row.stepSize, meanSummary)
-      BLAS.axpy(w, row.measurement, meanSummary)
-      meanSummary
-    }
-
-    val means = currentState.mixtureModel.distributions.map(_.mean)
-
-    val covsSummary = currentState.covariancesSummary.zip(means).zip(likelihoodWeights).map { case((cs, m), w) =>
-      val covSummary = DenseMatrix.zeros(cs.numRows, cs.numCols)
-      BLAS.axpy(1 - row.stepSize, cs, covSummary)
-
-      val residual = row.measurement.toDense.copy
-      BLAS.axpy(-1.0, m, residual)
-      BLAS.dger(w, residual, residual, covSummary)
-      covSummary
-    }
+    val summaryModel = currentState
+      .summaryModel.stochasticUpdate(currentState.mixtureModel, Seq(row.sample), row.stepSize)
 
     val newModel = if (currentState.stateIndex < updateHoldout) {
       currentState.mixtureModel
     } else {
-      val weights = weightsSummary
-      val gaussians = meansSummary.zip(covsSummary).zip(weights).map { case ((ms, cs), w) =>
-        val mean = ms.copy
-        BLAS.scal(1.0 / w, mean)
-        val cov = DenseMatrix.zeros(ms.size, ms.size)
-        BLAS.axpy(1.0/w, cs, cov)
-        MultivariateGaussianDistribution(mean, cov)
-      }
-      GaussianMixtureModel(weights, gaussians)
+      summaryModel.reWeightedDistributions
     }
+
     val nextState = GaussianMixtureState(
       currentState.stateIndex + 1,
-      weightsSummary, meansSummary,
-      covsSummary,
+      summaryModel,
       newModel)
     Some(nextState)
   }

@@ -17,30 +17,28 @@
 
 package com.github.ozancicek.artan.ml.state
 
-import com.github.ozancicek.artan.ml.stats.PoissonDistribution
-
+import com.github.ozancicek.artan.ml.stats._
 import java.sql.Timestamp
 
 
 private[ml] case class PoissonMixtureInput(
     stateKey: String,
-    count: Long,
+    sample: Long,
     stepSize: Double,
-    initialMixtureModel: PoissonMixtureModel,
-    eventTime: Option[Timestamp]) extends KeyedInput[String]
+    initialMixtureModel: PoissonMixtureDistribution,
+    eventTime: Option[Timestamp])
+  extends KeyedInput[String]
 
 private[ml] case class PoissonMixtureState(
     stateIndex: Long,
-    weightsSummary: Array[Double],
-    ratesSummary: Array[Double],
-    mixtureModel: PoissonMixtureModel) extends State
+    summaryModel: PoissonMixtureDistribution,
+    mixtureModel: PoissonMixtureDistribution)
+  extends State
 
-case class PoissonMixtureModel(
-    weights: Array[Double],
-    distributions: Array[PoissonDistribution])
 
 case class PoissonMixtureOutput(
     stateKey: String,
     stateIndex: Long,
-    mixtureModel: PoissonMixtureModel,
-    eventTime: Option[Timestamp]) extends KeyedOutput[String]
+    mixtureModel: PoissonMixtureDistribution,
+    eventTime: Option[Timestamp])
+  extends KeyedOutput[String]

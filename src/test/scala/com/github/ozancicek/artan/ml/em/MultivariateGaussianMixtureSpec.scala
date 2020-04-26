@@ -18,7 +18,8 @@
 package com.github.ozancicek.artan.ml.em
 
 import breeze.stats.distributions.RandBasis
-import com.github.ozancicek.artan.ml.state.GaussianMixtureModel
+//import com.github.ozancicek.artan.ml.state.GaussianMixtureModel
+import com.github.ozancicek.artan.ml.stats.GaussianMixtureDistribution
 import com.github.ozancicek.artan.ml.stats.MultivariateGaussianDistribution
 import com.github.ozancicek.artan.ml.testutils.StructuredStreamingTestWrapper
 import org.scalatest.{FunSpec, Matchers}
@@ -81,10 +82,9 @@ class MultivariateGaussianMixtureSpec
         .setStepSize(0.01)
 
       val state = em.transform(measurements.toDF)
-
       val lastState = state
         .filter(s"stateIndex = ${size}")
-        .select("mixtureModel.*").as[GaussianMixtureModel].head()
+        .select("mixtureModel.*").as[GaussianMixtureDistribution].head()
 
       it("should find the clusters") {
 
