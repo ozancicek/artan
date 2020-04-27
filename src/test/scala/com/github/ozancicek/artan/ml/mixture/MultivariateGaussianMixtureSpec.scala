@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-package com.github.ozancicek.artan.ml.em
+package com.github.ozancicek.artan.ml.mixture
 
 import breeze.stats.distributions.RandBasis
-//import com.github.ozancicek.artan.ml.state.GaussianMixtureModel
+import org.apache.spark.sql.functions.max
 import com.github.ozancicek.artan.ml.stats.GaussianMixtureDistribution
 import com.github.ozancicek.artan.ml.stats.MultivariateGaussianDistribution
 import com.github.ozancicek.artan.ml.testutils.StructuredStreamingTestWrapper
@@ -29,7 +29,7 @@ import org.apache.spark.ml.BreezeConversions._
 import scala.util.Random
 import scala.math.abs
 
-case class GaussianSeq(measurement: DenseVector)
+case class GaussianSeq(sample: DenseVector)
 
 class MultivariateGaussianMixtureSpec
   extends FunSpec
@@ -76,14 +76,17 @@ class MultivariateGaussianMixtureSpec
 
       val eye = Array(1.0, 0.0, 0.0, 1.0)
       val em = new MultivariateGaussianMixture(3)
-        .setMeasurementSize(2)
+        .setSampleSize(2)
         .setInitialMeans(Array(Array(9.0, 9.0), Array(1.0, 1.0), Array(5.0, 5.0)))
         .setInitialCovariances(Array(eye, eye, eye))
         .setStepSize(0.01)
+        .setMinibatchSize(1)
 
       val state = em.transform(measurements.toDF)
+
+      val maxSize = state.select(max("stateIndex")).head.getAs[Long](0)
       val lastState = state
-        .filter(s"stateIndex = ${size}")
+        .filter(s"stateIndex = ${maxSize}")
         .select("mixtureModel.*").as[GaussianMixtureDistribution].head()
 
       it("should find the clusters") {

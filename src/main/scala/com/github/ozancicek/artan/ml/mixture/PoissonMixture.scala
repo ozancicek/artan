@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.github.ozancicek.artan.ml.em
+package com.github.ozancicek.artan.ml.mixture
 
 import com.github.ozancicek.artan.ml.state.{PoissonMixtureInput, PoissonMixtureOutput, PoissonMixtureState}
 import com.github.ozancicek.artan.ml.state.{StateUpdateSpec, StatefulTransformer}
@@ -31,7 +31,7 @@ import org.apache.spark.sql.types._
 
 
 /**
- * Experimental online poisson mixture transformer, based on Cappe(2010) Online Expectation-Maximisation
+ * Online poisson mixture transformer, based on Cappe(2010) Online Expectation-Maximisation
  *
  * @param mixtureCount number of mixture components
  */
@@ -39,8 +39,8 @@ class PoissonMixture(
     val mixtureCount: Int,
     override val uid: String)
   extends StatefulTransformer[String, PoissonMixtureInput, PoissonMixtureState, PoissonMixtureOutput, PoissonMixture]
-  with HasInitialWeights with HasInitialWeightsCol with HasInitialRates with HasInitialRatesCol
-  with HasPoissonMixtureModelCol with HasStepSize with HasStepSizeCol with HasCountCol {
+  with HasInitialRates with HasInitialRatesCol
+  with HasPoissonMixtureModelCol with MixtureParams[PoissonMixture] {
 
   protected implicit val stateKeyEncoder = Encoders.STRING
 
@@ -63,25 +63,10 @@ class PoissonMixture(
     asDataFrameTransformSchema(outEncoder.schema)
   }
 
-  def setInitialRates(value: Array[Double]): PoissonMixture = {
-    set(initialRates, value)
-  }
+  def setInitialRates(value: Array[Double]): PoissonMixture = set(initialRates, value)
 
-  def setInitialWeights(value: Array[Double]): PoissonMixture = {
-    set(initialWeights, value)
-  }
+  def setInitialRatesCol(value: String): PoissonMixture = set(initialRatesCol, value)
 
-  def setInitialWeightsCol(value: String): PoissonMixture = {
-    set(initialWeightsCol, value)
-  }
-
-  def setStepSize(value: Double): PoissonMixture = {
-    set(stepSize, value)
-  }
-
-  def setStepSizeCol(value: String): PoissonMixture = {
-    set(stepSizeCol, value)
-  }
   /**
    * Transforms dataset of count to dataframe of estimated states
    */
@@ -89,7 +74,7 @@ class PoissonMixture(
     transformSchema(dataset.schema)
 
     val counts = dataset
-      .withColumn("sample", col($(countCol)))
+      .withColumn("sample", col($(sampleCol)))
       .withColumn("stepSize", getUDFWithDefault(stepSize, stepSizeCol))
 
     val mixtureInput = if (isSet(poissonMixtureModelCol)) {
@@ -108,54 +93,50 @@ class PoissonMixture(
     asDataFrame(transformWithState(mixtureInput))
   }
 
-  protected def stateUpdateSpec: PoissonMixtureUpdateSpec = new PoissonMixtureUpdateSpec(5)
+  protected def stateUpdateSpec: PoissonMixtureUpdateSpec = new PoissonMixtureUpdateSpec(
+    getUpdateHoldout, getMinibatchSize)
 
 }
 
-private[em] class PoissonMixtureUpdateSpec(updateHoldout: Int)
-  extends StateUpdateSpec[String, PoissonMixtureInput, PoissonMixtureState, PoissonMixtureOutput] {
+private[mixture] class PoissonMixtureUpdateSpec(val updateHoldout: Int, val minibatchSize: Int)
+  extends MixtureUpdateSpec[
+    Long,
+    PoissonDistribution,
+    PoissonMixtureDistribution,
+    PoissonMixtureInput,
+    PoissonMixtureState,
+    PoissonMixtureOutput] {
 
   protected def stateToOutput(
     key: String,
     row: PoissonMixtureInput,
     state: PoissonMixtureState): List[PoissonMixtureOutput] = {
-    List(PoissonMixtureOutput(
-      key,
-      state.stateIndex,
-      state.mixtureModel,
-      row.eventTime))
+    if (state.samples.isEmpty) {
+      List(PoissonMixtureOutput(
+        key,
+        state.stateIndex,
+        state.mixtureModel,
+        row.eventTime))
+    } else {
+      List.empty[PoissonMixtureOutput]
+    }
+  }
+
+  override def getInitialState(row: PoissonMixtureInput): PoissonMixtureState = {
+    PoissonMixtureState(0L, List.empty[Long], row.initialMixtureModel.weightedDistributions, row.initialMixtureModel)
   }
 
   def updateGroupState(
     key: String,
     row: PoissonMixtureInput,
     state: Option[PoissonMixtureState]): Option[PoissonMixtureState] = {
-
-    val getInitialState = () => {
-      PoissonMixtureState(0L, row.initialMixtureModel.weightedDistributions, row.initialMixtureModel)
-    }
-
-    val currentState = state
-      .getOrElse(getInitialState())
-
-    val summaryModel = currentState
-      .summaryModel.stochasticUpdate(currentState.mixtureModel, Seq(row.sample), row.stepSize)
-
-    val newModel = if (currentState.stateIndex < updateHoldout) {
-      currentState.mixtureModel
-    } else {
-      summaryModel.reWeightedDistributions
-    }
-    val nextState = PoissonMixtureState(
-      currentState.stateIndex + 1,
-      summaryModel,
-      newModel)
-    Some(nextState)
+    val (ind, samples, summary, model) = calculateNextState(row, state)
+    Some(PoissonMixtureState(ind, samples, summary, model))
   }
 }
 
 
-private[em] trait HasInitialRates extends Params {
+private[mixture] trait HasInitialRates extends Params {
 
   def mixtureCount: Int
 
@@ -169,7 +150,7 @@ private[em] trait HasInitialRates extends Params {
 }
 
 
-private[em] trait HasInitialRatesCol extends Params {
+private[mixture] trait HasInitialRatesCol extends Params {
 
   final val initialRatesCol: Param[String] = new Param[String](
     this,
@@ -181,20 +162,7 @@ private[em] trait HasInitialRatesCol extends Params {
 }
 
 
-private[em] trait HasCountCol extends Params {
-
-  final val countCol: Param[String] = new Param[String](
-    this,
-    "countCol",
-    "countCol")
-
-  setDefault(countCol, "count")
-
-  final def getCountCol: String = $(countCol)
-}
-
-
-private[em] trait HasPoissonMixtureModelCol extends Params {
+private[mixture] trait HasPoissonMixtureModelCol extends Params {
 
   final val poissonMixtureModelCol: Param[String] = new Param[String](
     this,

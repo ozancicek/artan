@@ -19,7 +19,7 @@ package org.apache.spark.ml
 
 import org.apache.spark.ml.linalg._
 import com.github.fommil.netlib.{LAPACK => NetlibLAPACK}
-import com.github.fommil.netlib.LAPACK.{getInstance}
+import com.github.fommil.netlib.LAPACK.getInstance
 import org.netlib.util.intW
 
 object LAPACK {
@@ -37,7 +37,15 @@ object LAPACK {
     for {
       i <- 0 until a.numCols
       j <- 0 until a.numRows
-      if(j > i)
+      if j > i
+    } { a.values(j + i * a.numCols) = 0.0 }
+  }
+
+  def lowerTriangle(a: DenseMatrix): Unit = {
+    for {
+      i <- 0 until a.numCols
+      j <- 0 until a.numRows
+      if j < i
     } { a.values(j + i * a.numCols) = 0.0 }
   }
 
@@ -65,14 +73,14 @@ object LAPACK {
 
   /* cholesky decomposition of matrix a*/
   def dpotrf(a: DenseMatrix): Unit = {
-    upperTriangle(a)
+    lowerTriangle(a)
     val lda = if (!a.isTransposed) a.numRows else a.numCols
     val info = new intW(0)
     lapack.dpotrf(
-      "U",
+      "L",
       a.numRows,
       a.values,
-      lda,
+      scala.math.max(1, a.numRows),
       info)
     assert(info.`val` >= 0)
     if (info.`val` > 0) {

@@ -31,17 +31,13 @@ case class MultivariateGaussianDistribution(mean: Vector, covariance: Matrix)
 
   def summarize(weights: Seq[Double], samples: Seq[Vector], norm: Double): MultivariateGaussianDistribution = {
     val meanSummary = new DenseVector(Array.fill(mean.size){0.0})
+    val covSummary = DenseMatrix.zeros(covariance.numRows, covariance.numCols)
     samples.zip(weights).foreach { case(v, d) =>
       BLAS.axpy(d/norm, v, meanSummary)
-    }
-
-    val covSummary = DenseMatrix.zeros(covariance.numRows, covariance.numCols)
-    samples.zip(weights).foreach { case(meas, d) =>
-      val residual = meas.toDense.copy
+      val residual = v.toDense.copy
       BLAS.axpy(-1.0, mean, residual)
       BLAS.dger(d/norm, residual, residual, covSummary)
     }
-
     MultivariateGaussianDistribution(meanSummary, covSummary)
   }
 

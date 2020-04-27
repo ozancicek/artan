@@ -15,16 +15,17 @@
  * limitations under the License.
  */
 
-package com.github.ozancicek.artan.ml.em
+package com.github.ozancicek.artan.ml.mixture
 
 import breeze.stats.distributions.RandBasis
 import com.github.ozancicek.artan.ml.stats.PoissonMixtureDistribution
 import com.github.ozancicek.artan.ml.testutils.StructuredStreamingTestWrapper
+import org.apache.spark.sql.functions.max
 import org.scalatest.{FunSpec, Matchers}
 
 import scala.util.Random
 
-case class PoissonSeq(count: Long)
+case class PoissonSeq(sample: Long)
 
 class PoissonMixtureSpec
   extends FunSpec
@@ -53,12 +54,14 @@ class PoissonMixtureSpec
 
       val em = new PoissonMixture(3)
         .setInitialRates(Array(1.0, 7.0, 10.0))
-        .setStepSize(0.01)
+        .setStepSize(0.1)
+        .setMinibatchSize(5)
 
       val state = em.transform(counts.toDF)
 
+      val maxSize = state.select(max("stateIndex")).head.getAs[Long](0)
       val lastState = state
-        .filter(s"stateIndex = ${size.sum}")
+        .filter(s"stateIndex = ${maxSize}")
         .select("mixtureModel.*").as[PoissonMixtureDistribution].head()
 
       it("should find the clusters") {

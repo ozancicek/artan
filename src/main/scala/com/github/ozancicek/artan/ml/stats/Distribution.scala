@@ -74,11 +74,9 @@ sealed trait MixtureDistribution[
   def weightedSummary(
     samples: Seq[SampleType], weight: Double): (Seq[Double], Seq[DistributionType]) = {
     val likelihoodWeights = weightedLikelihoods(samples)
-    val sumLikelihoods = likelihoodWeights.flatten.sum
-
-    val weightSummary= likelihoodWeights.map(s => weight * s.sum/s.length)
+    val weightSummary = likelihoodWeights.map(s => weight * s.sum/samples.length)
     val distsSummary = distributions.zip(likelihoodWeights).map {
-      case (dist, w) => dist.summarize(w, samples, sumLikelihoods/weight)
+      case (dist, w) => dist.summarize(w, samples, samples.length/weight)
     }
 
     (weightSummary, distsSummary)

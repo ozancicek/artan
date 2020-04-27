@@ -15,13 +15,11 @@
  * limitations under the License.
  */
 
-package com.github.ozancicek.artan.ml.em
+package com.github.ozancicek.artan.ml.mixture
 
-import com.github.ozancicek.artan.ml.state.{GaussianMixtureInput, GaussianMixtureOutput}
-import com.github.ozancicek.artan.ml.state.GaussianMixtureState
-import com.github.ozancicek.artan.ml.state.{StateUpdateSpec, StatefulTransformer}
+import com.github.ozancicek.artan.ml.state.{GaussianMixtureInput, GaussianMixtureOutput, GaussianMixtureState, StatefulTransformer}
 import com.github.ozancicek.artan.ml.stats.{GaussianMixtureDistribution, MultivariateGaussianDistribution}
-import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector}
+import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector, Vector}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql._
@@ -31,7 +29,7 @@ import org.apache.spark.sql.types._
 
 
 /**
- * Experimental online multivariate gaussian mixture transformer, based on Cappe(2010) Online Expectation-Maximisation
+ * Online multivariate gaussian mixture transformer, based on Cappe(2010) Online Expectation-Maximisation
  *
  * @param mixtureCount number of mixture components
  */
@@ -44,9 +42,9 @@ class MultivariateGaussianMixture(
     GaussianMixtureState,
     GaussianMixtureOutput,
     MultivariateGaussianMixture]
-  with HasGaussianMixtureModelCol with HasStepSize with HasStepSizeCol with HasMeasurementCol
-  with HasInitialWeights with HasInitialWeightsCol with HasInitialMeans with HasInitialMeansCol
-  with HasInitialCovariances with HasInitialCovariancesCol with HasMeasurementSize {
+  with HasGaussianMixtureModelCol with HasInitialMeans with HasInitialMeansCol
+  with HasInitialCovariances with HasInitialCovariancesCol with HasSampleSize
+  with MixtureParams[MultivariateGaussianMixture] {
 
   protected implicit val stateKeyEncoder = Encoders.STRING
 
@@ -62,22 +60,6 @@ class MultivariateGaussianMixture(
     copyValues(that, extra)
   }
 
-  def setInitialWeights(value: Array[Double]): MultivariateGaussianMixture = {
-    set(initialWeights, value)
-  }
-
-  def setInitialWeightsCol(value: String): MultivariateGaussianMixture = {
-    set(initialWeightsCol, value)
-  }
-
-  def setStepSize(value: Double): MultivariateGaussianMixture = {
-    set(stepSize, value)
-  }
-
-  def setStepSizeCol(value: String): MultivariateGaussianMixture = {
-    set(stepSizeCol, value)
-  }
-
   def setInitialMeans(value: Array[Array[Double]]): MultivariateGaussianMixture = {
     set(initialMeans, value)
   }
@@ -86,8 +68,8 @@ class MultivariateGaussianMixture(
     set(initialCovariances, value)
   }
 
-  def setMeasurementSize(value: Int): MultivariateGaussianMixture = {
-    set(measurementSize, value)
+  def setSampleSize(value: Int): MultivariateGaussianMixture = {
+    set(sampleSize, value)
   }
   /**
    * Applies the transformation to dataset schema
@@ -103,7 +85,7 @@ class MultivariateGaussianMixture(
     transformSchema(dataset.schema)
 
     val measurements = dataset
-      .withColumn("sample", col($(measurementCol)))
+      .withColumn("sample", col($(sampleCol)))
       .withColumn("stepSize", getUDFWithDefault(stepSize, stepSizeCol))
 
     val mixtureInput = if (isSet(gaussianMixtureModelCol)) {
@@ -113,7 +95,7 @@ class MultivariateGaussianMixture(
         (weights: Seq[Double], means: Seq[Seq[Double]], covariances: Seq[Seq[Double]]) => {
           val gaussians = means.zip(covariances).map { s =>
             val meanVector = new DenseVector(s._1.toArray)
-            val covMatrix = new DenseMatrix(getMeasurementSize, getMeasurementSize, s._2.toArray)
+            val covMatrix = new DenseMatrix(getSampleSize, getSampleSize, s._2.toArray)
             MultivariateGaussianDistribution(meanVector, covMatrix)
           }
           GaussianMixtureDistribution(weights, gaussians)
@@ -135,55 +117,51 @@ class MultivariateGaussianMixture(
     asDataFrame(transformWithState(mixtureInput))
   }
 
-  protected def stateUpdateSpec: GaussianMixtureUpdateSpec = new GaussianMixtureUpdateSpec(5)
+  protected def stateUpdateSpec: GaussianMixtureUpdateSpec = new GaussianMixtureUpdateSpec(
+    getUpdateHoldout, getMinibatchSize)
 
 }
 
-private[em] class GaussianMixtureUpdateSpec(updateHoldout: Int)
-  extends StateUpdateSpec[String, GaussianMixtureInput, GaussianMixtureState, GaussianMixtureOutput] {
+
+private[mixture] class GaussianMixtureUpdateSpec(val updateHoldout: Int, val minibatchSize: Int)
+  extends MixtureUpdateSpec[
+    Vector,
+    MultivariateGaussianDistribution,
+    GaussianMixtureDistribution,
+    GaussianMixtureInput,
+    GaussianMixtureState,
+    GaussianMixtureOutput] {
 
   protected def stateToOutput(
     key: String,
     row: GaussianMixtureInput,
     state: GaussianMixtureState): List[GaussianMixtureOutput] = {
-    List(GaussianMixtureOutput(
-      key,
-      state.stateIndex,
-      state.mixtureModel,
-      row.eventTime))
+    if (state.samples.isEmpty) {
+      List(GaussianMixtureOutput(
+        key,
+        state.stateIndex,
+        state.mixtureModel,
+        row.eventTime))
+    } else {
+      List.empty[GaussianMixtureOutput]
+    }
   }
 
-  def updateGroupState(
+  protected def getInitialState(row: GaussianMixtureInput): GaussianMixtureState = {
+    GaussianMixtureState(0L, List.empty[Vector], row.initialMixtureModel.weightedDistributions, row.initialMixtureModel)
+  }
+
+  protected def updateGroupState(
     key: String,
     row: GaussianMixtureInput,
     state: Option[GaussianMixtureState]): Option[GaussianMixtureState] = {
-
-    val getInitialState = () => {
-      GaussianMixtureState(0L, row.initialMixtureModel.weightedDistributions, row.initialMixtureModel)
-    }
-
-    val currentState = state
-      .getOrElse(getInitialState())
-
-    val summaryModel = currentState
-      .summaryModel.stochasticUpdate(currentState.mixtureModel, Seq(row.sample), row.stepSize)
-
-    val newModel = if (currentState.stateIndex < updateHoldout) {
-      currentState.mixtureModel
-    } else {
-      summaryModel.reWeightedDistributions
-    }
-
-    val nextState = GaussianMixtureState(
-      currentState.stateIndex + 1,
-      summaryModel,
-      newModel)
-    Some(nextState)
+    val (ind, samples, summary, model) = calculateNextState(row, state)
+    Some(GaussianMixtureState(ind, samples, summary, model))
   }
 }
 
 
-private[em] trait HasInitialMeans extends Params {
+private[mixture] trait HasInitialMeans extends Params {
 
   final val initialMeans: Param[Array[Array[Double]]] = new DoubleArrayArrayParam(
     this,
@@ -193,7 +171,7 @@ private[em] trait HasInitialMeans extends Params {
   final def getInitialMeans: Array[Array[Double]] = $(initialMeans)
 }
 
-private[em] trait HasInitialMeansCol extends Params {
+private[mixture] trait HasInitialMeansCol extends Params {
 
   final val initialMeansCol: Param[String] = new Param[String](
     this,
@@ -204,7 +182,7 @@ private[em] trait HasInitialMeansCol extends Params {
   final def getInitialMeansCol: String = $(initialMeansCol)
 }
 
-private[em] trait HasInitialCovariances extends Params {
+private[mixture] trait HasInitialCovariances extends Params {
 
   final val initialCovariances: Param[Array[Array[Double]]] = new DoubleArrayArrayParam(
     this,
@@ -216,7 +194,7 @@ private[em] trait HasInitialCovariances extends Params {
 }
 
 
-private[em] trait HasInitialCovariancesCol extends Params {
+private[mixture] trait HasInitialCovariancesCol extends Params {
 
   final val initialCovariancesCol: Param[String] = new Param[String](
     this,
@@ -227,18 +205,18 @@ private[em] trait HasInitialCovariancesCol extends Params {
   final def getInitialCovariancesCol: String = $(initialCovariancesCol)
 }
 
-private[em] trait HasMeasurementSize extends Params {
+private[mixture] trait HasSampleSize extends Params {
 
-  final val measurementSize: Param[Int] = new IntParam(
+  final val sampleSize: Param[Int] = new IntParam(
     this,
-    "measurementSize",
-    "measurementSize"
+    "sampleSize",
+    "sampleSize"
   )
 
-  final def getMeasurementSize: Int = $(measurementSize)
+  final def getSampleSize: Int = $(sampleSize)
 }
 
-private[em] trait HasGaussianMixtureModelCol extends Params {
+private[mixture] trait HasGaussianMixtureModelCol extends Params {
 
   final val gaussianMixtureModelCol: Param[String] = new Param[String](
     this,
@@ -246,27 +224,4 @@ private[em] trait HasGaussianMixtureModelCol extends Params {
     "gaussianMixtureModelCol")
 
   final def getGaussianMixtureModelCol: String = $(gaussianMixtureModelCol)
-}
-
-/**
- * Param for measurement column
- */
-private[artan] trait HasMeasurementCol extends Params {
-
-  /**
-   * Param for measurement column containing measurement vector.
-   * @group param
-   */
-  final val measurementCol: Param[String] = new Param[String](
-    this,
-    "measurementCol",
-    "Column name for measurement vector. Missing measurements are allowed with nulls in the data")
-
-  setDefault(measurementCol, "measurement")
-
-  /**
-   * Getter for measurement vector column.
-   * @group getParam
-   */
-  final def getMeasurementCol: String = $(measurementCol)
 }

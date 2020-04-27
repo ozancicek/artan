@@ -215,7 +215,7 @@ private[ml] object LinalgUtils {
     BLAS.axpy(-1.0, mean, centered)
 
     val slv = centered.copy
-    LAPACK.dgesv(cov, new DenseMatrix(slv.size, 1, slv.values))
+    LAPACK.dgesv(cov.copy, new DenseMatrix(slv.size, 1, slv.values))
     BLAS.dot(slv, centered)
   }
 
