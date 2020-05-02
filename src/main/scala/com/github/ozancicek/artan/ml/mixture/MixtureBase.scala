@@ -43,18 +43,18 @@ private[mixture] trait MixtureParams[TransformerType]
 }
 
 
-private[mixture] trait MixtureUpdateSpec[
+private[mixture] class MixtureUpdateSpec[
   SampleType,
   DistributionType <: Distribution[SampleType, DistributionType],
   MixtureType <: MixtureDistribution[SampleType, DistributionType, MixtureType],
   InputType <: MixtureInput[SampleType, DistributionType, MixtureType],
   StateType <: MixtureState[SampleType, DistributionType, MixtureType],
-  OutputType <: MixtureOutput[SampleType, DistributionType, MixtureType]] extends StateUpdateSpec[
-  String, InputType, StateType, OutputType]{
-
-  def updateHoldout: Int
-
-  def minibatchSize: Int
+  OutputType <: MixtureOutput[SampleType, DistributionType, MixtureType]](
+  updateHoldout: Int, minibatchSize: Int)(implicit
+  stateFactory: MixtureStateFactory[
+    SampleType, DistributionType, MixtureType, StateType, OutputType],
+  mixtureFactory: MixtureDistributionFactory[
+    SampleType, DistributionType, MixtureType]) extends StateUpdateSpec[String, InputType, StateType, OutputType]{
 
   protected def stateToOutput(
     key: String,
@@ -71,7 +71,7 @@ private[mixture] trait MixtureUpdateSpec[
     }
   }
 
-  protected def getInitState(row: InputType): StateType = {
+  protected def getInitialState(row: InputType): StateType = {
     val weightedDist = MixtureDistribution.weightedMixture[SampleType, DistributionType, MixtureType](
       row.initialMixtureModel)
     stateFactory.createState(
@@ -85,11 +85,12 @@ private[mixture] trait MixtureUpdateSpec[
   protected def calculateNextState(
     row: InputType,
     state: Option[StateType]): Option[StateType] = {
-    val currentState = state.getOrElse(getInitState(row))
+    val currentState = state.getOrElse(getInitialState(row))
     val newSamples = row.sample :: currentState.samples
 
     val nextState = if (newSamples.size < minibatchSize) {
-      stateFactory.createState(currentState.stateIndex, newSamples, currentState.summaryModel,currentState.mixtureModel)
+      stateFactory.createState(
+        currentState.stateIndex, newSamples, currentState.summaryModel, currentState.mixtureModel)
     } else {
       val newSummaryModel = MixtureDistribution
         .stochasticUpdate[SampleType, DistributionType, MixtureType](
@@ -98,8 +99,7 @@ private[mixture] trait MixtureUpdateSpec[
       val newMixtureModel = if (currentState.stateIndex < updateHoldout) {
         currentState.mixtureModel
       } else {
-        MixtureDistribution.inverseWeightedMixture[SampleType, DistributionType, MixtureType](
-          newSummaryModel)
+        MixtureDistribution.inverseWeightedMixture[SampleType, DistributionType, MixtureType](newSummaryModel)
       }
 
       stateFactory.createState(currentState.stateIndex + 1, List.empty[SampleType], newSummaryModel, newMixtureModel)
@@ -107,18 +107,10 @@ private[mixture] trait MixtureUpdateSpec[
     Some(nextState)
   }
 
-  protected implicit def stateFactory: MixtureStateFactory[
-    SampleType, DistributionType, MixtureType, StateType, OutputType]
-
-  protected implicit def mixtureFactory: MixtureDistributionFactory[
-    SampleType, DistributionType, MixtureType] = stateFactory.distributionFactory
-
   protected def updateGroupState(
     key: String,
     row: InputType,
-    state: Option[StateType]): Option[StateType] = {
+    state: Option[StateType]): Option[StateType] = calculateNextState(row, state)
 
-    calculateNextState(row, state)
-  }
 
 }

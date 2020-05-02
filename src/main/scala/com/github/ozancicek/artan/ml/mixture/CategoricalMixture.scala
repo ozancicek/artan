@@ -17,7 +17,7 @@
 
 package com.github.ozancicek.artan.ml.mixture
 
-import com.github.ozancicek.artan.ml.state.{CategoricalMixtureInput, CategoricalMixtureOutput, CategoricalMixtureState, MixtureStateFactory, StatefulTransformer}
+import com.github.ozancicek.artan.ml.state.{CategoricalMixtureInput, CategoricalMixtureOutput, CategoricalMixtureState, StatefulTransformer}
 import com.github.ozancicek.artan.ml.stats.{CategoricalDistribution, CategoricalMixtureDistribution}
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.param._
@@ -96,23 +96,13 @@ class CategoricalMixture(
     asDataFrame(transformWithState(mixtureInput))
   }
 
-  protected def stateUpdateSpec: CategoricalMixtureUpdateSpec = new CategoricalMixtureUpdateSpec(
-    getUpdateHoldout, getMinibatchSize)
-
-}
-
-private[mixture] class CategoricalMixtureUpdateSpec(val updateHoldout: Int, val minibatchSize: Int)
-  extends MixtureUpdateSpec[
+  protected def stateUpdateSpec = new MixtureUpdateSpec[
     Int,
     CategoricalDistribution,
     CategoricalMixtureDistribution,
     CategoricalMixtureInput,
     CategoricalMixtureState,
-    CategoricalMixtureOutput] {
-
-  protected implicit def stateFactory: MixtureStateFactory[
-    Int, CategoricalDistribution, CategoricalMixtureDistribution, CategoricalMixtureState, CategoricalMixtureOutput] = MixtureStateFactory
-    .categoricalSF
+    CategoricalMixtureOutput](getUpdateHoldout, getMinibatchSize)
 
 }
 
@@ -126,6 +116,7 @@ private[mixture] trait HasInitialProbabilities extends Params {
 
   final def getInitialMeans: Array[Array[Double]] = $(initialProbabilities)
 }
+
 
 private[mixture] trait HasInitialProbabilitiesCol extends Params {
 

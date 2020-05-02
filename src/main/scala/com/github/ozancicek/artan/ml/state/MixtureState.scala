@@ -21,7 +21,6 @@ import org.apache.spark.ml.linalg.Vector
 import java.sql.Timestamp
 
 import com.github.ozancicek.artan.ml.stats._
-import org.apache.commons.math3.distribution.fitting.MultivariateNormalMixtureExpectationMaximization
 
 
 sealed trait MixtureState[
@@ -142,8 +141,6 @@ private[artan] trait MixtureStateFactory[
   StateType <: MixtureState[SampleType, DistributionType, MixtureType],
   OutType <: MixtureOutput[SampleType, DistributionType, MixtureType]] extends Serializable {
 
-  implicit def distributionFactory: MixtureDistributionFactory[SampleType, DistributionType, MixtureType]
-
   def createState(
     stateIndex: Long, samples: List[SampleType], summary: MixtureType, mixture: MixtureType): StateType
 
@@ -155,14 +152,21 @@ private[artan] trait MixtureStateFactory[
 
 object MixtureStateFactory {
 
+  def apply[
+    SampleType,
+    DistributionType <: Distribution[SampleType, DistributionType],
+    MixtureType <: MixtureDistribution[SampleType, DistributionType, MixtureType],
+    StateType <: MixtureState[SampleType, DistributionType, MixtureType],
+    OutType <: MixtureOutput[SampleType, DistributionType, MixtureType]](implicit msf: MixtureStateFactory[
+    SampleType, DistributionType, MixtureType, StateType, OutType]): MixtureStateFactory[
+    SampleType, DistributionType, MixtureType, StateType, OutType] = msf
+
+
   implicit val gaussianSF: MixtureStateFactory[
     Vector, MultivariateGaussianDistribution,
     GaussianMixtureDistribution, GaussianMixtureState, GaussianMixtureOutput] = new MixtureStateFactory[
     Vector, MultivariateGaussianDistribution,
     GaussianMixtureDistribution, GaussianMixtureState, GaussianMixtureOutput] {
-
-    override implicit def distributionFactory: MixtureDistributionFactory[
-      Vector, MultivariateGaussianDistribution, GaussianMixtureDistribution] = MixtureDistribution.gaussianMD
 
     def createState(
       stateIndex: Long,
@@ -188,9 +192,6 @@ object MixtureStateFactory {
     Long, PoissonDistribution,
     PoissonMixtureDistribution, PoissonMixtureState, PoissonMixtureOutput] {
 
-    override implicit def distributionFactory: MixtureDistributionFactory[
-      Long, PoissonDistribution, PoissonMixtureDistribution] = MixtureDistribution.poissonMD
-
     override def createOutput(
       stateKey: String,
       stateIndex: Long,
@@ -214,9 +215,6 @@ object MixtureStateFactory {
     Int, CategoricalDistribution,
     CategoricalMixtureDistribution, CategoricalMixtureState, CategoricalMixtureOutput] {
 
-    override implicit def distributionFactory: MixtureDistributionFactory[
-      Int, CategoricalDistribution, CategoricalMixtureDistribution] = MixtureDistribution.categoricalMD
-
     override def createOutput(
       stateKey: String,
       stateIndex: Long,
@@ -224,6 +222,7 @@ object MixtureStateFactory {
       eventTime: Option[Timestamp]): CategoricalMixtureOutput = {
       CategoricalMixtureOutput(stateKey, stateIndex, mixture, eventTime)
     }
+
     def createState(
       stateIndex: Long,
       samples: List[Int],

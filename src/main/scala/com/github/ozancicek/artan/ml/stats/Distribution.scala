@@ -33,7 +33,9 @@ case class CategoricalMixtureDistribution(weights: Seq[Double], distributions: S
   extends MixtureDistribution[Int, CategoricalDistribution, CategoricalMixtureDistribution]
 
 
-trait Distribution[SampleType, DistributionType <: Distribution[SampleType, DistributionType]] extends Product {
+trait Distribution[
+  SampleType,
+  DistributionType <: Distribution[SampleType, DistributionType]] extends Product {
 
   def likelihood(sample: SampleType): Double
 
@@ -42,6 +44,7 @@ trait Distribution[SampleType, DistributionType <: Distribution[SampleType, Dist
   def summarize(weights: Seq[Double], samples: Seq[SampleType]): DistributionType
 
   def axpy(weight: Double, other: DistributionType): DistributionType
+
 }
 
 
@@ -52,22 +55,6 @@ sealed trait MixtureDistribution[
 
   def weights: Seq[Double]
   def distributions: Seq[DistributionType]
-
-  def weightedDistributions(
-    implicit mdf: MixtureDistributionFactory[SampleType, DistributionType, MixtureType]): MixtureType =  {
-    val dists = distributions.zip(weights).map {
-      case (dist, w) => dist.scal(w)
-    }
-    mdf.create(weights, dists)
-  }
-
-  def reWeightedDistributions(
-    implicit mdf: MixtureDistributionFactory[SampleType, DistributionType, MixtureType]): MixtureType = {
-    val dists = distributions.zip(weights).map {
-      case (dist, w) => dist.scal(1.0/w)
-    }
-    mdf.create(weights, dists)
-  }
 
   private def weightedLikelihoods(samples: Seq[SampleType]): Seq[Seq[Double]] = {
     samples.map { sample =>
@@ -97,7 +84,7 @@ sealed trait MixtureDistribution[
 private[artan] trait MixtureDistributionFactory[
   SampleType,
   DistributionType <: Distribution[SampleType, DistributionType],
-  MixtureType <: MixtureDistribution[SampleType, DistributionType, MixtureType]]{
+  MixtureType <: MixtureDistribution[SampleType, DistributionType, MixtureType]] extends Serializable {
 
   def create(weights: Seq[Double], dists: Seq[DistributionType]): MixtureType
 
@@ -114,24 +101,21 @@ object MixtureDistribution {
       DistributionType,
       MixtureType]): MixtureDistributionFactory[SampleType, DistributionType, MixtureType] = mf
 
-  implicit val gaussianMD: MixtureDistributionFactory[
-    Vector, MultivariateGaussianDistribution, GaussianMixtureDistribution] = new MixtureDistributionFactory[
+  implicit val gaussianMD = new MixtureDistributionFactory[
     Vector, MultivariateGaussianDistribution, GaussianMixtureDistribution] {
     def create(weights: Seq[Double], dists: Seq[MultivariateGaussianDistribution]): GaussianMixtureDistribution = {
       GaussianMixtureDistribution(weights, dists)
     }
   }
 
-  implicit val poissonMD: MixtureDistributionFactory[
-    Long, PoissonDistribution, PoissonMixtureDistribution] = new MixtureDistributionFactory[
+  implicit val poissonMD = new MixtureDistributionFactory[
     Long, PoissonDistribution, PoissonMixtureDistribution] {
     def create(weights: Seq[Double], dists: Seq[PoissonDistribution]): PoissonMixtureDistribution = {
       PoissonMixtureDistribution(weights, dists)
     }
   }
 
-  implicit val categoricalMD: MixtureDistributionFactory[
-    Int, CategoricalDistribution, CategoricalMixtureDistribution] = new MixtureDistributionFactory[
+  implicit val categoricalMD = new MixtureDistributionFactory[
     Int, CategoricalDistribution, CategoricalMixtureDistribution] {
     def create(weights: Seq[Double], dists: Seq[CategoricalDistribution]): CategoricalMixtureDistribution = {
       CategoricalMixtureDistribution(weights, dists)
@@ -149,6 +133,7 @@ object MixtureDistribution {
 
     val weightsSummary = summary.weights
       .zip(summaryDist.weights).map(s => (1 - stepSize) * s._1 + stepSize * s._2)
+
     val distsSummary = summary.distributions.zip(summaryDist.distributions).map { case (left, right) =>
       right.scal(stepSize).axpy(1 - stepSize, left)
     }

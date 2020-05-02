@@ -29,7 +29,7 @@ case class MultivariateGaussianDistribution(mean: Vector, covariance: Matrix)
 
   override def likelihood(sample: Vector): Double = pdf(sample.toDense)
 
-  def summarize(weights: Seq[Double], samples: Seq[Vector]): MultivariateGaussianDistribution = {
+  override def summarize(weights: Seq[Double], samples: Seq[Vector]): MultivariateGaussianDistribution = {
     val meanSummary = new DenseVector(Array.fill(mean.size){0.0})
     val covSummary = DenseMatrix.zeros(covariance.numRows, covariance.numCols)
     samples.zip(weights).foreach { case(v, d) =>

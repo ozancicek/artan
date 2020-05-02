@@ -17,7 +17,7 @@
 
 package com.github.ozancicek.artan.ml.mixture
 
-import com.github.ozancicek.artan.ml.state.{GaussianMixtureInput, GaussianMixtureOutput, GaussianMixtureState, MixtureStateFactory, StatefulTransformer}
+import com.github.ozancicek.artan.ml.state.{GaussianMixtureInput, GaussianMixtureOutput, GaussianMixtureState, StatefulTransformer}
 import com.github.ozancicek.artan.ml.stats.{GaussianMixtureDistribution, MultivariateGaussianDistribution}
 import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector, Vector}
 import org.apache.spark.ml.param._
@@ -117,27 +117,13 @@ class MultivariateGaussianMixture(
     asDataFrame(transformWithState(mixtureInput))
   }
 
-  protected def stateUpdateSpec: GaussianMixtureUpdateSpec = new GaussianMixtureUpdateSpec(
-    getUpdateHoldout, getMinibatchSize)
-
-}
-
-
-private[mixture] class GaussianMixtureUpdateSpec(val updateHoldout: Int, val minibatchSize: Int)
-  extends MixtureUpdateSpec[
+  protected def stateUpdateSpec = new MixtureUpdateSpec[
     Vector,
     MultivariateGaussianDistribution,
     GaussianMixtureDistribution,
     GaussianMixtureInput,
     GaussianMixtureState,
-    GaussianMixtureOutput] {
-
-  protected implicit def stateFactory: MixtureStateFactory[
-    Vector,
-    MultivariateGaussianDistribution,
-    GaussianMixtureDistribution,
-    GaussianMixtureState,
-    GaussianMixtureOutput] = MixtureStateFactory.gaussianSF
+    GaussianMixtureOutput](getUpdateHoldout, getMinibatchSize)
 
 }
 

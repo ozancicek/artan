@@ -17,7 +17,7 @@
 
 package com.github.ozancicek.artan.ml.mixture
 
-import com.github.ozancicek.artan.ml.state.{MixtureStateFactory, PoissonMixtureInput, PoissonMixtureOutput, PoissonMixtureState, StatefulTransformer}
+import com.github.ozancicek.artan.ml.state.{PoissonMixtureInput, PoissonMixtureOutput, PoissonMixtureState, StatefulTransformer}
 import com.github.ozancicek.artan.ml.stats.{PoissonDistribution, PoissonMixtureDistribution}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
@@ -90,26 +90,13 @@ class PoissonMixture(
     asDataFrame(transformWithState(mixtureInput))
   }
 
-  protected def stateUpdateSpec: PoissonMixtureUpdateSpec = new PoissonMixtureUpdateSpec(
-    getUpdateHoldout, getMinibatchSize)
-
-}
-
-private[mixture] class PoissonMixtureUpdateSpec(val updateHoldout: Int, val minibatchSize: Int)
-  extends MixtureUpdateSpec[
+  protected def stateUpdateSpec = new MixtureUpdateSpec[
     Long,
     PoissonDistribution,
     PoissonMixtureDistribution,
     PoissonMixtureInput,
     PoissonMixtureState,
-    PoissonMixtureOutput] {
-
-  protected implicit def stateFactory: MixtureStateFactory[
-    Long,
-    PoissonDistribution,
-    PoissonMixtureDistribution,
-    PoissonMixtureState,
-    PoissonMixtureOutput] = MixtureStateFactory.poissonSF
+    PoissonMixtureOutput](getUpdateHoldout, getMinibatchSize)
 
 }
 
