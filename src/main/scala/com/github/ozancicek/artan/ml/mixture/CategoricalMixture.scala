@@ -17,10 +17,9 @@
 
 package com.github.ozancicek.artan.ml.mixture
 
-import com.github.ozancicek.artan.ml.state.{CategoricalMixtureInput, CategoricalMixtureOutput, CategoricalMixtureState}
-import com.github.ozancicek.artan.ml.state.StatefulTransformer
+import com.github.ozancicek.artan.ml.state.{CategoricalMixtureInput, CategoricalMixtureOutput, CategoricalMixtureState, MixtureStateFactory, StatefulTransformer}
 import com.github.ozancicek.artan.ml.stats.{CategoricalDistribution, CategoricalMixtureDistribution}
-import org.apache.spark.ml.linalg.{Vector, DenseVector}
+import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql._
@@ -61,7 +60,7 @@ class CategoricalMixture(
   }
 
   /**
-   * Applies the transformation to dataset schema
+   * Applies the transformation to dataset schemas
    */
   def transformSchema(schema: StructType): StructType = {
     asDataFrameTransformSchema(outEncoder.schema)
@@ -111,32 +110,10 @@ private[mixture] class CategoricalMixtureUpdateSpec(val updateHoldout: Int, val 
     CategoricalMixtureState,
     CategoricalMixtureOutput] {
 
-  protected def stateToOutput(
-    key: String,
-    row: CategoricalMixtureInput,
-    state: CategoricalMixtureState): List[CategoricalMixtureOutput] = {
-    if (state.samples.isEmpty) {
-      List(CategoricalMixtureOutput(
-        key,
-        state.stateIndex,
-        state.mixtureModel,
-        row.eventTime))
-    } else {
-      List.empty[CategoricalMixtureOutput]
-    }
-  }
+  protected implicit def stateFactory: MixtureStateFactory[
+    Int, CategoricalDistribution, CategoricalMixtureDistribution, CategoricalMixtureState, CategoricalMixtureOutput] = MixtureStateFactory
+    .categoricalSF
 
-  override def getInitialState(row: CategoricalMixtureInput): CategoricalMixtureState = {
-    CategoricalMixtureState(0L, List.empty[Int], row.initialMixtureModel.weightedDistributions, row.initialMixtureModel)
-  }
-
-  def updateGroupState(
-    key: String,
-    row: CategoricalMixtureInput,
-    state: Option[CategoricalMixtureState]): Option[CategoricalMixtureState] = {
-    val (ind, samples, summary, model) = calculateNextState(row, state)
-    Some(CategoricalMixtureState(ind, samples, summary, model))
-  }
 }
 
 

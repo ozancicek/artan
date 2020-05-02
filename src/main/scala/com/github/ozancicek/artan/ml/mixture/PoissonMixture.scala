@@ -17,13 +17,10 @@
 
 package com.github.ozancicek.artan.ml.mixture
 
-import com.github.ozancicek.artan.ml.state.{PoissonMixtureInput, PoissonMixtureOutput, PoissonMixtureState}
-import com.github.ozancicek.artan.ml.state.{StateUpdateSpec, StatefulTransformer}
+import com.github.ozancicek.artan.ml.state.{MixtureStateFactory, PoissonMixtureInput, PoissonMixtureOutput, PoissonMixtureState, StatefulTransformer}
 import com.github.ozancicek.artan.ml.stats.{PoissonDistribution, PoissonMixtureDistribution}
-import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.ml.BLAS
 import org.apache.spark.sql._
 import org.apache.spark.sql.Encoders
 import org.apache.spark.sql.functions.{col, udf}
@@ -107,32 +104,13 @@ private[mixture] class PoissonMixtureUpdateSpec(val updateHoldout: Int, val mini
     PoissonMixtureState,
     PoissonMixtureOutput] {
 
-  protected def stateToOutput(
-    key: String,
-    row: PoissonMixtureInput,
-    state: PoissonMixtureState): List[PoissonMixtureOutput] = {
-    if (state.samples.isEmpty) {
-      List(PoissonMixtureOutput(
-        key,
-        state.stateIndex,
-        state.mixtureModel,
-        row.eventTime))
-    } else {
-      List.empty[PoissonMixtureOutput]
-    }
-  }
+  protected implicit def stateFactory: MixtureStateFactory[
+    Long,
+    PoissonDistribution,
+    PoissonMixtureDistribution,
+    PoissonMixtureState,
+    PoissonMixtureOutput] = MixtureStateFactory.poissonSF
 
-  override def getInitialState(row: PoissonMixtureInput): PoissonMixtureState = {
-    PoissonMixtureState(0L, List.empty[Long], row.initialMixtureModel.weightedDistributions, row.initialMixtureModel)
-  }
-
-  def updateGroupState(
-    key: String,
-    row: PoissonMixtureInput,
-    state: Option[PoissonMixtureState]): Option[PoissonMixtureState] = {
-    val (ind, samples, summary, model) = calculateNextState(row, state)
-    Some(PoissonMixtureState(ind, samples, summary, model))
-  }
 }
 
 

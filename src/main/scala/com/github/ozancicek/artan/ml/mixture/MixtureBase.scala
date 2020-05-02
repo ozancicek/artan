@@ -17,16 +17,19 @@
 
 package com.github.ozancicek.artan.ml.mixture
 
-import com.github.ozancicek.artan.ml.state.{MixtureInput, MixtureOutput, MixtureState, StateUpdateSpec}
-import com.github.ozancicek.artan.ml.stats.{Distribution, MixtureDistribution}
+import com.github.ozancicek.artan.ml.state.{MixtureInput, MixtureOutput, MixtureState, MixtureStateFactory, StateUpdateSpec}
+import com.github.ozancicek.artan.ml.stats.{Distribution, MixtureDistribution, MixtureDistributionFactory}
+
 
 private[mixture] trait MixtureParams[TransformerType]
   extends HasInitialWeights with HasInitialWeightsCol with HasStepSizeCol with HasStepSize with HasSampleCol
   with HasUpdateHoldout with HasMinibatchSize {
 
-  def setInitialWeights(value: Array[Double]): TransformerType = set(initialWeights, value).asInstanceOf[TransformerType]
+  def setInitialWeights(value: Array[Double]): TransformerType = set(initialWeights, value)
+    .asInstanceOf[TransformerType]
 
-  def setInitialWeightsCol(value: String): TransformerType = set(initialWeightsCol, value).asInstanceOf[TransformerType]
+  def setInitialWeightsCol(value: String): TransformerType = set(initialWeightsCol, value)
+    .asInstanceOf[TransformerType]
 
   def setStepSize(value: Double): TransformerType = set(stepSize, value).asInstanceOf[TransformerType]
 
@@ -44,7 +47,7 @@ private[mixture] trait MixtureUpdateSpec[
   SampleType,
   DistributionType <: Distribution[SampleType, DistributionType],
   MixtureType <: MixtureDistribution[SampleType, DistributionType, MixtureType],
-  InputType <: MixtureInput[SampleType],
+  InputType <: MixtureInput[SampleType, DistributionType, MixtureType],
   StateType <: MixtureState[SampleType, DistributionType, MixtureType],
   OutputType <: MixtureOutput[SampleType, DistributionType, MixtureType]] extends StateUpdateSpec[
   String, InputType, StateType, OutputType]{
@@ -53,29 +56,69 @@ private[mixture] trait MixtureUpdateSpec[
 
   def minibatchSize: Int
 
-  protected def getInitialState(row: InputType): StateType
+  protected def stateToOutput(
+    key: String,
+    row: InputType,
+    state: StateType): List[OutputType] = {
+    if (state.samples.isEmpty) {
+      List(stateFactory.createOutput(
+        key,
+        state.stateIndex,
+        state.mixtureModel,
+        row.eventTime))
+    } else {
+      List.empty[OutputType]
+    }
+  }
+
+  protected def getInitState(row: InputType): StateType = {
+    val weightedDist = MixtureDistribution.weightedMixture[SampleType, DistributionType, MixtureType](
+      row.initialMixtureModel)
+    stateFactory.createState(
+      0L,
+      List.empty[SampleType],
+      weightedDist,
+      row.initialMixtureModel
+    )
+  }
 
   protected def calculateNextState(
     row: InputType,
-    state: Option[StateType]): (Long, List[SampleType], MixtureType, MixtureType) = {
-    val currentState = state.getOrElse(getInitialState(row))
+    state: Option[StateType]): Option[StateType] = {
+    val currentState = state.getOrElse(getInitState(row))
     val newSamples = row.sample :: currentState.samples
 
     val nextState = if (newSamples.size < minibatchSize) {
-      (currentState.stateIndex, newSamples, currentState.summaryModel,currentState.mixtureModel)
+      stateFactory.createState(currentState.stateIndex, newSamples, currentState.summaryModel,currentState.mixtureModel)
     } else {
-      val newSummaryModel = currentState
-        .summaryModel
-        .stochasticUpdate(currentState.mixtureModel, newSamples, row.stepSize)
+      val newSummaryModel = MixtureDistribution
+        .stochasticUpdate[SampleType, DistributionType, MixtureType](
+        currentState.summaryModel, currentState.mixtureModel, newSamples, row.stepSize)
 
       val newMixtureModel = if (currentState.stateIndex < updateHoldout) {
         currentState.mixtureModel
       } else {
-        newSummaryModel.reWeightedDistributions
+        MixtureDistribution.inverseWeightedMixture[SampleType, DistributionType, MixtureType](
+          newSummaryModel)
       }
 
-      (currentState.stateIndex + 1, List.empty[SampleType], newSummaryModel, newMixtureModel)
+      stateFactory.createState(currentState.stateIndex + 1, List.empty[SampleType], newSummaryModel, newMixtureModel)
     }
-    nextState
+    Some(nextState)
   }
+
+  protected implicit def stateFactory: MixtureStateFactory[
+    SampleType, DistributionType, MixtureType, StateType, OutputType]
+
+  protected implicit def mixtureFactory: MixtureDistributionFactory[
+    SampleType, DistributionType, MixtureType] = stateFactory.distributionFactory
+
+  protected def updateGroupState(
+    key: String,
+    row: InputType,
+    state: Option[StateType]): Option[StateType] = {
+
+    calculateNextState(row, state)
+  }
+
 }

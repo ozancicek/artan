@@ -48,26 +48,28 @@ trait Distribution[SampleType, DistributionType <: Distribution[SampleType, Dist
 sealed trait MixtureDistribution[
   SampleType,
   DistributionType <: Distribution[SampleType, DistributionType],
-  ImplType <: MixtureDistribution[SampleType, DistributionType, ImplType]] extends Product {
+  MixtureType <: MixtureDistribution[SampleType, DistributionType, MixtureType]] extends Product {
 
   def weights: Seq[Double]
   def distributions: Seq[DistributionType]
 
-  def weightedDistributions: ImplType =  {
+  def weightedDistributions(
+    implicit mdf: MixtureDistributionFactory[SampleType, DistributionType, MixtureType]): MixtureType =  {
     val dists = distributions.zip(weights).map {
       case (dist, w) => dist.scal(w)
     }
-    asDistribution(weights, dists)
+    mdf.create(weights, dists)
   }
 
-  def reWeightedDistributions: ImplType = {
+  def reWeightedDistributions(
+    implicit mdf: MixtureDistributionFactory[SampleType, DistributionType, MixtureType]): MixtureType = {
     val dists = distributions.zip(weights).map {
       case (dist, w) => dist.scal(1.0/w)
     }
-    asDistribution(weights, dists)
+    mdf.create(weights, dists)
   }
 
-  def weightedLikelihoods(samples: Seq[SampleType]): Seq[Seq[Double]] = {
+  private def weightedLikelihoods(samples: Seq[SampleType]): Seq[Seq[Double]] = {
     samples.map { sample =>
       val likelihoods = distributions.zip(weights).map {
         case (dist, weight) => dist.likelihood(sample) * weight
@@ -77,8 +79,9 @@ sealed trait MixtureDistribution[
     }.transpose
   }
 
-  def summary(
-    samples: Seq[SampleType]): (Seq[Double], Seq[DistributionType]) = {
+  private def summary(
+    samples: Seq[SampleType])(
+    implicit mdf: MixtureDistributionFactory[SampleType, DistributionType, MixtureType]): MixtureType = {
     val likelihoodWeights = weightedLikelihoods(samples)
 
     val weightSummary = likelihoodWeights.map(s => s.sum/samples.length)
@@ -86,32 +89,94 @@ sealed trait MixtureDistribution[
       case (dist, w) => dist.summarize(w, samples)
     }
 
-    (weightSummary, distsSummary)
+    mdf.create(weightSummary, distsSummary)
   }
+}
 
-  def asDistribution(newWeights: Seq[Double], newDists: Seq[DistributionType]): ImplType = {
-    this match {
-      case t: GaussianMixtureDistribution => GaussianMixtureDistribution(
-        newWeights, newDists.map(_.asInstanceOf[MultivariateGaussianDistribution])).asInstanceOf[ImplType]
-      case t: PoissonMixtureDistribution => PoissonMixtureDistribution(
-        newWeights, newDists.map(_.asInstanceOf[PoissonDistribution])).asInstanceOf[ImplType]
-      case t: CategoricalMixtureDistribution => CategoricalMixtureDistribution(
-        newWeights, newDists.map(_.asInstanceOf[CategoricalDistribution])).asInstanceOf[ImplType]
+
+private[artan] trait MixtureDistributionFactory[
+  SampleType,
+  DistributionType <: Distribution[SampleType, DistributionType],
+  MixtureType <: MixtureDistribution[SampleType, DistributionType, MixtureType]]{
+
+  def create(weights: Seq[Double], dists: Seq[DistributionType]): MixtureType
+
+}
+
+object MixtureDistribution {
+
+  def factory[
+    SampleType,
+    DistributionType <: Distribution[SampleType, DistributionType],
+    MixtureType <: MixtureDistribution[SampleType, DistributionType, MixtureType]](
+    implicit mf: MixtureDistributionFactory[
+      SampleType,
+      DistributionType,
+      MixtureType]): MixtureDistributionFactory[SampleType, DistributionType, MixtureType] = mf
+
+  implicit val gaussianMD: MixtureDistributionFactory[
+    Vector, MultivariateGaussianDistribution, GaussianMixtureDistribution] = new MixtureDistributionFactory[
+    Vector, MultivariateGaussianDistribution, GaussianMixtureDistribution] {
+    def create(weights: Seq[Double], dists: Seq[MultivariateGaussianDistribution]): GaussianMixtureDistribution = {
+      GaussianMixtureDistribution(weights, dists)
     }
   }
 
-  def stochasticUpdate(
-    mixture: MixtureDistribution[SampleType, DistributionType, ImplType],
-    samples: Seq[SampleType],
-    stepSize: Double): ImplType = {
+  implicit val poissonMD: MixtureDistributionFactory[
+    Long, PoissonDistribution, PoissonMixtureDistribution] = new MixtureDistributionFactory[
+    Long, PoissonDistribution, PoissonMixtureDistribution] {
+    def create(weights: Seq[Double], dists: Seq[PoissonDistribution]): PoissonMixtureDistribution = {
+      PoissonMixtureDistribution(weights, dists)
+    }
+  }
 
-    val (summaryWeights, summaryDists) = mixture.summary(samples)
+  implicit val categoricalMD: MixtureDistributionFactory[
+    Int, CategoricalDistribution, CategoricalMixtureDistribution] = new MixtureDistributionFactory[
+    Int, CategoricalDistribution, CategoricalMixtureDistribution] {
+    def create(weights: Seq[Double], dists: Seq[CategoricalDistribution]): CategoricalMixtureDistribution = {
+      CategoricalMixtureDistribution(weights, dists)
+    }
+  }
 
-    val weightsSummary = weights
-      .zip(summaryWeights).map(s => (1 - stepSize) * s._1 + stepSize * s._2)
-    val distsSummary = distributions.zip(summaryDists).map { case (left, right) =>
+  def stochasticUpdate[
+    SampleType,
+    DistributionType <: Distribution[SampleType, DistributionType],
+    MixtureType <: MixtureDistribution[SampleType, DistributionType, MixtureType]](
+    summary: MixtureType, mixture: MixtureType, samples: Seq[SampleType], stepSize: Double)(
+    implicit mf: MixtureDistributionFactory[SampleType, DistributionType, MixtureType]): MixtureType = {
+
+    val summaryDist = mixture.summary(samples)
+
+    val weightsSummary = summary.weights
+      .zip(summaryDist.weights).map(s => (1 - stepSize) * s._1 + stepSize * s._2)
+    val distsSummary = summary.distributions.zip(summaryDist.distributions).map { case (left, right) =>
       right.scal(stepSize).axpy(1 - stepSize, left)
     }
-    asDistribution(weightsSummary, distsSummary)
+
+    mf.create(weightsSummary, distsSummary)
+  }
+
+  def weightedMixture[
+    SampleType,
+    DistributionType <: Distribution[SampleType, DistributionType],
+    MixtureType <: MixtureDistribution[SampleType, DistributionType, MixtureType]](
+    mixture: MixtureType)(
+    implicit mdf: MixtureDistributionFactory[SampleType, DistributionType, MixtureType]): MixtureType =  {
+    val dists = mixture.distributions.zip(mixture.weights).map {
+      case (dist, w) => dist.scal(w)
+    }
+    mdf.create(mixture.weights, dists)
+  }
+
+  def inverseWeightedMixture[
+    SampleType,
+    DistributionType <: Distribution[SampleType, DistributionType],
+    MixtureType <: MixtureDistribution[SampleType, DistributionType, MixtureType]](
+    mixture: MixtureType)(
+    implicit mdf: MixtureDistributionFactory[SampleType, DistributionType, MixtureType]): MixtureType =  {
+    val dists = mixture.distributions.zip(mixture.weights).map {
+      case (dist, w) => dist.scal(1.0/w)
+    }
+    mdf.create(mixture.weights, dists)
   }
 }

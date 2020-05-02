@@ -17,7 +17,7 @@
 
 package com.github.ozancicek.artan.ml.mixture
 
-import com.github.ozancicek.artan.ml.state.{GaussianMixtureInput, GaussianMixtureOutput, GaussianMixtureState, StatefulTransformer}
+import com.github.ozancicek.artan.ml.state.{GaussianMixtureInput, GaussianMixtureOutput, GaussianMixtureState, MixtureStateFactory, StatefulTransformer}
 import com.github.ozancicek.artan.ml.stats.{GaussianMixtureDistribution, MultivariateGaussianDistribution}
 import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector, Vector}
 import org.apache.spark.ml.param._
@@ -132,32 +132,13 @@ private[mixture] class GaussianMixtureUpdateSpec(val updateHoldout: Int, val min
     GaussianMixtureState,
     GaussianMixtureOutput] {
 
-  protected def stateToOutput(
-    key: String,
-    row: GaussianMixtureInput,
-    state: GaussianMixtureState): List[GaussianMixtureOutput] = {
-    if (state.samples.isEmpty) {
-      List(GaussianMixtureOutput(
-        key,
-        state.stateIndex,
-        state.mixtureModel,
-        row.eventTime))
-    } else {
-      List.empty[GaussianMixtureOutput]
-    }
-  }
+  protected implicit def stateFactory: MixtureStateFactory[
+    Vector,
+    MultivariateGaussianDistribution,
+    GaussianMixtureDistribution,
+    GaussianMixtureState,
+    GaussianMixtureOutput] = MixtureStateFactory.gaussianSF
 
-  protected def getInitialState(row: GaussianMixtureInput): GaussianMixtureState = {
-    GaussianMixtureState(0L, List.empty[Vector], row.initialMixtureModel.weightedDistributions, row.initialMixtureModel)
-  }
-
-  protected def updateGroupState(
-    key: String,
-    row: GaussianMixtureInput,
-    state: Option[GaussianMixtureState]): Option[GaussianMixtureState] = {
-    val (ind, samples, summary, model) = calculateNextState(row, state)
-    Some(GaussianMixtureState(ind, samples, summary, model))
-  }
 }
 
 
