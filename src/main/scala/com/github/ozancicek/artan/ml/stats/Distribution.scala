@@ -24,20 +24,26 @@ import org.apache.spark.ml.linalg.Vector
 case class GaussianMixtureDistribution(weights: Seq[Double], distributions: Seq[MultivariateGaussianDistribution])
   extends MixtureDistribution[Vector, MultivariateGaussianDistribution, GaussianMixtureDistribution]
 
+
 case class PoissonMixtureDistribution(weights: Seq[Double], distributions: Seq[PoissonDistribution])
   extends MixtureDistribution[Long, PoissonDistribution, PoissonMixtureDistribution]
+
+
+case class CategoricalMixtureDistribution(weights: Seq[Double], distributions: Seq[CategoricalDistribution])
+  extends MixtureDistribution[Int, CategoricalDistribution, CategoricalMixtureDistribution]
 
 
 trait Distribution[SampleType, DistributionType <: Distribution[SampleType, DistributionType]] extends Product {
 
   def likelihood(sample: SampleType): Double
 
-  def weightedDistribution(weight: Double): DistributionType
+  def scal(weight: Double): DistributionType
 
-  def summarize(weights: Seq[Double], samples: Seq[SampleType], norm: Double): DistributionType
+  def summarize(weights: Seq[Double], samples: Seq[SampleType]): DistributionType
 
-  def add(weight: Double, other: DistributionType): DistributionType
+  def axpy(weight: Double, other: DistributionType): DistributionType
 }
+
 
 sealed trait MixtureDistribution[
   SampleType,
@@ -49,14 +55,14 @@ sealed trait MixtureDistribution[
 
   def weightedDistributions: ImplType =  {
     val dists = distributions.zip(weights).map {
-      case (dist, w) => dist.weightedDistribution(w)
+      case (dist, w) => dist.scal(w)
     }
     asDistribution(weights, dists)
   }
 
   def reWeightedDistributions: ImplType = {
     val dists = distributions.zip(weights).map {
-      case (dist, w) => dist.weightedDistribution(1.0/w)
+      case (dist, w) => dist.scal(1.0/w)
     }
     asDistribution(weights, dists)
   }
@@ -71,12 +77,13 @@ sealed trait MixtureDistribution[
     }.transpose
   }
 
-  def weightedSummary(
-    samples: Seq[SampleType], weight: Double): (Seq[Double], Seq[DistributionType]) = {
+  def summary(
+    samples: Seq[SampleType]): (Seq[Double], Seq[DistributionType]) = {
     val likelihoodWeights = weightedLikelihoods(samples)
-    val weightSummary = likelihoodWeights.map(s => weight * s.sum/samples.length)
+
+    val weightSummary = likelihoodWeights.map(s => s.sum/samples.length)
     val distsSummary = distributions.zip(likelihoodWeights).map {
-      case (dist, w) => dist.summarize(w, samples, samples.length/weight)
+      case (dist, w) => dist.summarize(w, samples)
     }
 
     (weightSummary, distsSummary)
@@ -88,6 +95,8 @@ sealed trait MixtureDistribution[
         newWeights, newDists.map(_.asInstanceOf[MultivariateGaussianDistribution])).asInstanceOf[ImplType]
       case t: PoissonMixtureDistribution => PoissonMixtureDistribution(
         newWeights, newDists.map(_.asInstanceOf[PoissonDistribution])).asInstanceOf[ImplType]
+      case t: CategoricalMixtureDistribution => CategoricalMixtureDistribution(
+        newWeights, newDists.map(_.asInstanceOf[CategoricalDistribution])).asInstanceOf[ImplType]
     }
   }
 
@@ -96,12 +105,12 @@ sealed trait MixtureDistribution[
     samples: Seq[SampleType],
     stepSize: Double): ImplType = {
 
-    val (summaryWeights, summaryDists) = mixture.weightedSummary(samples, stepSize)
-    val weightsSummary = weights
-      .zip(summaryWeights).map(s => (1 - stepSize) * s._1 + s._2)
+    val (summaryWeights, summaryDists) = mixture.summary(samples)
 
+    val weightsSummary = weights
+      .zip(summaryWeights).map(s => (1 - stepSize) * s._1 + stepSize * s._2)
     val distsSummary = distributions.zip(summaryDists).map { case (left, right) =>
-      right.add(1 - stepSize, left)
+      right.scal(stepSize).axpy(1 - stepSize, left)
     }
     asDistribution(weightsSummary, distsSummary)
   }

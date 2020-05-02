@@ -24,15 +24,15 @@ case class PoissonDistribution(rate: Double) extends Distribution[Long, PoissonD
 
   override def likelihood(sample: Long): Double = pmf(sample)
 
-  override def weightedDistribution(weight: Double): PoissonDistribution = PoissonDistribution(weight * rate)
+  override def scal(weight: Double): PoissonDistribution = PoissonDistribution(weight * rate)
 
-  override def add(weight: Double, other: PoissonDistribution): PoissonDistribution = {
+  override def axpy(weight: Double, other: PoissonDistribution): PoissonDistribution = {
     PoissonDistribution(other.rate * weight + rate)
   }
 
-  override def summarize(weights: Seq[Double], samples: Seq[Long], norm: Double): PoissonDistribution = {
+  override def summarize(weights: Seq[Double], samples: Seq[Long]): PoissonDistribution = {
     val newRate = weights.zip(samples).foldLeft(0.0) {
-      case(s, cur) => s + cur._1 * cur._2 / norm
+      case(s, cur) => s + cur._1 * cur._2 /samples.length
     }
     PoissonDistribution(newRate)
   }

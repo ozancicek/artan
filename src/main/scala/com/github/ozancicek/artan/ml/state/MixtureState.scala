@@ -78,6 +78,31 @@ case class GaussianMixtureOutput(
   extends MixtureOutput[Vector, MultivariateGaussianDistribution, GaussianMixtureDistribution]
 
 
+private[ml] case class CategoricalMixtureInput(
+    stateKey: String,
+    sample: Int,
+    stepSize: Double,
+    initialMixtureModel: CategoricalMixtureDistribution,
+    eventTime: Option[Timestamp])
+  extends MixtureInput[Int]
+
+
+private[ml] case class CategoricalMixtureState(
+    stateIndex: Long,
+    samples: List[Int],
+    summaryModel: CategoricalMixtureDistribution,
+    mixtureModel: CategoricalMixtureDistribution)
+  extends MixtureState[Int, CategoricalDistribution, CategoricalMixtureDistribution]
+
+
+case class CategoricalMixtureOutput(
+    stateKey: String,
+    stateIndex: Long,
+    mixtureModel: CategoricalMixtureDistribution,
+    eventTime: Option[Timestamp])
+  extends MixtureOutput[Int, CategoricalDistribution, CategoricalMixtureDistribution]
+
+
 private[ml] case class PoissonMixtureInput(
     stateKey: String,
     sample: Long,

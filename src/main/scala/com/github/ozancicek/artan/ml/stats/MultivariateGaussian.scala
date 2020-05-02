@@ -29,19 +29,19 @@ case class MultivariateGaussianDistribution(mean: Vector, covariance: Matrix)
 
   override def likelihood(sample: Vector): Double = pdf(sample.toDense)
 
-  def summarize(weights: Seq[Double], samples: Seq[Vector], norm: Double): MultivariateGaussianDistribution = {
+  def summarize(weights: Seq[Double], samples: Seq[Vector]): MultivariateGaussianDistribution = {
     val meanSummary = new DenseVector(Array.fill(mean.size){0.0})
     val covSummary = DenseMatrix.zeros(covariance.numRows, covariance.numCols)
     samples.zip(weights).foreach { case(v, d) =>
-      BLAS.axpy(d/norm, v, meanSummary)
+      BLAS.axpy(d/samples.length, v, meanSummary)
       val residual = v.toDense.copy
       BLAS.axpy(-1.0, mean, residual)
-      BLAS.dger(d/norm, residual, residual, covSummary)
+      BLAS.dger(d/samples.length, residual, residual, covSummary)
     }
     MultivariateGaussianDistribution(meanSummary, covSummary)
   }
 
-  override def weightedDistribution(weight: Double): MultivariateGaussianDistribution = {
+  override def scal(weight: Double): MultivariateGaussianDistribution = {
     val weightedMean = mean.toDense.copy
     BLAS.scal(weight, weightedMean)
     val weightedCov = DenseMatrix.zeros(mean.size, mean.size)
@@ -49,7 +49,7 @@ case class MultivariateGaussianDistribution(mean: Vector, covariance: Matrix)
     MultivariateGaussianDistribution(weightedMean, weightedCov)
   }
 
-  override def add(weight: Double, other: MultivariateGaussianDistribution): MultivariateGaussianDistribution = {
+  override def axpy(weight: Double, other: MultivariateGaussianDistribution): MultivariateGaussianDistribution = {
     val newMean = mean.copy
     BLAS.axpy(weight, other.mean, newMean)
     val newCov = covariance.toDense.copy
