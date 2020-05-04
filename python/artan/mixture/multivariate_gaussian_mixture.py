@@ -99,7 +99,7 @@ class _HasInitialCovariancesCol(Params):
 
 class _HasGaussianMixtureModelCol(Params):
     """
-    Mixin for initial means parameter.
+    Mixin for gaussian mixture model parameter.
     """
 
     gaussianMixtureModelCol = Param(

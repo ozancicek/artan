@@ -17,9 +17,14 @@
 
 
 from artan.testing.sql_utils import ReusedSparkTestCase
-from artan.mixture import MultivariateGaussianMixture
+from artan.mixture import (
+    MultivariateGaussianMixture, PoissonMixture)
 from pyspark.ml.linalg import Vectors
 import numpy as np
+
+
+def _mae(left, right):
+    return np.mean(np.abs(left - right))
 
 
 class MultivariateGaussianMixtureTests(ReusedSparkTestCase):
@@ -42,10 +47,6 @@ class MultivariateGaussianMixtureTests(ReusedSparkTestCase):
         np.random.shuffle(samples_arr)
         return [(Vectors.dense(sample),) for sample in samples_arr]
 
-    @staticmethod
-    def _mae(left, right):
-        return np.mean(np.abs(left - right))
-
     def test_online_gmm(self):
         mb_size = 1
         sample_size = 5000
@@ -66,12 +67,12 @@ class MultivariateGaussianMixtureTests(ReusedSparkTestCase):
             .collect()[0]
 
         mixture_model = result.mixtureModel
-        mae_weights = self._mae(np.array(mixture_model.weights), np.array(self.weights))
+        mae_weights = _mae(np.array(mixture_model.weights), np.array(self.weights))
         assert(mae_weights < 0.2)
         for i, dist in enumerate(mixture_model.distributions):
-            mae_mean = self._mae(dist.mean.toArray(), np.array(self.means[i]))
+            mae_mean = _mae(dist.mean.toArray(), np.array(self.means[i]))
             assert(mae_mean < 3)
-            mae_cov = self._mae(
+            mae_cov = _mae(
                 dist.covariance.toArray().reshape(4), np.array(self.covs[i]))
             assert(mae_cov < 4)
 
@@ -98,8 +99,53 @@ class MultivariateGaussianMixtureTests(ReusedSparkTestCase):
         np.testing.assert_array_almost_equal(
             np.array(mixture_model.weights), np.array(self.weights), decimal=1)
         for i, dist in enumerate(mixture_model.distributions):
-            mae_mean = self._mae(dist.mean.toArray(), np.array(self.means[i]))
+            mae_mean = _mae(dist.mean.toArray(), np.array(self.means[i]))
             assert(mae_mean < 0.35)
-            mae_cov = self._mae(
+            mae_cov = _mae(
                 dist.covariance.toArray().reshape(4), np.array(self.covs[i]))
             assert(mae_cov < 1.0)
+
+
+class PoissonMixtureTests(ReusedSparkTestCase):
+
+    np.random.seed(0)
+    weights = [0.1, 0.7, 0.2]
+    rates = [5.0, 10.0, 30.0]
+
+    @staticmethod
+    def generate_samples(weights, rates, size):
+        samples = []
+        for weight, rate in zip(weights, rates):
+            seq_size = int(weight * size)
+            seq = np.random.poisson(
+               rate, size=seq_size)
+            samples.append(seq)
+
+        samples_arr = np.concatenate(samples)
+        np.random.shuffle(samples_arr)
+        return [(int(sample),) for sample in samples_arr]
+
+    def test_online_pmm(self):
+        mb_size = 1
+        sample_size = 1000
+
+        samples = self.generate_samples(self.weights, self.rates, sample_size)
+
+        samples_df = self.spark.createDataFrame(samples, ["sample"])
+
+        pmm = PoissonMixture(3) \
+            .setInitialRates([1.0, 7.0, 10.0]) \
+            .setStepSize(0.85) \
+            .setMinibatchSize(mb_size)\
+            .setEnableDecayingStepSize()
+
+        result = pmm.transform(samples_df) \
+            .filter("stateIndex == {}".format(int(sample_size/mb_size))) \
+            .collect()[0]
+
+        mixture_model = result.mixtureModel
+        mae_weights = _mae(np.array(mixture_model.weights), np.array(self.weights))
+        assert(mae_weights < 0.05)
+        for i, dist in enumerate(mixture_model.distributions):
+            mae_rate = _mae(dist.rate, self.rates[i])
+            assert(mae_rate < 1.5)

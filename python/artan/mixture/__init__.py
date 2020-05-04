@@ -17,3 +17,4 @@
 
 
 from artan.mixture.multivariate_gaussian_mixture import MultivariateGaussianMixture
+from artan.mixture.poisson_mixture import PoissonMixture
