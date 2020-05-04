@@ -61,9 +61,9 @@ class CategoricalMixtureSpec
       val weights = Array(0.55, 0.45)
 
       val g1 = CategoricalDistribution(
-        new DenseVector(Array(0.6, 0.3, 0.2, 0.1)))
+        new DenseVector(Array(0.6, 0.2, 0.15, 0.05)))
       val g2 = CategoricalDistribution(
-        new DenseVector(Array(0.1, 0.2, 0.3, 0.6)))
+        new DenseVector(Array(0.05, 0.15, 0.2, 0.6)))
 
       val dists = Array(g1, g2)
 
@@ -71,7 +71,7 @@ class CategoricalMixtureSpec
         .map(CategoricalSeq(_))
 
       val em = new CategoricalMixture(2)
-        .setInitialProbabilities(Array(Array(0.35, 0.25, 0.25, 0.15), Array(0.15, 0.25, 0.25, 0.35)))
+        .setInitialProbabilities(Array(Array(0.26, 0.25, 0.25, 0.24), Array(0.24, 0.25, 0.25, 0.26)))
         .setStepSize(0.1)
         .setMinibatchSize(10)
         .setUpdateHoldout(1)
@@ -96,7 +96,7 @@ class CategoricalMixtureSpec
         val maeProbs = probs.indices.foldLeft(0.0) {
           case(s, i) => s + (probs(i).asBreeze - dists(i).probabilities.asBreeze).reduce(abs(_) + abs(_))
         } / (coeffs.length * 4)
-        val meanThreshold = 0.1
+        val meanThreshold = 0.2
 
         assert(maeCoeffs < coeffThreshold)
         assert(maeProbs < meanThreshold)
