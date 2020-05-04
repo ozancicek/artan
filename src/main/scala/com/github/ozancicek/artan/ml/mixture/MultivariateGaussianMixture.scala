@@ -43,8 +43,7 @@ class MultivariateGaussianMixture(
     GaussianMixtureOutput,
     MultivariateGaussianMixture]
   with HasGaussianMixtureModelCol with HasInitialMeans with HasInitialMeansCol
-  with HasInitialCovariances with HasInitialCovariancesCol with HasSampleSize
-  with MixtureParams[MultivariateGaussianMixture] {
+  with HasInitialCovariances with HasInitialCovariancesCol with MixtureParams[MultivariateGaussianMixture] {
 
   protected implicit val stateKeyEncoder = Encoders.STRING
 
@@ -68,9 +67,6 @@ class MultivariateGaussianMixture(
     set(initialCovariances, value)
   }
 
-  def setSampleSize(value: Int): MultivariateGaussianMixture = {
-    set(sampleSize, value)
-  }
   /**
    * Applies the transformation to dataset schema
    */
@@ -95,7 +91,7 @@ class MultivariateGaussianMixture(
         (weights: Seq[Double], means: Seq[Seq[Double]], covariances: Seq[Seq[Double]]) => {
           val gaussians = means.zip(covariances).map { s =>
             val meanVector = new DenseVector(s._1.toArray)
-            val covMatrix = new DenseMatrix(getSampleSize, getSampleSize, s._2.toArray)
+            val covMatrix = new DenseMatrix(s._1.size, s._1.size, s._2.toArray)
             MultivariateGaussianDistribution(meanVector, covMatrix)
           }
           GaussianMixtureDistribution(weights, gaussians)
@@ -123,7 +119,7 @@ class MultivariateGaussianMixture(
     GaussianMixtureDistribution,
     GaussianMixtureInput,
     GaussianMixtureState,
-    GaussianMixtureOutput](getUpdateHoldout, getMinibatchSize)
+    GaussianMixtureOutput](getUpdateHoldout, getMinibatchSize, getDecayingStepSizeEnabled)
 
 }
 
@@ -138,6 +134,7 @@ private[mixture] trait HasInitialMeans extends Params {
   final def getInitialMeans: Array[Array[Double]] = $(initialMeans)
 }
 
+
 private[mixture] trait HasInitialMeansCol extends Params {
 
   final val initialMeansCol: Param[String] = new Param[String](
@@ -148,6 +145,7 @@ private[mixture] trait HasInitialMeansCol extends Params {
 
   final def getInitialMeansCol: String = $(initialMeansCol)
 }
+
 
 private[mixture] trait HasInitialCovariances extends Params {
 
@@ -172,16 +170,6 @@ private[mixture] trait HasInitialCovariancesCol extends Params {
   final def getInitialCovariancesCol: String = $(initialCovariancesCol)
 }
 
-private[mixture] trait HasSampleSize extends Params {
-
-  final val sampleSize: Param[Int] = new IntParam(
-    this,
-    "sampleSize",
-    "sampleSize"
-  )
-
-  final def getSampleSize: Int = $(sampleSize)
-}
 
 private[mixture] trait HasGaussianMixtureModelCol extends Params {
 

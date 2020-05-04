@@ -102,7 +102,7 @@ class CategoricalMixture(
     CategoricalMixtureDistribution,
     CategoricalMixtureInput,
     CategoricalMixtureState,
-    CategoricalMixtureOutput](getUpdateHoldout, getMinibatchSize)
+    CategoricalMixtureOutput](getUpdateHoldout, getMinibatchSize, getDecayingStepSizeEnabled)
 
 }
 

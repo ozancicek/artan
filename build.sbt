@@ -20,7 +20,7 @@ val longDesc = """Model-parallel kalman and bayesian filtering with Apache Spark
 
 lazy val settings = Seq(
   scalaVersion := scalaVer,
-  version := "0.2.0",
+  version := "0.2.0-SNAPSHOT",
   organization := "com.github.ozancicek",
   organizationName := "ozancicek",
   sparkVersion := sparkVer,

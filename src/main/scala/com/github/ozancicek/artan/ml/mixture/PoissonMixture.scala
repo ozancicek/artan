@@ -96,7 +96,7 @@ class PoissonMixture(
     PoissonMixtureDistribution,
     PoissonMixtureInput,
     PoissonMixtureState,
-    PoissonMixtureOutput](getUpdateHoldout, getMinibatchSize)
+    PoissonMixtureOutput](getUpdateHoldout, getMinibatchSize, getDecayingStepSizeEnabled)
 
 }
 

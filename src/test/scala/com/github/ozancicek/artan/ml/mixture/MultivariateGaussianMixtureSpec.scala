@@ -76,7 +76,6 @@ class MultivariateGaussianMixtureSpec
 
       val eye = Array(1.0, 0.0, 0.0, 1.0)
       val em = new MultivariateGaussianMixture(3)
-        .setSampleSize(2)
         .setInitialMeans(Array(Array(9.0, 9.0), Array(1.0, 1.0), Array(5.0, 5.0)))
         .setInitialCovariances(Array(eye, eye, eye))
         .setStepSize(0.01)

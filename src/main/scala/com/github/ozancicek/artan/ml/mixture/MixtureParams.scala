@@ -72,6 +72,19 @@ private[mixture] trait HasStepSizeCol extends Params {
 }
 
 
+private[mixture] trait HasDecayingStepSizeEnabled extends Params {
+
+  final val decayingStepSizeEnabled: Param[Boolean] = new BooleanParam(
+    this,
+    "decayingStepSizeEnabled",
+    "decayingStepSizeEnabled"
+  )
+  setDefault(decayingStepSizeEnabled, false)
+
+  final def getDecayingStepSizeEnabled: Boolean = $(decayingStepSizeEnabled)
+}
+
+
 private[mixture] trait HasMinibatchSize extends Params {
 
   final val minibatchSize: Param[Int] = new IntParam(
@@ -103,7 +116,7 @@ private[mixture] trait HasUpdateHoldout extends Params {
 /**
  * Param for sample column
  */
-private[artan] trait HasSampleCol extends Params {
+private[mixture] trait HasSampleCol extends Params {
 
   /**
    * Param for measurement column containing measurement vector.

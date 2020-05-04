@@ -20,10 +20,12 @@ package com.github.ozancicek.artan.ml.mixture
 import com.github.ozancicek.artan.ml.state.{MixtureInput, MixtureOutput, MixtureState, MixtureStateFactory, StateUpdateSpec}
 import com.github.ozancicek.artan.ml.stats.{Distribution, MixtureDistribution, MixtureDistributionFactory}
 
+import scala.math.pow
+
 
 private[mixture] trait MixtureParams[TransformerType]
   extends HasInitialWeights with HasInitialWeightsCol with HasStepSizeCol with HasStepSize with HasSampleCol
-  with HasUpdateHoldout with HasMinibatchSize {
+  with HasUpdateHoldout with HasMinibatchSize with HasDecayingStepSizeEnabled {
 
   def setInitialWeights(value: Array[Double]): TransformerType = set(initialWeights, value)
     .asInstanceOf[TransformerType]
@@ -40,6 +42,9 @@ private[mixture] trait MixtureParams[TransformerType]
   def setUpdateHoldout(value: Int): TransformerType = set(updateHoldout, value).asInstanceOf[TransformerType]
 
   def setMinibatchSize(value: Int): TransformerType = set(minibatchSize, value).asInstanceOf[TransformerType]
+
+  def setEnableDecayingStepSize: TransformerType = set(decayingStepSizeEnabled, true).asInstanceOf[TransformerType]
+
 }
 
 
@@ -50,7 +55,7 @@ private[mixture] class MixtureUpdateSpec[
   InputType <: MixtureInput[SampleType, DistributionType, MixtureType],
   StateType <: MixtureState[SampleType, DistributionType, MixtureType],
   OutputType <: MixtureOutput[SampleType, DistributionType, MixtureType]](
-  updateHoldout: Int, minibatchSize: Int)(implicit
+  updateHoldout: Int, minibatchSize: Int, decayingStepSize: Boolean)(implicit
   stateFactory: MixtureStateFactory[
     SampleType, DistributionType, MixtureType, StateType, OutputType],
   mixtureFactory: MixtureDistributionFactory[
@@ -92,9 +97,12 @@ private[mixture] class MixtureUpdateSpec[
       stateFactory.createState(
         currentState.stateIndex, newSamples, currentState.summaryModel, currentState.mixtureModel)
     } else {
+
+      val stepSize = if (decayingStepSize) pow(2 + currentState.stateIndex, -row.stepSize) else row.stepSize
+
       val newSummaryModel = MixtureDistribution
         .stochasticUpdate[SampleType, DistributionType, MixtureType](
-        currentState.summaryModel, currentState.mixtureModel, newSamples, row.stepSize)
+        currentState.summaryModel, currentState.mixtureModel, newSamples, stepSize)
 
       val newMixtureModel = if (currentState.stateIndex < updateHoldout) {
         currentState.mixtureModel
