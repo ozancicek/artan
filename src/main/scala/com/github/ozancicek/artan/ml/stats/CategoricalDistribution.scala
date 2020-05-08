@@ -20,13 +20,11 @@ package com.github.ozancicek.artan.ml.stats
 import org.apache.spark.ml.BLAS
 import org.apache.spark.ml.linalg.{DenseVector, Vector}
 
+import scala.math.log
 
 case class CategoricalDistribution(probabilities: Vector) extends Distribution[Int, CategoricalDistribution] {
 
-  override def likelihood(sample: Int): Double = {
-    val res = probabilities(sample)
-    res
-  }
+  override def loglikelihood(sample: Int): Double = log(probabilities(sample))
 
   override def scal(weight: Double): CategoricalDistribution = {
     val newProbs = probabilities.copy

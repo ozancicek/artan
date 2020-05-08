@@ -19,7 +19,7 @@
 package com.github.ozancicek.artan.ml.stats
 
 import org.apache.spark.ml.linalg.Vector
-
+import scala.math.{log, exp}
 
 case class GaussianMixtureDistribution(weights: Seq[Double], distributions: Seq[MultivariateGaussianDistribution])
   extends MixtureDistribution[Vector, MultivariateGaussianDistribution, GaussianMixtureDistribution]
@@ -37,7 +37,7 @@ trait Distribution[
   SampleType,
   DistributionType <: Distribution[SampleType, DistributionType]] extends Product {
 
-  def likelihood(sample: SampleType): Double
+  def loglikelihood(sample: SampleType): Double
 
   def scal(weight: Double): DistributionType
 
@@ -59,10 +59,16 @@ sealed trait MixtureDistribution[
   private def weightedLikelihoods(samples: Seq[SampleType]): Seq[Seq[Double]] = {
     samples.map { sample =>
       val likelihoods = distributions.zip(weights).map {
-        case (dist, weight) => dist.likelihood(sample) * weight
+        case (dist, weight) => dist.loglikelihood(sample) + log(weight)
       }
-      val sumLikelihood = likelihoods.sum
-      likelihoods.map(_ / sumLikelihood)
+      // stable log sum for small probabilities
+      // https://en.wikipedia.org/wiki/Log_probability#Addition_in_log_space
+      val hd::tail = likelihoods.sorted(Ordering.Double.reverse).toList
+
+      val logProbSum = tail.foldLeft(hd) {
+        case (sum, elem) => sum + log(1 + exp(elem - hd))
+      }
+      likelihoods.map(ll => exp(ll - logProbSum))
     }.transpose
   }
 

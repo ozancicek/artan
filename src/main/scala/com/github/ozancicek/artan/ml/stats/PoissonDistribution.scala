@@ -17,12 +17,12 @@
 package com.github.ozancicek.artan.ml.stats
 
 import com.google.common.math.BigIntegerMath
-import scala.math.{exp, pow}
+import scala.math.log
 
 
 case class PoissonDistribution(rate: Double) extends Distribution[Long, PoissonDistribution] {
 
-  override def likelihood(sample: Long): Double = pmf(sample)
+  override def loglikelihood(sample: Long): Double = Poisson.logpmf(sample, rate)
 
   override def scal(weight: Double): PoissonDistribution = PoissonDistribution(weight * rate)
 
@@ -37,14 +37,13 @@ case class PoissonDistribution(rate: Double) extends Distribution[Long, PoissonD
     PoissonDistribution(newRate)
   }
 
-  def pmf(count: Long): Double = Poisson.pmf(count, rate)
 }
 
 private[ml] object Poisson {
 
-  def pmf(count: Long, rate: Double): Double = {
+  def logpmf(count: Long, rate:Double): Double = {
     val fac = BigIntegerMath.factorial(count.toInt).doubleValue()
-    pow(rate, count) * exp(-rate) / fac
+    -rate -log(fac) + log(rate)*count
   }
 
 }

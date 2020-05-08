@@ -21,13 +21,14 @@ import com.github.ozancicek.artan.ml.linalg.LinalgUtils
 import org.apache.spark.ml.{BLAS, LAPACK}
 import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector, Matrix, Vector}
 
-import scala.math.{Pi, exp, log}
+import scala.math.{Pi, log}
 
 
 case class MultivariateGaussianDistribution(mean: Vector, covariance: Matrix)
   extends Distribution[Vector, MultivariateGaussianDistribution] {
 
-  override def likelihood(sample: Vector): Double = pdf(sample.toDense)
+  override def loglikelihood(sample: Vector): Double = MultivariateGaussian
+    .logpdf(sample.toDense, mean.toDense, covariance.toDense)
 
   override def summarize(weights: Seq[Double], samples: Seq[Vector]): MultivariateGaussianDistribution = {
     val meanSummary = new DenseVector(Array.fill(mean.size){0.0})
@@ -56,8 +57,6 @@ case class MultivariateGaussianDistribution(mean: Vector, covariance: Matrix)
     BLAS.axpy(weight, other.covariance.toDense, newCov)
     MultivariateGaussianDistribution(newMean, newCov)
   }
-
-  def pdf(sample: DenseVector): Double = exp(MultivariateGaussian.logpdf(sample, mean.toDense, covariance.toDense))
 }
 
 
@@ -75,10 +74,18 @@ private[ml] object MultivariateGaussian {
   def logpdf(
     point: DenseVector,
     mean: DenseVector,
-    cov: DenseMatrix): Double = {
+    cov: DenseMatrix,
+    covRoot: Option[DenseMatrix] = None): Double = {
 
-    val root = cov.copy
-    LAPACK.dpotrf(root)
+    val root = covRoot match {
+      case Some(r) => r
+      case None => {
+        val r = cov.copy
+        LAPACK.dpotrf(r)
+        r
+      }
+    }
+
     val det = LinalgUtils.diag(root).values
       .map(log).reduce(_ + _)
 
