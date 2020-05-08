@@ -37,7 +37,7 @@ trait Distribution[
   SampleType,
   DistributionType <: Distribution[SampleType, DistributionType]] extends Product {
 
-  def loglikelihood(sample: SampleType): Double
+  def loglikelihoods(samples: Seq[SampleType]): Seq[Double]
 
   def scal(weight: Double): DistributionType
 
@@ -57,19 +57,22 @@ sealed trait MixtureDistribution[
   def distributions: Seq[DistributionType]
 
   private def weightedLikelihoods(samples: Seq[SampleType]): Seq[Seq[Double]] = {
-    samples.map { sample =>
-      val likelihoods = distributions.zip(weights).map {
-        case (dist, weight) => dist.loglikelihood(sample) + log(weight)
-      }
+
+    val weightedLikelihoods = distributions.zip(weights).map { case (dist, weight) =>
+      dist.loglikelihoods(samples).map(_ + log(weight))
+    }
+
+    val normedLikelihoods = weightedLikelihoods.transpose.map { distSamples =>
       // stable log sum for small probabilities
       // https://en.wikipedia.org/wiki/Log_probability#Addition_in_log_space
-      val hd::tail = likelihoods.sorted(Ordering.Double.reverse).toList
+      val hd::tail = distSamples.sorted(Ordering.Double.reverse).toList
 
       val logProbSum = tail.foldLeft(hd) {
         case (sum, elem) => sum + log(1 + exp(elem - hd))
       }
-      likelihoods.map(ll => exp(ll - logProbSum))
-    }.transpose
+      distSamples.map(ll => exp(ll - logProbSum))
+    }
+    normedLikelihoods.transpose
   }
 
   private def summary(

@@ -22,7 +22,7 @@ import scala.math.log
 
 case class PoissonDistribution(rate: Double) extends Distribution[Long, PoissonDistribution] {
 
-  override def loglikelihood(sample: Long): Double = Poisson.logpmf(sample, rate)
+  override def loglikelihoods(samples: Seq[Long]): Seq[Double] = samples.map(i => Poisson.logpmf(i, rate))
 
   override def scal(weight: Double): PoissonDistribution = PoissonDistribution(weight * rate)
 

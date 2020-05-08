@@ -24,7 +24,7 @@ import scala.math.log
 
 case class CategoricalDistribution(probabilities: Vector) extends Distribution[Int, CategoricalDistribution] {
 
-  override def loglikelihood(sample: Int): Double = log(probabilities(sample))
+  override def loglikelihoods(samples: Seq[Int]): Seq[Double] = samples.map(i => log(probabilities(i)))
 
   override def scal(weight: Double): CategoricalDistribution = {
     val newProbs = probabilities.copy

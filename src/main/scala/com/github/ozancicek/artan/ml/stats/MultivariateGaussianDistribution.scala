@@ -27,8 +27,14 @@ import scala.math.{Pi, log}
 case class MultivariateGaussianDistribution(mean: Vector, covariance: Matrix)
   extends Distribution[Vector, MultivariateGaussianDistribution] {
 
-  override def loglikelihood(sample: Vector): Double = MultivariateGaussian
-    .logpdf(sample.toDense, mean.toDense, covariance.toDense)
+  override def loglikelihoods(samples: Seq[Vector]): Seq[Double] = {
+    val normConst = MultivariateGaussian.normConst(mean.size, covariance.toDense)
+
+    samples.map { sample =>
+      MultivariateGaussian
+        .unnormalizedlogpdf(sample.toDense, mean.toDense, covariance.toDense) - normConst
+    }
+  }
 
   override def summarize(weights: Seq[Double], samples: Seq[Vector]): MultivariateGaussianDistribution = {
     val meanSummary = new DenseVector(Array.fill(mean.size){0.0})
@@ -71,24 +77,21 @@ private[ml] object MultivariateGaussian {
     res
   }
 
+  def normConst(
+    size: Int,
+    cov: DenseMatrix): Double = {
+    val root = cov.copy
+    LAPACK.dpotrf(root)
+
+    val det = LinalgUtils.diag(root).values.map(log).sum
+    size / 2.0 * log(2 * Pi) + det
+  }
+
   def logpdf(
     point: DenseVector,
     mean: DenseVector,
-    cov: DenseMatrix,
-    covRoot: Option[DenseMatrix] = None): Double = {
+    cov: DenseMatrix): Double = {
 
-    val root = covRoot match {
-      case Some(r) => r
-      case None => {
-        val r = cov.copy
-        LAPACK.dpotrf(r)
-        r
-      }
-    }
-
-    val det = LinalgUtils.diag(root).values
-      .map(log).reduce(_ + _)
-
-    unnormalizedlogpdf(point, mean, cov) - (mean.size / 2.0 * log(2 * Pi) + det)
+    unnormalizedlogpdf(point, mean, cov) - normConst(mean.size, cov)
   }
 }
