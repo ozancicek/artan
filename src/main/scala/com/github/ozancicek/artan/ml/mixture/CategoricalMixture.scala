@@ -63,12 +63,24 @@ class CategoricalMixture(
    * Applies the transformation to dataset schemas
    */
   def transformSchema(schema: StructType): StructType = {
+    if (!isSet(categoricalMixtureModelCol)) {
+      require(
+        isSet(initialProbabilities) | isSet(initialProbabilitiesCol),
+        "Initial probabilities or its dataframe column must be set")
+      if (isSet(initialProbabilitiesCol)) {
+        require(
+          schema(getInitialProbabilitiesCol).dataType == ArrayType(ArrayType(DoubleType)),
+          "Initial probabilities column should be a nested array of doubles with dimensions mixtureCount x featureSize")
+      }
+    }
     asDataFrameTransformSchema(outEncoder.schema)
   }
 
   def setInitialProbabilities(value: Array[Array[Double]]): CategoricalMixture = set(initialProbabilities, value)
 
   def setInitialProbabilitiesCol(value: String): CategoricalMixture = set(initialProbabilitiesCol, value)
+
+  def setInitialCategoricalMixtureModelCol(value: String): CategoricalMixture = set(categoricalMixtureModelCol, value)
 
   /**
    * Transforms dataset of count to dataframe of estimated states
@@ -97,7 +109,7 @@ class CategoricalMixture(
   }
 
   protected def stateUpdateSpec = new MixtureUpdateSpec[
-    Int,
+    Long,
     CategoricalDistribution,
     CategoricalMixtureDistribution,
     CategoricalMixtureInput,
@@ -126,7 +138,7 @@ private[mixture] trait HasInitialProbabilitiesCol extends Params {
     "initialProbabilitiesCol"
   )
 
-  final def getInitialMeansCol: String = $(initialProbabilitiesCol)
+  final def getInitialProbabilitiesCol: String = $(initialProbabilitiesCol)
 }
 
 

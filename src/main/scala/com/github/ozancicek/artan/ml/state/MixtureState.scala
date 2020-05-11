@@ -86,19 +86,19 @@ case class GaussianMixtureOutput(
 
 private[ml] case class CategoricalMixtureInput(
     stateKey: String,
-    sample: Int,
+    sample: Long,
     stepSize: Double,
     initialMixtureModel: CategoricalMixtureDistribution,
     eventTime: Option[Timestamp])
-  extends MixtureInput[Int, CategoricalDistribution, CategoricalMixtureDistribution]
+  extends MixtureInput[Long, CategoricalDistribution, CategoricalMixtureDistribution]
 
 
 private[ml] case class CategoricalMixtureState(
     stateIndex: Long,
-    samples: List[Int],
+    samples: List[Long],
     summaryModel: CategoricalMixtureDistribution,
     mixtureModel: CategoricalMixtureDistribution)
-  extends MixtureState[Int, CategoricalDistribution, CategoricalMixtureDistribution]
+  extends MixtureState[Long, CategoricalDistribution, CategoricalMixtureDistribution]
 
 
 case class CategoricalMixtureOutput(
@@ -106,7 +106,7 @@ case class CategoricalMixtureOutput(
     stateIndex: Long,
     mixtureModel: CategoricalMixtureDistribution,
     eventTime: Option[Timestamp])
-  extends MixtureOutput[Int, CategoricalDistribution, CategoricalMixtureDistribution]
+  extends MixtureOutput[Long, CategoricalDistribution, CategoricalMixtureDistribution]
 
 
 private[ml] case class PoissonMixtureInput(
@@ -210,9 +210,9 @@ object MixtureStateFactory {
   }
 
   implicit val categoricalSF: MixtureStateFactory[
-    Int, CategoricalDistribution,
+    Long, CategoricalDistribution,
     CategoricalMixtureDistribution, CategoricalMixtureState, CategoricalMixtureOutput] = new MixtureStateFactory[
-    Int, CategoricalDistribution,
+    Long, CategoricalDistribution,
     CategoricalMixtureDistribution, CategoricalMixtureState, CategoricalMixtureOutput] {
 
     override def createOutput(
@@ -225,7 +225,7 @@ object MixtureStateFactory {
 
     def createState(
       stateIndex: Long,
-      samples: List[Int],
+      samples: List[Long],
       summary: CategoricalMixtureDistribution,
       mixture: CategoricalMixtureDistribution): CategoricalMixtureState = {
       CategoricalMixtureState(stateIndex, samples, summary, mixture)

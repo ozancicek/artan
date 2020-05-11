@@ -63,14 +63,44 @@ class MultivariateGaussianMixture(
     set(initialMeans, value)
   }
 
+  def setInitialMeansCol(value: String): MultivariateGaussianMixture = {
+    set(initialMeansCol, value)
+  }
+
   def setInitialCovariances(value: Array[Array[Double]]): MultivariateGaussianMixture = {
     set(initialCovariances, value)
+  }
+
+  def setInitialCovariancesCol(value: String): MultivariateGaussianMixture = {
+    set(initialCovariancesCol, value)
+  }
+
+  def setInitialGaussianMixtureModelCol(value: String): MultivariateGaussianMixture = {
+    set(gaussianMixtureModelCol, value)
   }
 
   /**
    * Applies the transformation to dataset schema
    */
   def transformSchema(schema: StructType): StructType = {
+    if (!isSet(gaussianMixtureModelCol)) {
+      require(
+        isSet(initialMeans) | isSet(initialMeansCol), "Initial means or its dataframe column must be set")
+      require(
+        isSet(initialCovariances) | isSet(initialCovariancesCol), "Initial covariances or its columns must be set")
+
+      if (isSet(initialMeansCol)) {
+        require(
+          schema(getInitialMeansCol).dataType == ArrayType(ArrayType(DoubleType)),
+          "Initial means column should be a nested array of doubles with dimensions mixtureCount x featureSize")
+      }
+      if (isSet(initialCovariancesCol)) {
+        require(
+          schema(getInitialCovariancesCol).dataType == ArrayType(ArrayType(DoubleType)),
+          "Initial covariances column should be a nested array of doubles with dimensions mixtureCount x featureSize^2"
+        )
+      }
+    }
     asDataFrameTransformSchema(outEncoder.schema)
   }
 

@@ -22,9 +22,9 @@ import org.apache.spark.ml.linalg.{DenseVector, Vector}
 
 import scala.math.log
 
-case class CategoricalDistribution(probabilities: Vector) extends Distribution[Int, CategoricalDistribution] {
+case class CategoricalDistribution(probabilities: Vector) extends Distribution[Long, CategoricalDistribution] {
 
-  override def loglikelihoods(samples: Seq[Int]): Seq[Double] = samples.map(i => log(probabilities(i)))
+  override def loglikelihoods(samples: Seq[Long]): Seq[Double] = samples.map(i => log(probabilities(i.toInt)))
 
   override def scal(weight: Double): CategoricalDistribution = {
     val newProbs = probabilities.copy
@@ -38,10 +38,10 @@ case class CategoricalDistribution(probabilities: Vector) extends Distribution[I
     CategoricalDistribution(newProbs)
   }
 
-  override def summarize(weights: Seq[Double], samples: Seq[Int]): CategoricalDistribution = {
+  override def summarize(weights: Seq[Double], samples: Seq[Long]): CategoricalDistribution = {
     val values = Array.fill(probabilities.size) {0.0}
     samples.zip(weights).foreach { case (v, d) =>
-      values(v) = values(v) + d/samples.length
+      values(v.toInt) = values(v.toInt) + d/samples.length
     }
     CategoricalDistribution(new DenseVector(values))
   }

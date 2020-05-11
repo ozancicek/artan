@@ -57,12 +57,23 @@ class PoissonMixture(
    * Applies the transformation to dataset schema
    */
   def transformSchema(schema: StructType): StructType = {
+    if (!isSet(poissonMixtureModelCol)) {
+      require(
+        isSet(initialRates) | isSet(initialRatesCol), "Initial rates or its dataframe column must be set")
+      if (isSet(initialRatesCol)) {
+        require(
+          schema(getInitialRatesCol).dataType == ArrayType(DoubleType),
+          "Initial probabilities column should be an array of doubles with size mixtureCount")
+      }
+    }
     asDataFrameTransformSchema(outEncoder.schema)
   }
 
   def setInitialRates(value: Array[Double]): PoissonMixture = set(initialRates, value)
 
   def setInitialRatesCol(value: String): PoissonMixture = set(initialRatesCol, value)
+
+  def setInitialPoissonMixtureModelCol(value: String): PoissonMixture = set(poissonMixtureModelCol, value)
 
   /**
    * Transforms dataset of count to dataframe of estimated states

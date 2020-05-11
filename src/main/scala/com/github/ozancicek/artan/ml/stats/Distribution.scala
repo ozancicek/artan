@@ -30,7 +30,7 @@ case class PoissonMixtureDistribution(weights: Seq[Double], distributions: Seq[P
 
 
 case class CategoricalMixtureDistribution(weights: Seq[Double], distributions: Seq[CategoricalDistribution])
-  extends MixtureDistribution[Int, CategoricalDistribution, CategoricalMixtureDistribution]
+  extends MixtureDistribution[Long, CategoricalDistribution, CategoricalMixtureDistribution]
 
 
 trait Distribution[
@@ -125,7 +125,7 @@ object MixtureDistribution {
   }
 
   implicit val categoricalMD = new MixtureDistributionFactory[
-    Int, CategoricalDistribution, CategoricalMixtureDistribution] {
+    Long, CategoricalDistribution, CategoricalMixtureDistribution] {
     def create(weights: Seq[Double], dists: Seq[CategoricalDistribution]): CategoricalMixtureDistribution = {
       CategoricalMixtureDistribution(weights, dists)
     }
