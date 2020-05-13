@@ -52,7 +52,7 @@ private[mixture] trait HasStepSize extends Params {
     this,
     "stepSize",
     "stepSize",
-    ParamValidators.lt(1.0)
+    ParamValidators.ltEq(1.0)
   )
 
   setDefault(stepSize, 0.01)

@@ -84,29 +84,29 @@ case class GaussianMixtureOutput(
   extends MixtureOutput[Vector, MultivariateGaussianDistribution, GaussianMixtureDistribution]
 
 
-private[ml] case class CategoricalMixtureInput(
+private[ml] case class BernoulliMixtureInput(
     stateKey: String,
-    sample: Long,
+    sample: Boolean,
     stepSize: Double,
-    initialMixtureModel: CategoricalMixtureDistribution,
+    initialMixtureModel: BernoulliMixtureDistribution,
     eventTime: Option[Timestamp])
-  extends MixtureInput[Long, CategoricalDistribution, CategoricalMixtureDistribution]
+  extends MixtureInput[Boolean, BernoulliDistribution, BernoulliMixtureDistribution]
 
 
-private[ml] case class CategoricalMixtureState(
+private[ml] case class BernoulliMixtureState(
     stateIndex: Long,
-    samples: List[Long],
-    summaryModel: CategoricalMixtureDistribution,
-    mixtureModel: CategoricalMixtureDistribution)
-  extends MixtureState[Long, CategoricalDistribution, CategoricalMixtureDistribution]
+    samples: List[Boolean],
+    summaryModel: BernoulliMixtureDistribution,
+    mixtureModel: BernoulliMixtureDistribution)
+  extends MixtureState[Boolean, BernoulliDistribution, BernoulliMixtureDistribution]
 
 
-case class CategoricalMixtureOutput(
+case class BernoulliMixtureOutput(
     stateKey: String,
     stateIndex: Long,
-    mixtureModel: CategoricalMixtureDistribution,
+    mixtureModel: BernoulliMixtureDistribution,
     eventTime: Option[Timestamp])
-  extends MixtureOutput[Long, CategoricalDistribution, CategoricalMixtureDistribution]
+  extends MixtureOutput[Boolean, BernoulliDistribution, BernoulliMixtureDistribution]
 
 
 private[ml] case class PoissonMixtureInput(
@@ -209,26 +209,26 @@ object MixtureStateFactory {
     }
   }
 
-  implicit val categoricalSF: MixtureStateFactory[
-    Long, CategoricalDistribution,
-    CategoricalMixtureDistribution, CategoricalMixtureState, CategoricalMixtureOutput] = new MixtureStateFactory[
-    Long, CategoricalDistribution,
-    CategoricalMixtureDistribution, CategoricalMixtureState, CategoricalMixtureOutput] {
+  implicit val bernoulliSF: MixtureStateFactory[
+    Boolean, BernoulliDistribution,
+    BernoulliMixtureDistribution, BernoulliMixtureState, BernoulliMixtureOutput] = new MixtureStateFactory[
+    Boolean, BernoulliDistribution,
+    BernoulliMixtureDistribution, BernoulliMixtureState, BernoulliMixtureOutput] {
 
     override def createOutput(
       stateKey: String,
       stateIndex: Long,
-      mixture: CategoricalMixtureDistribution,
-      eventTime: Option[Timestamp]): CategoricalMixtureOutput = {
-      CategoricalMixtureOutput(stateKey, stateIndex, mixture, eventTime)
+      mixture: BernoulliMixtureDistribution,
+      eventTime: Option[Timestamp]): BernoulliMixtureOutput = {
+      BernoulliMixtureOutput(stateKey, stateIndex, mixture, eventTime)
     }
 
     def createState(
       stateIndex: Long,
-      samples: List[Long],
-      summary: CategoricalMixtureDistribution,
-      mixture: CategoricalMixtureDistribution): CategoricalMixtureState = {
-      CategoricalMixtureState(stateIndex, samples, summary, mixture)
+      samples: List[Boolean],
+      summary: BernoulliMixtureDistribution,
+      mixture: BernoulliMixtureDistribution): BernoulliMixtureState = {
+      BernoulliMixtureState(stateIndex, samples, summary, mixture)
     }
   }
 

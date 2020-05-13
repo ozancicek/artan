@@ -17,20 +17,19 @@
 
 package com.github.ozancicek.artan.ml.mixture
 
-import breeze.stats.distributions.RandBasis
+import breeze.stats.distributions.{RandBasis, Bernoulli}
 import org.apache.spark.sql.functions.max
-import com.github.ozancicek.artan.ml.stats.{CategoricalDistribution, CategoricalMixtureDistribution}
+import com.github.ozancicek.artan.ml.stats.{BernoulliDistribution, BernoulliMixtureDistribution}
 import com.github.ozancicek.artan.ml.testutils.StructuredStreamingTestWrapper
 import org.scalatest.{FunSpec, Matchers}
-import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
-import org.apache.spark.ml.BreezeConversions._
+
 
 import scala.util.Random
 import scala.math.abs
 
-case class CategoricalSeq(sample: Int)
+case class BernoulliSeq(sample: Boolean)
 
-class CategoricalMixtureSpec
+class BernoulliMixtureSpec
   extends FunSpec
     with Matchers
     with StructuredStreamingTestWrapper {
@@ -39,13 +38,13 @@ class CategoricalMixtureSpec
   implicit val basis: RandBasis = RandBasis.withSeed(0)
   Random.setSeed(0L)
 
-  def generateCategoricalSequence(
+  def generateBernoulliSequence(
     size: Int,
     weights: Array[Double],
-    dists: Array[CategoricalDistribution]): Seq[Int] = {
+    dists: Array[BernoulliDistribution]): Seq[Boolean] = {
 
     val breezeDists = dists
-      .map(s => breeze.stats.distributions.Multinomial(s.probabilities.asBreeze))
+      .map(s => new Bernoulli(s.probability))
 
     val measurements = breezeDists.zip(weights).flatMap {
       case (dist, w) => (0 until (w*size).toInt).map(i => dist.draw())
@@ -54,38 +53,35 @@ class CategoricalMixtureSpec
   }
 
 
-  describe("Categorical mixture tests") {
-    describe("test with three component categorical seq") {
+  describe("Bernoulli mixture tests") {
+    describe("test with three component bernoulli seq") {
 
-      val size = 1000
-      val weights = Array(0.55, 0.45)
+      val size = 10000
+      val weights = Array(0.5, 0.5)
 
-      val g1 = CategoricalDistribution(
-        new DenseVector(Array(0.6, 0.2, 0.15, 0.05)))
-      val g2 = CategoricalDistribution(
-        new DenseVector(Array(0.05, 0.15, 0.2, 0.6)))
+      val g1 = BernoulliDistribution(0.7)
+      val g2 = BernoulliDistribution(0.9)
 
       val dists = Array(g1, g2)
 
-      val measurements = generateCategoricalSequence(size, weights, dists)
-        .map(CategoricalSeq(_))
+      val measurements = generateBernoulliSequence(size, weights, dists)
+        .map(BernoulliSeq(_))
 
-      val em = new CategoricalMixture(2)
-        .setInitialProbabilities(Array(Array(0.26, 0.25, 0.25, 0.24), Array(0.24, 0.25, 0.25, 0.26)))
+      val em = new BernoulliMixture(2)
+        .setInitialProbabilities(Array(0.4, 0.8))
         .setStepSize(0.1)
-        .setMinibatchSize(10)
+        .setMinibatchSize(30)
         .setUpdateHoldout(1)
 
       val state = em.transform(measurements.toDF).cache()
-
       val maxSize = state.select(max("stateIndex")).head.getAs[Long](0)
       val lastState = state
         .filter(s"stateIndex = ${maxSize}")
-        .select("mixtureModel.*").as[CategoricalMixtureDistribution].head()
+        .select("mixtureModel.*").as[BernoulliMixtureDistribution].head()
 
       it("should find the clusters") {
 
-        val probs = lastState.distributions.map(_.probabilities)
+        val probs = lastState.distributions.map(_.probability)
         val coeffs = lastState.weights
 
         val maeCoeffs = weights.indices.foldLeft(0.0) {
@@ -94,9 +90,9 @@ class CategoricalMixtureSpec
         val coeffThreshold = 0.1
 
         val maeProbs = probs.indices.foldLeft(0.0) {
-          case(s, i) => s + (probs(i).asBreeze - dists(i).probabilities.asBreeze).reduce(abs(_) + abs(_))
-        } / (coeffs.length * 4)
-        val meanThreshold = 0.2
+          case(s, i) => s + (probs(i) - dists(i).probability)
+        } / coeffs.length
+        val meanThreshold = 0.1
 
         assert(maeCoeffs < coeffThreshold)
         assert(maeProbs < meanThreshold)

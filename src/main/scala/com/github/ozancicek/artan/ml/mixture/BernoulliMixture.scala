@@ -17,8 +17,8 @@
 
 package com.github.ozancicek.artan.ml.mixture
 
-import com.github.ozancicek.artan.ml.state.{CategoricalMixtureInput, CategoricalMixtureOutput, CategoricalMixtureState, StatefulTransformer}
-import com.github.ozancicek.artan.ml.stats.{CategoricalDistribution, CategoricalMixtureDistribution}
+import com.github.ozancicek.artan.ml.state.{BernoulliMixtureInput, BernoulliMixtureOutput, BernoulliMixtureState, StatefulTransformer}
+import com.github.ozancicek.artan.ml.stats.{BernoulliDistribution, BernoulliMixtureDistribution}
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
@@ -29,33 +29,33 @@ import org.apache.spark.sql.types._
 
 
 /**
- * Online categorical mixture transformer, based on Cappe(2010) Online Expectation-Maximisation
+ * Online bernoulli mixture transformer, based on Cappe(2010) Online Expectation-Maximisation
  *
  * @param mixtureCount number of mixture components
  */
-class CategoricalMixture(
+class BernoulliMixture(
     val mixtureCount: Int,
     override val uid: String)
   extends StatefulTransformer[
     String,
-    CategoricalMixtureInput,
-    CategoricalMixtureState,
-    CategoricalMixtureOutput,
-    CategoricalMixture]
+    BernoulliMixtureInput,
+    BernoulliMixtureState,
+    BernoulliMixtureOutput,
+    BernoulliMixture]
   with HasInitialProbabilities with HasInitialProbabilitiesCol
-  with HasCategoricalMixtureModelCol with MixtureParams[CategoricalMixture] {
+  with HasBernoulliMixtureModelCol with MixtureParams[BernoulliMixture] {
 
   protected implicit val stateKeyEncoder = Encoders.STRING
 
-  def this(mixtureCount: Int) = this(mixtureCount, Identifiable.randomUID("CategoricalMixture"))
+  def this(mixtureCount: Int) = this(mixtureCount, Identifiable.randomUID("BernoulliMixture"))
 
-  protected val defaultStateKey: String = "em.CategoricalMixture.defaultStateKey"
+  protected val defaultStateKey: String = "em.BernoulliMixture.defaultStateKey"
 
   /**
    * Creates a copy of this instance with the same UID and some extra params.
    */
-  override def copy(extra: ParamMap): CategoricalMixture =  {
-    val that = new CategoricalMixture(mixtureCount)
+  override def copy(extra: ParamMap): BernoulliMixture =  {
+    val that = new BernoulliMixture(mixtureCount)
     copyValues(that, extra)
   }
 
@@ -63,24 +63,24 @@ class CategoricalMixture(
    * Applies the transformation to dataset schemas
    */
   def transformSchema(schema: StructType): StructType = {
-    if (!isSet(categoricalMixtureModelCol)) {
+    if (!isSet(bernoulliMixtureModelCol)) {
       require(
         isSet(initialProbabilities) | isSet(initialProbabilitiesCol),
         "Initial probabilities or its dataframe column must be set")
       if (isSet(initialProbabilitiesCol)) {
         require(
-          schema(getInitialProbabilitiesCol).dataType == ArrayType(ArrayType(DoubleType)),
-          "Initial probabilities column should be a nested array of doubles with dimensions mixtureCount x featureSize")
+          schema(getInitialProbabilitiesCol).dataType == ArrayType(DoubleType),
+          "Initial probabilities column should be an array of doubles with size mixtureCount")
       }
     }
     asDataFrameTransformSchema(outEncoder.schema)
   }
 
-  def setInitialProbabilities(value: Array[Array[Double]]): CategoricalMixture = set(initialProbabilities, value)
+  def setInitialProbabilities(value: Array[Double]): BernoulliMixture = set(initialProbabilities, value)
 
-  def setInitialProbabilitiesCol(value: String): CategoricalMixture = set(initialProbabilitiesCol, value)
+  def setInitialProbabilitiesCol(value: String): BernoulliMixture = set(initialProbabilitiesCol, value)
 
-  def setInitialCategoricalMixtureModelCol(value: String): CategoricalMixture = set(categoricalMixtureModelCol, value)
+  def setInitialBernoulliMixtureModelCol(value: String): BernoulliMixture = set(bernoulliMixtureModelCol, value)
 
   /**
    * Transforms dataset of count to dataframe of estimated states
@@ -92,12 +92,12 @@ class CategoricalMixture(
       .withColumn("sample", col($(sampleCol)))
       .withColumn("stepSize", getUDFWithDefault(stepSize, stepSizeCol))
 
-    val mixtureInput = if (isSet(categoricalMixtureModelCol)) {
-      counts.withColumn("initialMixtureModel", col(getCategoricalMixtureModelCol))
+    val mixtureInput = if (isSet(bernoulliMixtureModelCol)) {
+      counts.withColumn("initialMixtureModel", col(getBernoulliMixtureModelCol))
     } else {
       val mixtureModelFunc = udf(
-        (weights: Seq[Double], probabilities: Seq[Seq[Double]]) =>
-          CategoricalMixtureDistribution(weights, probabilities.map(r => CategoricalDistribution(new DenseVector(r.toArray)))))
+        (weights: Seq[Double], probabilities: Seq[Double]) =>
+          BernoulliMixtureDistribution(weights, probabilities.map(BernoulliDistribution(_))))
       val mixtureModelExpr = mixtureModelFunc(col("initialWeights"), col("initialProbabilities"))
       counts
         .withColumn("initialWeights", getUDFWithDefault(initialWeights, initialWeightsCol))
@@ -109,24 +109,24 @@ class CategoricalMixture(
   }
 
   protected def stateUpdateSpec = new MixtureUpdateSpec[
-    Long,
-    CategoricalDistribution,
-    CategoricalMixtureDistribution,
-    CategoricalMixtureInput,
-    CategoricalMixtureState,
-    CategoricalMixtureOutput](getUpdateHoldout, getMinibatchSize, getDecayingStepSizeEnabled)
+    Boolean,
+    BernoulliDistribution,
+    BernoulliMixtureDistribution,
+    BernoulliMixtureInput,
+    BernoulliMixtureState,
+    BernoulliMixtureOutput](getUpdateHoldout, getMinibatchSize, getDecayingStepSizeEnabled)
 
 }
 
 
 private[mixture] trait HasInitialProbabilities extends Params {
 
-  final val initialProbabilities: Param[Array[Array[Double]]] = new DoubleArrayArrayParam(
+  final val initialProbabilities: Param[Array[Double]] = new DoubleArrayParam(
     this,
     "initialProbabilities",
     "initialProbabilities")
 
-  final def getInitialMeans: Array[Array[Double]] = $(initialProbabilities)
+  final def getInitialMeans: Array[Double] = $(initialProbabilities)
 }
 
 
@@ -142,12 +142,12 @@ private[mixture] trait HasInitialProbabilitiesCol extends Params {
 }
 
 
-private[mixture] trait HasCategoricalMixtureModelCol extends Params {
+private[mixture] trait HasBernoulliMixtureModelCol extends Params {
 
-  final val categoricalMixtureModelCol: Param[String] = new Param[String](
+  final val bernoulliMixtureModelCol: Param[String] = new Param[String](
     this,
-    "categoricalMixtureModelCol",
-    "categoricalMixtureModelCol")
+    "bernoulliMixtureModelCol",
+    "bernoulliMixtureModelCol")
 
-  final def getCategoricalMixtureModelCol: String = $(categoricalMixtureModelCol)
+  final def getBernoulliMixtureModelCol: String = $(bernoulliMixtureModelCol)
 }

@@ -21,6 +21,7 @@ package com.github.ozancicek.artan.ml.stats
 import org.apache.spark.ml.linalg.Vector
 import scala.math.{log, exp}
 
+
 case class GaussianMixtureDistribution(weights: Seq[Double], distributions: Seq[MultivariateGaussianDistribution])
   extends MixtureDistribution[Vector, MultivariateGaussianDistribution, GaussianMixtureDistribution]
 
@@ -29,8 +30,8 @@ case class PoissonMixtureDistribution(weights: Seq[Double], distributions: Seq[P
   extends MixtureDistribution[Long, PoissonDistribution, PoissonMixtureDistribution]
 
 
-case class CategoricalMixtureDistribution(weights: Seq[Double], distributions: Seq[CategoricalDistribution])
-  extends MixtureDistribution[Long, CategoricalDistribution, CategoricalMixtureDistribution]
+case class BernoulliMixtureDistribution(weights: Seq[Double], distributions: Seq[BernoulliDistribution])
+  extends MixtureDistribution[Boolean, BernoulliDistribution, BernoulliMixtureDistribution]
 
 
 trait Distribution[
@@ -124,10 +125,10 @@ object MixtureDistribution {
     }
   }
 
-  implicit val categoricalMD = new MixtureDistributionFactory[
-    Long, CategoricalDistribution, CategoricalMixtureDistribution] {
-    def create(weights: Seq[Double], dists: Seq[CategoricalDistribution]): CategoricalMixtureDistribution = {
-      CategoricalMixtureDistribution(weights, dists)
+  implicit val bernoulliMD = new MixtureDistributionFactory[
+    Boolean, BernoulliDistribution, BernoulliMixtureDistribution] {
+    def create(weights: Seq[Double], dists: Seq[BernoulliDistribution]): BernoulliMixtureDistribution = {
+      BernoulliMixtureDistribution(weights, dists)
     }
   }
 

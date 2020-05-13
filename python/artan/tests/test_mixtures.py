@@ -20,12 +20,10 @@ from artan.testing.sql_utils import ReusedSparkTestCase
 from artan.mixture import (
     MultivariateGaussianMixture,
     PoissonMixture,
-    CategoricalMixture)
+    BernoulliMixture)
 from pyspark.ml.linalg import Vectors
 import pyspark.sql.functions as F
 import numpy as np
-
-np.random.seed(0)
 
 
 def _mae(left, right):
@@ -33,6 +31,7 @@ def _mae(left, right):
 
 
 class MultivariateGaussianMixtureTests(ReusedSparkTestCase):
+    np.random.seed(0)
 
     weights = [0.2, 0.3, 0.5]
     means = [[10.0, 2.0], [1.0, 4.0], [5.0, 3.0]]
@@ -111,6 +110,7 @@ class MultivariateGaussianMixtureTests(ReusedSparkTestCase):
 
 
 class PoissonMixtureTests(ReusedSparkTestCase):
+    np.random.seed(0)
 
     weights = [0.1, 0.7, 0.2]
     rates = [5.0, 10.0, 30.0]
@@ -151,43 +151,43 @@ class PoissonMixtureTests(ReusedSparkTestCase):
         assert(mae_weights < 0.1)
         for i, dist in enumerate(mixture_model.distributions):
             mae_rate = _mae(dist.rate, self.rates[i])
-            assert(mae_rate < 1.5)
+            assert(mae_rate < 2)
 
 
-class CategoricalMixtureTests(ReusedSparkTestCase):
+class BernoulliMixtureTests(ReusedSparkTestCase):
+    np.random.seed(0)
 
-    weights = [0.6, 0.4]
-    probabilities = [[0.6, 0.2, 0.15, 0.05], [0.05, 0.15, 0.2, 0.6]]
+    weights = [0.5, 0.5]
+    probabilities = [0.7, 0.9]
 
     @staticmethod
     def generate_samples(weights, probabilities, size):
         samples = []
         for weight, probs in zip(weights, probabilities):
             seq_size = int(weight * size)
-            seq = np.random.multinomial(
+            seq = np.random.binomial(
                 1, probs, size=seq_size)
             samples.append(seq)
 
         samples_arr = np.concatenate(samples)
         np.random.shuffle(samples_arr)
-        return [(i, ) for l in samples_arr.tolist() for (i, e) in enumerate(l) if e > 0]
+        return [(l, ) for l in samples_arr.tolist()]
 
-    def test_online_cmm(self):
-        mb_size = 100
+    def test_online_bmm(self):
+        mb_size = 30
         sample_size = 5000
 
         samples = self.generate_samples(self.weights, self.probabilities, sample_size)
 
         samples_df = self.spark.createDataFrame(samples, ["sample"])\
-            .withColumn("sample", F.col("sample").cast("Integer"))
+            .withColumn("sample", F.col("sample").cast("Boolean"))
 
-        cmm = CategoricalMixture(3) \
-            .setInitialProbabilities([[0.26, 0.25, 0.25, 0.24], [0.24, 0.25, 0.25, 0.26]]) \
-            .setStepSize(0.5) \
-            .setMinibatchSize(mb_size) \
-            .setEnableDecayingStepSize()
+        bmm = BernoulliMixture(2) \
+            .setInitialProbabilities([0.4, 0.8]) \
+            .setStepSize(0.1) \
+            .setMinibatchSize(mb_size)
 
-        result = cmm.transform(samples_df) \
+        result = bmm.transform(samples_df) \
             .filter("stateIndex == {}".format(int(sample_size/mb_size))) \
             .collect()[0]
 
@@ -195,5 +195,5 @@ class CategoricalMixtureTests(ReusedSparkTestCase):
         mae_weights = _mae(np.array(mixture_model.weights), np.array(self.weights))
         assert(mae_weights < 0.1)
         for i, dist in enumerate(mixture_model.distributions):
-            mae_mean = _mae(dist.probabilities.toArray(), np.array(self.probabilities[i]))
+            mae_mean = _mae(dist.probability, self.probabilities[i])
             assert(mae_mean < 0.2)

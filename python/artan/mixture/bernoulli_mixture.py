@@ -27,7 +27,7 @@ class _HasInitialProbabilities(Params):
 
     initialProbabilities = Param(
         Params._dummy(),
-        "initialProbabilities", "Initial Probabilities vectors of mixtures, as a list of list of floats")
+        "initialProbabilities", "Initial Probabilities vectors of mixtures, as a list of floats")
 
     def __init__(self):
         super(_HasInitialProbabilities, self).__init__()
@@ -60,43 +60,43 @@ class _HasInitialProbabilitiesCol(Params):
         return self.getOrDefault(self.initialProbabilitiesCol)
 
 
-class _HasCategoricalMixtureModelCol(Params):
+class _HasBernoulliMixtureModelCol(Params):
     """
-    Mixin for Categorical mixture model parameter.
+    Mixin for Bernoulli mixture model parameter.
     """
 
-    categoricalMixtureModelCol = Param(
+    bernoulliMixtureModelCol = Param(
         Params._dummy(),
-        "categoricalMixtureModelCol",
+        "bernoulliMixtureModelCol",
         "Initial mixture model from dataframe column", TypeConverters.toString)
 
     def __init__(self):
-        super(_HasCategoricalMixtureModelCol, self).__init__()
+        super(_HasBernoulliMixtureModelCol, self).__init__()
 
-    def getCategoricalMixtureModelCol(self):
+    def getBernoulliMixtureModelCol(self):
         """
         Gets the value of cmm col or its default value.
         """
-        return self.getOrDefault(self.categoricalMixtureModelCol)
+        return self.getOrDefault(self.bernoulliMixtureModelCol)
 
 
-class CategoricalMixture(StatefulTransformer, MixtureParams, _HasInitialProbabilities, _HasInitialProbabilitiesCol,
-                         _HasCategoricalMixtureModelCol):
+class BernoulliMixture(StatefulTransformer, MixtureParams, _HasInitialProbabilities, _HasInitialProbabilitiesCol,
+                       _HasBernoulliMixtureModelCol):
     """
-    Online multivariate categorical mixture transformer, based on Cappe(2010) Online Expectation-Maximisation
+    Online multivariate bernoulli mixture transformer, based on Cappe(2010) Online Expectation-Maximisation
     """
 
     def __init__(self, mixtureCount):
-        super(CategoricalMixture, self).__init__()
+        super(BernoulliMixture, self).__init__()
         self._java_obj = self._new_java_obj(
-            "com.github.ozancicek.artan.ml.mixture.CategoricalMixture", mixtureCount, self.uid)
+            "com.github.ozancicek.artan.ml.mixture.BernoulliMixture", mixtureCount, self.uid)
 
     def setInitialProbabilities(self, value):
         """
         Sets the initial probabilities parameter
 
-        :param value: List[List[Float]]
-        :return: CategoricalMixture
+        :param value: List[Float]
+        :return: BernoulliMixture
         """
         return self._set(initialProbabilities=value)
 
@@ -105,15 +105,15 @@ class CategoricalMixture(StatefulTransformer, MixtureParams, _HasInitialProbabil
         Sets the initial probabilities from dataframe column
 
         :param value: String
-        :return: CategoricalMixture
+        :return: BernoulliMixture
         """
         return self._set(initialProbabilitiesCol=value)
 
-    def setCategoricalMixtureModelCol(self, value):
+    def setBernoulliMixtureModelCol(self, value):
         """
         Sets the initial cmm from dataframe column
 
         :param value: String
-        :return: CategoricalMixture
+        :return: BernoulliMixture
         """
-        return self._set(categoricalMixtureModelCol=value)
+        return self._set(bernoulliMixtureModelCol=value)
