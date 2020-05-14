@@ -46,6 +46,8 @@ sealed trait MixtureInput[
 
   def stepSize: Double
 
+  def decayRate: Option[Double]
+
   def initialMixtureModel: MixtureType
 }
 
@@ -63,6 +65,7 @@ private[ml] case class GaussianMixtureInput(
     stateKey: String,
     sample: Vector,
     stepSize: Double,
+    decayRate: Option[Double],
     initialMixtureModel: GaussianMixtureDistribution,
     eventTime: Option[Timestamp])
   extends MixtureInput[Vector, MultivariateGaussianDistribution, GaussianMixtureDistribution]
@@ -88,6 +91,7 @@ private[ml] case class BernoulliMixtureInput(
     stateKey: String,
     sample: Boolean,
     stepSize: Double,
+    decayRate: Option[Double],
     initialMixtureModel: BernoulliMixtureDistribution,
     eventTime: Option[Timestamp])
   extends MixtureInput[Boolean, BernoulliDistribution, BernoulliMixtureDistribution]
@@ -113,6 +117,7 @@ private[ml] case class PoissonMixtureInput(
     stateKey: String,
     sample: Long,
     stepSize: Double,
+    decayRate: Option[Double],
     initialMixtureModel: PoissonMixtureDistribution,
     eventTime: Option[Timestamp])
   extends MixtureInput[Long, PoissonDistribution, PoissonMixtureDistribution]

@@ -113,22 +113,22 @@ class HasStepSizeCol(Params):
         return self.getOrDefault(self.getStepSizeCol)
 
 
-class HasDecayingStepSizeEnabled(Params):
+class HasDecayRate(Params):
     """
     Mixin for decaying step size parameter
     """
-    decayingStepSizeEnabled = Param(
+    decayRate = Param(
         Params._dummy(),
-        "decayingStepSizeEnabled", "Param for enabling decaying step size", TypeConverters.toBoolean)
+        "decayRate", "Param for enabling decaying step size", TypeConverters.toFloat)
 
     def __init__(self):
-        super(HasDecayingStepSizeEnabled, self).__init__()
+        super(HasDecayRate, self).__init__()
 
     def getDecayingStepSizeEnabled(self):
         """
         Gets the value of decaying step size flag
         """
-        return self.getOrDefault(self.decayingStepSizeEnabled)
+        return self.getOrDefault(self.decayRate)
 
 
 class HasMinibatchSize(Params):
@@ -170,7 +170,7 @@ class HasUpdateHoldout(Params):
 
 
 class MixtureParams(HasSampleCol, HasStepSize, HasStepSizeCol, HasInitialWeights, HasInitialWeightsCol,
-                    HasMinibatchSize, HasUpdateHoldout, HasDecayingStepSizeEnabled):
+                    HasMinibatchSize, HasUpdateHoldout, HasDecayRate):
 
     def setSampleCol(self, value):
         """
@@ -199,12 +199,12 @@ class MixtureParams(HasSampleCol, HasStepSize, HasStepSizeCol, HasInitialWeights
         """
         return self._set(stepSizeCol=value)
 
-    def setEnableDecayingStepSize(self):
+    def setDecayRate(self, value):
         """
         Enables decaying step size
         :return: MixtureTransformer
         """
-        return self._set(decayingStepSizeEnabled=True)
+        return self._set(decayRate=value)
 
     def setInitialWeights(self, value):
         """

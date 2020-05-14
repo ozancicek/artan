@@ -138,9 +138,8 @@ class PoissonMixtureTests(ReusedSparkTestCase):
 
         pmm = PoissonMixture(3) \
             .setInitialRates([1.0, 7.0, 10.0]) \
-            .setStepSize(0.85) \
             .setMinibatchSize(mb_size)\
-            .setEnableDecayingStepSize()
+            .setDecayRate(0.85)
 
         result = pmm.transform(samples_df) \
             .filter("stateIndex == {}".format(int(sample_size/mb_size))) \

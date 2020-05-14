@@ -84,6 +84,7 @@ class PoissonMixture(
     val counts = dataset
       .withColumn("sample", col($(sampleCol)))
       .withColumn("stepSize", getUDFWithDefault(stepSize, stepSizeCol))
+      .withColumn("decayRate", getDecayRateExpr())
 
     val mixtureInput = if (isSet(poissonMixtureModelCol)) {
       counts.withColumn("initialMixtureModel", col(getPoissonMixtureModelCol))
@@ -107,7 +108,7 @@ class PoissonMixture(
     PoissonMixtureDistribution,
     PoissonMixtureInput,
     PoissonMixtureState,
-    PoissonMixtureOutput](getUpdateHoldout, getMinibatchSize, getDecayingStepSizeEnabled)
+    PoissonMixtureOutput](getUpdateHoldout, getMinibatchSize)
 
 }
 

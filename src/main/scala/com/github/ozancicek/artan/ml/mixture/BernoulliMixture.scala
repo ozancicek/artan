@@ -19,7 +19,6 @@ package com.github.ozancicek.artan.ml.mixture
 
 import com.github.ozancicek.artan.ml.state.{BernoulliMixtureInput, BernoulliMixtureOutput, BernoulliMixtureState, StatefulTransformer}
 import com.github.ozancicek.artan.ml.stats.{BernoulliDistribution, BernoulliMixtureDistribution}
-import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql._
@@ -91,6 +90,7 @@ class BernoulliMixture(
     val counts = dataset
       .withColumn("sample", col($(sampleCol)))
       .withColumn("stepSize", getUDFWithDefault(stepSize, stepSizeCol))
+      .withColumn("decayRate", getDecayRateExpr())
 
     val mixtureInput = if (isSet(bernoulliMixtureModelCol)) {
       counts.withColumn("initialMixtureModel", col(getBernoulliMixtureModelCol))
@@ -114,7 +114,7 @@ class BernoulliMixture(
     BernoulliMixtureDistribution,
     BernoulliMixtureInput,
     BernoulliMixtureState,
-    BernoulliMixtureOutput](getUpdateHoldout, getMinibatchSize, getDecayingStepSizeEnabled)
+    BernoulliMixtureOutput](getUpdateHoldout, getMinibatchSize)
 
 }
 

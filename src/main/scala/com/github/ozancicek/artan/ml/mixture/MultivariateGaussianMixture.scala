@@ -113,6 +113,7 @@ class MultivariateGaussianMixture(
     val measurements = dataset
       .withColumn("sample", col($(sampleCol)))
       .withColumn("stepSize", getUDFWithDefault(stepSize, stepSizeCol))
+      .withColumn("decayRate", getDecayRateExpr())
 
     val mixtureInput = if (isSet(gaussianMixtureModelCol)) {
       measurements.withColumn("initialMixtureModel", col(getGaussianMixtureModelCol))
@@ -149,7 +150,7 @@ class MultivariateGaussianMixture(
     GaussianMixtureDistribution,
     GaussianMixtureInput,
     GaussianMixtureState,
-    GaussianMixtureOutput](getUpdateHoldout, getMinibatchSize, getDecayingStepSizeEnabled)
+    GaussianMixtureOutput](getUpdateHoldout, getMinibatchSize)
 
 }
 
