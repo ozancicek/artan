@@ -19,8 +19,14 @@ package com.github.ozancicek.artan.ml.mixture
 
 import com.github.ozancicek.artan.ml.state.{MixtureInput, MixtureOutput, MixtureState, MixtureStateFactory, StateUpdateSpec}
 import com.github.ozancicek.artan.ml.stats.{Distribution, MixtureDistribution, MixtureDistributionFactory}
+import com.github.ozancicek.artan.ml.state.StatefulTransformer
+import org.apache.spark.sql.{DataFrame, Dataset, Encoders}
+import org.apache.spark.sql.functions.{col, count, lit, max, struct, sum}
+import org.apache.spark.sql.types.StructType
 
-import scala.math.pow
+import scala.math.{abs, pow}
+import scala.reflect.ClassTag
+import scala.reflect.runtime.universe.TypeTag
 
 /**
  * Base trait for common mixture parameters
@@ -29,7 +35,8 @@ import scala.math.pow
  */
 private[mixture] trait MixtureParams[TransformerType]
   extends HasInitialWeights with HasInitialWeightsCol with HasStepSizeCol with HasStepSize with HasSampleCol
-  with HasUpdateHoldout with HasMinibatchSize with HasDecayRate {
+  with HasUpdateHoldout with HasMinibatchSize with HasMinibatchSizeCol with HasDecayRate with HasInitialMixtureModelCol
+  with HasBatchTrainMaxIter with HasBatchTrainTol with HasUpdateHoldoutCol {
 
   /**
    * Sets the initial weights of the mixtures. The weights should sum up to 1.0.
@@ -89,6 +96,15 @@ private[mixture] trait MixtureParams[TransformerType]
   def setUpdateHoldout(value: Int): TransformerType = set(updateHoldout, value).asInstanceOf[TransformerType]
 
   /**
+   * Sets the update holdout parameter from dataframe column rather than a constant value across all states.
+   * Overrides the value set by [[setUpdateHoldout]].
+   *
+   * @group setParam
+   */
+  def setUpdateHoldoutCol(value: String): TransformerType = set(updateHoldoutCol, value)
+    .asInstanceOf[TransformerType]
+
+  /**
    * Sets the minibatch size for batching samples together in online EM algorithm. Estimate will be produced once
    * per each batch. Having larger batches increases stability with increased memory footprint.
    *
@@ -97,6 +113,14 @@ private[mixture] trait MixtureParams[TransformerType]
    * @group setParam
    */
   def setMinibatchSize(value: Int): TransformerType = set(minibatchSize, value).asInstanceOf[TransformerType]
+
+  /**
+   * Sets the minibatch size from dataframe column rather than a constant minibatch size across all states.
+   * Overrides [[setMinibatchSize]] setting.
+   *
+   * @group setParam
+   */
+  def setMinibatchSizeCol(value: String): TransformerType = set(minibatchSizeCol, value).asInstanceOf[TransformerType]
 
   /**
    * Sets the step size as a decaying function rather than a constant step size, which might be preferred
@@ -110,6 +134,170 @@ private[mixture] trait MixtureParams[TransformerType]
    */
   def setDecayRate(value: Double): TransformerType = set(decayRate, value).asInstanceOf[TransformerType]
 
+
+  /**
+   * Sets the initial mixture model directly from dataframe column
+   *
+   * @group setParam
+   */
+  def setInitialMixtureModelCol(value: String): TransformerType = set(initialMixtureModelCol, value)
+    .asInstanceOf[TransformerType]
+
+  /**
+   * Sets the maximum iterations for batch EM mode
+   *
+   * @group setParam
+   */
+  def setBatchTrainMaxIter(value: Int): TransformerType = set(batchTrainMaxIter, value)
+    .asInstanceOf[TransformerType]
+
+
+  /**
+   * Sets the stopping criteria in terms of loglikelihood improvement for batch EM mode
+   *
+   * @group setParam
+   */
+  def setBatchTrainTol(value: Double): TransformerType = set(batchTrainTol, value)
+    .asInstanceOf[TransformerType]
+}
+
+
+private[mixture] abstract class FiniteMixture[
+  SampleType,
+  DistributionType <: Distribution[SampleType, DistributionType],
+  MixtureType <: MixtureDistribution[SampleType, DistributionType, MixtureType]: TypeTag,
+  InputType <: MixtureInput[SampleType, DistributionType, MixtureType] : TypeTag : Manifest,
+  StateType <: MixtureState[SampleType, DistributionType, MixtureType] : ClassTag,
+  OutputType <: MixtureOutput[SampleType, DistributionType, MixtureType] : TypeTag,
+  TransformerType <: FiniteMixture[
+    SampleType, DistributionType, MixtureType, InputType, StateType, OutputType, TransformerType]](implicit
+  stateFactory: MixtureStateFactory[
+    SampleType, DistributionType, MixtureType, StateType, OutputType],
+  mixtureFactory: MixtureDistributionFactory[
+    SampleType, DistributionType, MixtureType])
+  extends StatefulTransformer[String, InputType, StateType, OutputType, TransformerType]
+  with MixtureParams[TransformerType] {
+
+  protected implicit val stateKeyEncoder = Encoders.STRING
+
+  private def mixtureSchema: StructType = Encoders.product[MixtureType].schema
+
+  protected def transformAndValidateSchema(schema: StructType): StructType = {
+    if (isSet(initialMixtureModelCol)) {
+      val inSchema = schema(getInitialMixtureModelCol).dataType
+      require(inSchema == mixtureSchema,
+        s"Schema of initial mixture model $inSchema doesn't match type $mixtureSchema")
+    }
+    transformSchema(schema)
+  }
+
+  /**
+   * Convert input dataframe to mixture input dataframe
+   */
+  private def asMixtureInput(dataset: Dataset[_]): DataFrame = {
+    val samples = dataset
+      .withColumn("sample", col($(sampleCol)))
+      .withColumn("stepSize", getUDFWithDefault(stepSize, stepSizeCol))
+      .withColumn("decayRate", getDecayRateExpr())
+      .withColumn("minibatchSize", getUDFWithDefault(minibatchSize, minibatchSizeCol))
+      .withColumn("updateHoldout", getUDFWithDefault(updateHoldout, updateHoldoutCol))
+    val mixtureInput = if (isSet(initialMixtureModelCol)) {
+      samples.withColumn("initialMixtureModel", col(getInitialMixtureModelCol))
+    } else {
+      buildInitialMixtureModel(samples)
+    }
+    mixtureInput
+  }
+
+  /**
+   * Build the initialMixtureModel column from distribution specific parameters
+   */
+  protected def buildInitialMixtureModel(dataframe: DataFrame): DataFrame
+
+  /**
+   * Online EM, estimates the mixture model with a single pass
+   */
+  def transform(dataset: Dataset[_]): DataFrame = {
+    transformAndValidateSchema(dataset.schema)
+
+    val mixtureInput = asMixtureInput(dataset)
+    asDataFrame(transformWithState(mixtureInput))
+  }
+
+  /**
+   * Batch EM, estimates the mixture model with multiple passes. Note that implementation is not optimized
+   * for performance, it re-uses the same procedures designed for Online EM. It can be used for creating
+   * a prior for online algorithm, or offline refinement of online results for a subset of samples.
+   */
+  def batchEMTransform(dataset: Dataset[_]): DataFrame = {
+    transformAndValidateSchema(dataset.schema)
+
+    val maxIter = getBatchTrainMaxIter
+    val minDelta = getBatchTrainTol
+
+    log.info(s"Starting EM iterations with min loglikelihood improvement $minDelta and maxIter $maxIter")
+
+    // Ensure that stepSize = 1.0 and updateHoldout = 0.0 and minibatchSize = sampleSize, which will
+    // convert stochastic expectation approximation to 'traditional' expectation
+    val samples = asMixtureInput(dataset)
+      .withColumn("stepSize", lit(1.0))
+      .withColumn("stateKey", getStateKeyColumn)
+      .withColumn("decayRate", lit(null))
+      .withColumn("updateHoldout", lit(0))
+      .drop("minibatchSize")
+
+    val minibatchSize = samples.groupBy("stateKey")
+      .agg(count("sample").alias("minibatchSize"))
+
+    val mixtureInput = samples.join(minibatchSize, Seq("stateKey")).cache()
+
+    val emIter = (in: DataFrame) => {
+      val modelState = struct(col("stateIndex"), col("mixtureModel"), col("loglikelihood"))
+      asDataFrame(transformWithState(in))
+        .withColumn("modelState", modelState)
+        .groupBy("stateKey").agg(max("modelState").alias("modelState"))
+        .select(
+          col("stateKey"),
+          col("modelState.mixtureModel").alias("initialMixtureModel"),
+          col("modelState.loglikelihood"))
+    }
+
+    val loglikelihood = (in: DataFrame) => {
+      in.select(sum("loglikelihood")).head.getAs[Double](0)
+    }
+
+    var model = emIter(mixtureInput)
+      .localCheckpoint()
+
+    var ll = loglikelihood(model)
+    var delta = Double.MaxValue - abs(ll)
+    var iteration = 1
+
+    log.info(s"Initial model likelihood $ll")
+    while (iteration < maxIter & delta > minDelta) {
+      val input = mixtureInput.drop("initialMixtureModel").join(model, Seq("stateKey"))
+      model = emIter(input).localCheckpoint()
+
+      val currentLikelihood = loglikelihood(model)
+      delta = currentLikelihood - ll
+      ll = currentLikelihood
+      iteration = iteration + 1
+
+      log.info(s"Iteration $iteration loglikelihood $ll improvement $delta")
+      if (delta < 0.0) {
+        log.warn(s"Loglikelihood decreased on iteration $iteration")
+      }
+    }
+    model
+  }
+
+  protected def stateUpdateSpec = new MixtureUpdateSpec[
+    SampleType,
+    DistributionType,
+    MixtureType,
+    InputType,
+    StateType,
+    OutputType](getUpdateHoldout)(stateFactory, mixtureFactory)
 }
 
 /**
@@ -122,12 +310,15 @@ private[mixture] class MixtureUpdateSpec[
   InputType <: MixtureInput[SampleType, DistributionType, MixtureType],
   StateType <: MixtureState[SampleType, DistributionType, MixtureType],
   OutputType <: MixtureOutput[SampleType, DistributionType, MixtureType]](
-  updateHoldout: Int, minibatchSize: Int)(implicit
+  updateHoldout: Int)(implicit
   stateFactory: MixtureStateFactory[
     SampleType, DistributionType, MixtureType, StateType, OutputType],
   mixtureFactory: MixtureDistributionFactory[
     SampleType, DistributionType, MixtureType]) extends StateUpdateSpec[String, InputType, StateType, OutputType]{
 
+  /**
+   * Convert mixture state to output
+   */
   protected def stateToOutput(
     key: String,
     row: InputType,
@@ -138,32 +329,41 @@ private[mixture] class MixtureUpdateSpec[
         key,
         state.stateIndex,
         state.mixtureModel,
-        row.eventTime))
+        row.eventTime,
+        state.loglikelihood))
     } else {
       List.empty[OutputType]
     }
   }
 
-  protected def getInitialState(row: InputType): StateType = {
+  /**
+   * Function to create initial state for all mixtures
+   */
+  private def getInitialState(row: InputType): StateType = {
     val weightedDist = MixtureDistribution.weightedMixture[SampleType, DistributionType, MixtureType](
       row.initialMixtureModel)
     stateFactory.createState(
       0L,
       List.empty[SampleType],
       weightedDist,
-      row.initialMixtureModel
+      row.initialMixtureModel,
+      Double.MinValue
     )
   }
 
-  protected def calculateNextState(
+  /**
+   * Function to progress state
+   */
+  private def calculateNextState(
     row: InputType,
     state: Option[StateType]): Option[StateType] = {
     val currentState = state.getOrElse(getInitialState(row))
     val newSamples = row.sample :: currentState.samples
 
-    val nextState = if (newSamples.size < minibatchSize) {
+    // Only push samples until samplesSize < minibatchSize, and progress state when samplesSize = minibatchSize
+    val nextState = if (newSamples.size < row.minibatchSize) {
       stateFactory.createState(
-        currentState.stateIndex, newSamples, currentState.summaryModel, currentState.mixtureModel)
+        currentState.stateIndex, newSamples, currentState.summaryModel, currentState.mixtureModel, Double.MinValue)
     } else {
 
       val stepSize = row.decayRate match {
@@ -180,8 +380,9 @@ private[mixture] class MixtureUpdateSpec[
       } else {
         MixtureDistribution.inverseWeightedMixture[SampleType, DistributionType, MixtureType](newSummaryModel)
       }
-
-      stateFactory.createState(currentState.stateIndex + 1, List.empty[SampleType], newSummaryModel, newMixtureModel)
+      val ll = newMixtureModel.loglikelihood(newSamples)
+      val stateIndex = currentState.stateIndex + 1
+      stateFactory.createState(stateIndex, List.empty[SampleType], newSummaryModel, newMixtureModel, ll)
     }
     Some(nextState)
   }
@@ -190,6 +391,5 @@ private[mixture] class MixtureUpdateSpec[
     key: String,
     row: InputType,
     state: Option[StateType]): Option[StateType] = calculateNextState(row, state)
-
 
 }

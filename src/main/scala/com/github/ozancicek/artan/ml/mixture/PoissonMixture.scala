@@ -22,7 +22,6 @@ import com.github.ozancicek.artan.ml.stats.{PoissonDistribution, PoissonMixtureD
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql._
-import org.apache.spark.sql.Encoders
 import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.types._
 
@@ -32,14 +31,16 @@ import org.apache.spark.sql.types._
  *
  * @param mixtureCount number of mixture components
  */
-class PoissonMixture(
-    val mixtureCount: Int,
-    override val uid: String)
-  extends StatefulTransformer[String, PoissonMixtureInput, PoissonMixtureState, PoissonMixtureOutput, PoissonMixture]
-  with HasInitialRates with HasInitialRatesCol
-  with HasPoissonMixtureModelCol with MixtureParams[PoissonMixture] {
-
-  protected implicit val stateKeyEncoder = Encoders.STRING
+class PoissonMixture(val mixtureCount: Int, override val uid: String)
+  extends FiniteMixture[
+    Long,
+    PoissonDistribution,
+    PoissonMixtureDistribution,
+    PoissonMixtureInput,
+    PoissonMixtureState,
+    PoissonMixtureOutput,
+    PoissonMixture]
+    with HasInitialRates with HasInitialRatesCol {
 
   def this(mixtureCount: Int) = this(mixtureCount, Identifiable.randomUID("PoissonMixture"))
 
@@ -57,7 +58,7 @@ class PoissonMixture(
    * Applies the transformation to dataset schema
    */
   def transformSchema(schema: StructType): StructType = {
-    if (!isSet(poissonMixtureModelCol)) {
+    if (!isSet(initialMixtureModelCol)) {
       require(
         isSet(initialRates) | isSet(initialRatesCol), "Initial rates or its dataframe column must be set")
       if (isSet(initialRatesCol)) {
@@ -73,43 +74,16 @@ class PoissonMixture(
 
   def setInitialRatesCol(value: String): PoissonMixture = set(initialRatesCol, value)
 
-  def setInitialPoissonMixtureModelCol(value: String): PoissonMixture = set(poissonMixtureModelCol, value)
-
-  /**
-   * Transforms dataset of count to dataframe of estimated states
-   */
-  def transform(dataset: Dataset[_]): DataFrame = {
-    transformSchema(dataset.schema)
-
-    val counts = dataset
-      .withColumn("sample", col($(sampleCol)))
-      .withColumn("stepSize", getUDFWithDefault(stepSize, stepSizeCol))
-      .withColumn("decayRate", getDecayRateExpr())
-
-    val mixtureInput = if (isSet(poissonMixtureModelCol)) {
-      counts.withColumn("initialMixtureModel", col(getPoissonMixtureModelCol))
-    } else {
-      val mixtureModelFunc = udf(
-        (weights: Seq[Double], rates: Seq[Double]) =>
-          PoissonMixtureDistribution(weights, rates.map(r => PoissonDistribution(r))))
-      val mixtureModelExpr = mixtureModelFunc(col("initialWeights"), col("initialRates"))
-      counts
-        .withColumn("initialWeights", getUDFWithDefault(initialWeights, initialWeightsCol))
-        .withColumn("initialRates", getUDFWithDefault(initialRates, initialRatesCol))
-        .withColumn("initialMixtureModel", mixtureModelExpr)
-    }
-
-    asDataFrame(transformWithState(mixtureInput))
+  protected def buildInitialMixtureModel(dataFrame: DataFrame): DataFrame = {
+    val mixtureModelFunc = udf(
+      (weights: Seq[Double], rates: Seq[Double]) =>
+        PoissonMixtureDistribution(weights, rates.map(r => PoissonDistribution(r))))
+    val mixtureModelExpr = mixtureModelFunc(col("initialWeights"), col("initialRates"))
+    dataFrame
+      .withColumn("initialWeights", getUDFWithDefault(initialWeights, initialWeightsCol))
+      .withColumn("initialRates", getUDFWithDefault(initialRates, initialRatesCol))
+      .withColumn("initialMixtureModel", mixtureModelExpr)
   }
-
-  protected def stateUpdateSpec = new MixtureUpdateSpec[
-    Long,
-    PoissonDistribution,
-    PoissonMixtureDistribution,
-    PoissonMixtureInput,
-    PoissonMixtureState,
-    PoissonMixtureOutput](getUpdateHoldout, getMinibatchSize)
-
 }
 
 
@@ -136,15 +110,4 @@ private[mixture] trait HasInitialRatesCol extends Params {
   )
 
   final def getInitialRatesCol: String = $(initialRatesCol)
-}
-
-
-private[mixture] trait HasPoissonMixtureModelCol extends Params {
-
-  final val poissonMixtureModelCol: Param[String] = new Param[String](
-    this,
-    "poissonMixtureModelCol",
-    "poissonMixtureModelCol")
-
-  final def getPoissonMixtureModelCol: String = $(poissonMixtureModelCol)
 }

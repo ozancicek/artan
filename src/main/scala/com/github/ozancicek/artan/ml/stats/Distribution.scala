@@ -76,6 +76,12 @@ sealed trait MixtureDistribution[
     normedLikelihoods.transpose
   }
 
+  def loglikelihood(samples: Seq[SampleType]): Double = {
+    distributions.zip(weights).map { case (dist, weight) =>
+      dist.loglikelihoods(samples).map(exp(_)*weight)
+    }.transpose.map(s => log(s.sum)).sum
+  }
+
   private def summary(
     samples: Seq[SampleType])(
     implicit mdf: MixtureDistributionFactory[SampleType, DistributionType, MixtureType]): MixtureType = {
@@ -100,7 +106,7 @@ private[artan] trait MixtureDistributionFactory[
 
 }
 
-object MixtureDistribution {
+private[artan] object MixtureDistribution {
 
   def factory[
     SampleType,

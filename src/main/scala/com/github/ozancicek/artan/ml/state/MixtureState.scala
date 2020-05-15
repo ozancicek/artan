@@ -20,6 +20,7 @@ package com.github.ozancicek.artan.ml.state
 import org.apache.spark.ml.linalg.Vector
 import java.sql.Timestamp
 
+import com.github.ozancicek.artan.ml.filter.HasCalculateLoglikelihood
 import com.github.ozancicek.artan.ml.stats._
 
 
@@ -33,6 +34,8 @@ sealed trait MixtureState[
   def mixtureModel: MixtureType
 
   def summaryModel: MixtureType
+
+  def loglikelihood: Double
 
 }
 
@@ -48,6 +51,10 @@ sealed trait MixtureInput[
 
   def decayRate: Option[Double]
 
+  def minibatchSize: Long
+
+  def updateHoldout: Long
+
   def initialMixtureModel: MixtureType
 }
 
@@ -58,6 +65,8 @@ sealed trait MixtureOutput[
   MixtureType <: MixtureDistribution[SampleType, DistributionType, MixtureType]] extends KeyedOutput[String] {
 
   def mixtureModel: MixtureType
+
+  def loglikelihood: Double
 }
 
 
@@ -66,6 +75,8 @@ private[ml] case class GaussianMixtureInput(
     sample: Vector,
     stepSize: Double,
     decayRate: Option[Double],
+    minibatchSize: Long,
+    updateHoldout: Long,
     initialMixtureModel: GaussianMixtureDistribution,
     eventTime: Option[Timestamp])
   extends MixtureInput[Vector, MultivariateGaussianDistribution, GaussianMixtureDistribution]
@@ -75,7 +86,8 @@ private[ml] case class GaussianMixtureState(
     stateIndex: Long,
     samples: List[Vector],
     summaryModel: GaussianMixtureDistribution,
-    mixtureModel: GaussianMixtureDistribution)
+    mixtureModel: GaussianMixtureDistribution,
+    loglikelihood: Double)
   extends MixtureState[Vector, MultivariateGaussianDistribution, GaussianMixtureDistribution]
 
 
@@ -83,7 +95,8 @@ case class GaussianMixtureOutput(
     stateKey: String,
     stateIndex: Long,
     mixtureModel: GaussianMixtureDistribution,
-    eventTime: Option[Timestamp])
+    eventTime: Option[Timestamp],
+    loglikelihood: Double)
   extends MixtureOutput[Vector, MultivariateGaussianDistribution, GaussianMixtureDistribution]
 
 
@@ -92,6 +105,8 @@ private[ml] case class BernoulliMixtureInput(
     sample: Boolean,
     stepSize: Double,
     decayRate: Option[Double],
+    minibatchSize: Long,
+    updateHoldout: Long,
     initialMixtureModel: BernoulliMixtureDistribution,
     eventTime: Option[Timestamp])
   extends MixtureInput[Boolean, BernoulliDistribution, BernoulliMixtureDistribution]
@@ -101,7 +116,8 @@ private[ml] case class BernoulliMixtureState(
     stateIndex: Long,
     samples: List[Boolean],
     summaryModel: BernoulliMixtureDistribution,
-    mixtureModel: BernoulliMixtureDistribution)
+    mixtureModel: BernoulliMixtureDistribution,
+    loglikelihood: Double)
   extends MixtureState[Boolean, BernoulliDistribution, BernoulliMixtureDistribution]
 
 
@@ -109,7 +125,8 @@ case class BernoulliMixtureOutput(
     stateKey: String,
     stateIndex: Long,
     mixtureModel: BernoulliMixtureDistribution,
-    eventTime: Option[Timestamp])
+    eventTime: Option[Timestamp],
+    loglikelihood: Double)
   extends MixtureOutput[Boolean, BernoulliDistribution, BernoulliMixtureDistribution]
 
 
@@ -118,6 +135,8 @@ private[ml] case class PoissonMixtureInput(
     sample: Long,
     stepSize: Double,
     decayRate: Option[Double],
+    minibatchSize: Long,
+    updateHoldout: Long,
     initialMixtureModel: PoissonMixtureDistribution,
     eventTime: Option[Timestamp])
   extends MixtureInput[Long, PoissonDistribution, PoissonMixtureDistribution]
@@ -127,7 +146,8 @@ private[ml] case class PoissonMixtureState(
     stateIndex: Long,
     samples: List[Long],
     summaryModel: PoissonMixtureDistribution,
-    mixtureModel: PoissonMixtureDistribution)
+    mixtureModel: PoissonMixtureDistribution,
+    loglikelihood: Double)
   extends MixtureState[Long, PoissonDistribution, PoissonMixtureDistribution]
 
 
@@ -135,7 +155,8 @@ case class PoissonMixtureOutput(
     stateKey: String,
     stateIndex: Long,
     mixtureModel: PoissonMixtureDistribution,
-    eventTime: Option[Timestamp])
+    eventTime: Option[Timestamp],
+    loglikelihood: Double)
   extends MixtureOutput[Long, PoissonDistribution, PoissonMixtureDistribution]
 
 
@@ -147,15 +168,23 @@ private[artan] trait MixtureStateFactory[
   OutType <: MixtureOutput[SampleType, DistributionType, MixtureType]] extends Serializable {
 
   def createState(
-    stateIndex: Long, samples: List[SampleType], summary: MixtureType, mixture: MixtureType): StateType
+    stateIndex: Long,
+    samples: List[SampleType],
+    summary: MixtureType,
+    mixture: MixtureType,
+    loglikelihood: Double): StateType
 
   def createOutput(
-    stateKey: String, stateIndex: Long, mixture: MixtureType, eventTime: Option[Timestamp]): OutType
+    stateKey: String,
+    stateIndex: Long,
+    mixture: MixtureType,
+    eventTime: Option[Timestamp],
+    loglikelihood: Double): OutType
 
 }
 
 
-object MixtureStateFactory {
+private[artan] object MixtureStateFactory {
 
   def apply[
     SampleType,
@@ -177,16 +206,18 @@ object MixtureStateFactory {
       stateIndex: Long,
       samples: List[Vector],
       summary: GaussianMixtureDistribution,
-      mixture: GaussianMixtureDistribution): GaussianMixtureState = {
-      GaussianMixtureState(stateIndex, samples, summary, mixture)
+      mixture: GaussianMixtureDistribution,
+      loglikelihood: Double): GaussianMixtureState = {
+      GaussianMixtureState(stateIndex, samples, summary, mixture, loglikelihood)
     }
 
     override def createOutput(
       stateKey: String,
       stateIndex: Long,
       mixture: GaussianMixtureDistribution,
-      eventTime: Option[Timestamp]): GaussianMixtureOutput =  {
-      GaussianMixtureOutput(stateKey, stateIndex, mixture, eventTime)
+      eventTime: Option[Timestamp],
+      loglikelihood: Double): GaussianMixtureOutput =  {
+      GaussianMixtureOutput(stateKey, stateIndex, mixture, eventTime, loglikelihood)
     }
 
   }
@@ -201,16 +232,18 @@ object MixtureStateFactory {
       stateKey: String,
       stateIndex: Long,
       mixture: PoissonMixtureDistribution,
-      eventTime: Option[Timestamp]): PoissonMixtureOutput = {
-      PoissonMixtureOutput(stateKey, stateIndex, mixture, eventTime)
+      eventTime: Option[Timestamp],
+      loglikelihood: Double): PoissonMixtureOutput = {
+      PoissonMixtureOutput(stateKey, stateIndex, mixture, eventTime, loglikelihood)
     }
 
     def createState(
       stateIndex: Long,
       samples: List[Long],
       summary: PoissonMixtureDistribution,
-      mixture: PoissonMixtureDistribution): PoissonMixtureState = {
-      PoissonMixtureState(stateIndex, samples, summary, mixture)
+      mixture: PoissonMixtureDistribution,
+      loglikelihood: Double): PoissonMixtureState = {
+      PoissonMixtureState(stateIndex, samples, summary, mixture, loglikelihood)
     }
   }
 
@@ -224,16 +257,18 @@ object MixtureStateFactory {
       stateKey: String,
       stateIndex: Long,
       mixture: BernoulliMixtureDistribution,
-      eventTime: Option[Timestamp]): BernoulliMixtureOutput = {
-      BernoulliMixtureOutput(stateKey, stateIndex, mixture, eventTime)
+      eventTime: Option[Timestamp],
+      loglikelihood: Double): BernoulliMixtureOutput = {
+      BernoulliMixtureOutput(stateKey, stateIndex, mixture, eventTime, loglikelihood)
     }
 
     def createState(
       stateIndex: Long,
       samples: List[Boolean],
       summary: BernoulliMixtureDistribution,
-      mixture: BernoulliMixtureDistribution): BernoulliMixtureState = {
-      BernoulliMixtureState(stateIndex, samples, summary, mixture)
+      mixture: BernoulliMixtureDistribution,
+      loglikelihood: Double): BernoulliMixtureState = {
+      BernoulliMixtureState(stateIndex, samples, summary, mixture, loglikelihood)
     }
   }
 

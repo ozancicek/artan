@@ -17,16 +17,14 @@
 
 package com.github.ozancicek.artan.ml.mixture
 
-import com.github.ozancicek.artan.ml.state.{GaussianMixtureInput, GaussianMixtureOutput, GaussianMixtureState, StatefulTransformer}
+import com.github.ozancicek.artan.ml.state.{GaussianMixtureInput, GaussianMixtureOutput, GaussianMixtureState}
 import com.github.ozancicek.artan.ml.stats.{GaussianMixtureDistribution, MultivariateGaussianDistribution}
 import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector, Vector}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql._
-import org.apache.spark.sql.Encoders
 import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.types._
-
 
 /**
  * Online multivariate gaussian mixture transformer, based on Cappe(2010) Online Expectation-Maximisation
@@ -36,16 +34,16 @@ import org.apache.spark.sql.types._
 class MultivariateGaussianMixture(
     val mixtureCount: Int,
     override val uid: String)
-  extends StatefulTransformer[
-    String,
+  extends FiniteMixture[
+    Vector,
+    MultivariateGaussianDistribution,
+    GaussianMixtureDistribution,
     GaussianMixtureInput,
     GaussianMixtureState,
     GaussianMixtureOutput,
     MultivariateGaussianMixture]
-  with HasGaussianMixtureModelCol with HasInitialMeans with HasInitialMeansCol
-  with HasInitialCovariances with HasInitialCovariancesCol with MixtureParams[MultivariateGaussianMixture] {
-
-  protected implicit val stateKeyEncoder = Encoders.STRING
+  with HasInitialMeans with HasInitialMeansCol
+  with HasInitialCovariances with HasInitialCovariancesCol {
 
   def this(mixtureCount: Int) = this(mixtureCount, Identifiable.randomUID("MultivariateGaussianMixture"))
 
@@ -75,15 +73,11 @@ class MultivariateGaussianMixture(
     set(initialCovariancesCol, value)
   }
 
-  def setInitialGaussianMixtureModelCol(value: String): MultivariateGaussianMixture = {
-    set(gaussianMixtureModelCol, value)
-  }
-
   /**
    * Applies the transformation to dataset schema
    */
   def transformSchema(schema: StructType): StructType = {
-    if (!isSet(gaussianMixtureModelCol)) {
+    if (!isSet(initialMixtureModelCol)) {
       require(
         isSet(initialMeans) | isSet(initialMeansCol), "Initial means or its dataframe column must be set")
       require(
@@ -104,54 +98,29 @@ class MultivariateGaussianMixture(
     asDataFrameTransformSchema(outEncoder.schema)
   }
 
-  /**
-   * Transforms dataset of count to dataframe of estimated states
-   */
-  def transform(dataset: Dataset[_]): DataFrame = {
-    transformSchema(dataset.schema)
-
-    val measurements = dataset
-      .withColumn("sample", col($(sampleCol)))
-      .withColumn("stepSize", getUDFWithDefault(stepSize, stepSizeCol))
-      .withColumn("decayRate", getDecayRateExpr())
-
-    val mixtureInput = if (isSet(gaussianMixtureModelCol)) {
-      measurements.withColumn("initialMixtureModel", col(getGaussianMixtureModelCol))
-    } else {
-      val mixtureModelFunc = udf(
-        (weights: Seq[Double], means: Seq[Seq[Double]], covariances: Seq[Seq[Double]]) => {
-          val gaussians = means.zip(covariances).map { s =>
-            val meanVector = new DenseVector(s._1.toArray)
-            val covMatrix = new DenseMatrix(s._1.size, s._1.size, s._2.toArray)
-            MultivariateGaussianDistribution(meanVector, covMatrix)
-          }
-          GaussianMixtureDistribution(weights, gaussians)
+  protected def buildInitialMixtureModel(dataFrame: DataFrame): DataFrame = {
+    val mixtureModelFunc = udf(
+      (weights: Seq[Double], means: Seq[Seq[Double]], covariances: Seq[Seq[Double]]) => {
+        val gaussians = means.zip(covariances).map { s =>
+          val meanVector = new DenseVector(s._1.toArray)
+          val covMatrix = new DenseMatrix(s._1.size, s._1.size, s._2.toArray)
+          MultivariateGaussianDistribution(meanVector, covMatrix)
         }
-      )
+        GaussianMixtureDistribution(weights, gaussians)
+      }
+    )
+    val mixtureModelExpr = mixtureModelFunc(
+      col("initialWeights"),
+      col("initialMeans"),
+      col("initialCovariances"))
 
-      val mixtureModelExpr = mixtureModelFunc(
-        col("initialWeights"),
-        col("initialMeans"),
-        col("initialCovariances"))
-
-      measurements
-        .withColumn("initialWeights", getUDFWithDefault(initialWeights, initialWeightsCol))
-        .withColumn("initialMeans", getUDFWithDefault(initialMeans, initialMeansCol))
-        .withColumn("initialCovariances", getUDFWithDefault(initialCovariances, initialCovariancesCol))
-        .withColumn("initialMixtureModel", mixtureModelExpr)
-    }
-
-    asDataFrame(transformWithState(mixtureInput))
+    dataFrame
+      .withColumn("initialWeights", getUDFWithDefault(initialWeights, initialWeightsCol))
+      .withColumn("initialMeans", getUDFWithDefault(initialMeans, initialMeansCol))
+      .withColumn("initialCovariances", getUDFWithDefault(initialCovariances, initialCovariancesCol))
+      .withColumn("initialMixtureModel", mixtureModelExpr)
+      .drop("initialWeights", "initialMeans", "initialCovariances")
   }
-
-  protected def stateUpdateSpec = new MixtureUpdateSpec[
-    Vector,
-    MultivariateGaussianDistribution,
-    GaussianMixtureDistribution,
-    GaussianMixtureInput,
-    GaussianMixtureState,
-    GaussianMixtureOutput](getUpdateHoldout, getMinibatchSize)
-
 }
 
 
@@ -199,15 +168,4 @@ private[mixture] trait HasInitialCovariancesCol extends Params {
   )
 
   final def getInitialCovariancesCol: String = $(initialCovariancesCol)
-}
-
-
-private[mixture] trait HasGaussianMixtureModelCol extends Params {
-
-  final val gaussianMixtureModelCol: Param[String] = new Param[String](
-    this,
-    "gaussianMixtureModelCol",
-    "gaussianMixtureModelCol")
-
-  final def getGaussianMixtureModelCol: String = $(gaussianMixtureModelCol)
 }

@@ -57,7 +57,7 @@ class BernoulliMixtureSpec
     describe("test with three component bernoulli seq") {
 
       val size = 10000
-      val weights = Array(0.5, 0.5)
+      val weights = Array(0.4, 0.6)
 
       val g1 = BernoulliDistribution(0.7)
       val g2 = BernoulliDistribution(0.9)

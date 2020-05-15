@@ -169,6 +169,29 @@ private[mixture] trait HasMinibatchSize extends Params {
 
 }
 
+
+private[mixture] trait HasMinibatchSizeCol extends Params {
+
+  /**
+   * Number of samples in a batch from dataframe column
+   *
+   * @group param
+   */
+  final val minibatchSizeCol: Param[String] = new Param[String](
+    this,
+    "minibatchSizeCol",
+    "Minibatch size from dataframe column to allow different minibatch sizes across states"
+  )
+
+  /**
+   * MinibatchSizeCol param getter
+   *
+   * @group getParam
+   */
+  final def getMinibatchSizeCol: String = $(minibatchSizeCol)
+
+}
+
 private[mixture] trait HasUpdateHoldout extends Params {
 
   /**
@@ -179,11 +202,11 @@ private[mixture] trait HasUpdateHoldout extends Params {
   final val updateHoldout: Param[Int] = new IntParam(
     this,
     "updateHoldout",
-    "Controls after how many samples the mixture will start calculating  estimates. Preventing update" +
+    "Controls after how many samples the mixture will start calculating estimates. Preventing update" +
       "in first few samples might be preferred for stability.",
-    (param: Int) => param >= 1)
+    (param: Int) => param >= 0)
 
-  setDefault(updateHoldout, 1)
+  setDefault(updateHoldout, 0)
 
   /**
    * Getter for update holdout param
@@ -193,9 +216,28 @@ private[mixture] trait HasUpdateHoldout extends Params {
   final def getUpdateHoldout: Int = $(updateHoldout)
 }
 
-/**
- * Param for sample column
- */
+
+private[mixture] trait HasUpdateHoldoutCol extends Params {
+
+  /**
+   * Update holdout parameter from dataframe column
+   *
+   * @group param
+   */
+  final val updateHoldoutCol: Param[String] = new Param[String](
+    this,
+    "updateHoldoutCol",
+    "updateHoldout from dataframe column rather than a constant value across all states")
+
+  /**
+   * Getter for update holdout column param
+   *
+   * @group getParam
+   */
+  final def getUpdateHoldoutCol: String = $(updateHoldoutCol)
+}
+
+
 private[mixture] trait HasSampleCol extends Params {
 
   /**
@@ -216,4 +258,69 @@ private[mixture] trait HasSampleCol extends Params {
    * @group getParam
    */
   final def getSampleCol: String = $(sampleCol)
+}
+
+
+private[mixture] trait HasInitialMixtureModelCol extends Params {
+
+  /**
+   * Initial mixture model as a struct column
+   *
+   * @group param
+   */
+  final val initialMixtureModelCol: Param[String] = new Param[String](
+    this,
+    "initialMixtureModelCol",
+    "Sets the initial mixture model from struct column conforming to mixture distributions case class")
+
+  /**
+   * Getter for initial mixture model column
+   *
+   * @group getParam
+   */
+  final def getInitialMixtureModelCol: String = $(initialMixtureModelCol)
+}
+
+
+private[mixture] trait HasBatchTrainMaxIter extends Params {
+
+  /**
+   * maxIter for batch EM
+   *
+   * @group param
+   */
+  final val batchTrainMaxIter: Param[Int] = new IntParam(
+    this,
+    "batchTrainMaxIter",
+    "Maximum iterations in batch train mode, default is 30",
+    ParamValidators.gt(0)
+  )
+  setDefault(batchTrainMaxIter, 30)
+
+  /**
+   * Getter for batch train max iter parameter
+   *
+   * @group getParam
+   */
+  final def getBatchTrainMaxIter: Int = $(batchTrainMaxIter)
+}
+
+
+private[mixture] trait HasBatchTrainTol extends Params {
+
+  /**
+   * Tolerance to stop iterations in batch EM
+   *
+   * @group param
+   */
+  final val batchTrainTol: Param[Double] = new DoubleParam(
+    this,
+    "batchTrainTol",
+    "Stop iteration criteria defined by change in the loglikelihood, default is 0.1",
+    ParamValidators.gt(0.0)
+  )
+
+  setDefault(batchTrainTol, 0.1)
+
+  final def getBatchTrainTol: Double  = $(batchTrainTol)
 }

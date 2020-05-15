@@ -17,34 +17,32 @@
 
 package com.github.ozancicek.artan.ml.mixture
 
-import com.github.ozancicek.artan.ml.state.{BernoulliMixtureInput, BernoulliMixtureOutput, BernoulliMixtureState, StatefulTransformer}
+import com.github.ozancicek.artan.ml.state.{BernoulliMixtureInput, BernoulliMixtureOutput, BernoulliMixtureState}
 import com.github.ozancicek.artan.ml.stats.{BernoulliDistribution, BernoulliMixtureDistribution}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql._
-import org.apache.spark.sql.Encoders
 import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.types._
 
 
 /**
- * Online bernoulli mixture transformer, based on Cappe(2010) Online Expectation-Maximisation
+ * Online bernoulli mixture transformer, based on Cappe (2010) Online Expectation-Maximisation
  *
  * @param mixtureCount number of mixture components
  */
 class BernoulliMixture(
     val mixtureCount: Int,
     override val uid: String)
-  extends StatefulTransformer[
-    String,
+  extends FiniteMixture[
+    Boolean,
+    BernoulliDistribution,
+    BernoulliMixtureDistribution,
     BernoulliMixtureInput,
     BernoulliMixtureState,
     BernoulliMixtureOutput,
     BernoulliMixture]
-  with HasInitialProbabilities with HasInitialProbabilitiesCol
-  with HasBernoulliMixtureModelCol with MixtureParams[BernoulliMixture] {
-
-  protected implicit val stateKeyEncoder = Encoders.STRING
+  with HasInitialProbabilities with HasInitialProbabilitiesCol {
 
   def this(mixtureCount: Int) = this(mixtureCount, Identifiable.randomUID("BernoulliMixture"))
 
@@ -62,7 +60,7 @@ class BernoulliMixture(
    * Applies the transformation to dataset schemas
    */
   def transformSchema(schema: StructType): StructType = {
-    if (!isSet(bernoulliMixtureModelCol)) {
+    if (!isSet(initialMixtureModelCol)) {
       require(
         isSet(initialProbabilities) | isSet(initialProbabilitiesCol),
         "Initial probabilities or its dataframe column must be set")
@@ -79,43 +77,16 @@ class BernoulliMixture(
 
   def setInitialProbabilitiesCol(value: String): BernoulliMixture = set(initialProbabilitiesCol, value)
 
-  def setInitialBernoulliMixtureModelCol(value: String): BernoulliMixture = set(bernoulliMixtureModelCol, value)
-
-  /**
-   * Transforms dataset of count to dataframe of estimated states
-   */
-  def transform(dataset: Dataset[_]): DataFrame = {
-    transformSchema(dataset.schema)
-
-    val counts = dataset
-      .withColumn("sample", col($(sampleCol)))
-      .withColumn("stepSize", getUDFWithDefault(stepSize, stepSizeCol))
-      .withColumn("decayRate", getDecayRateExpr())
-
-    val mixtureInput = if (isSet(bernoulliMixtureModelCol)) {
-      counts.withColumn("initialMixtureModel", col(getBernoulliMixtureModelCol))
-    } else {
-      val mixtureModelFunc = udf(
-        (weights: Seq[Double], probabilities: Seq[Double]) =>
-          BernoulliMixtureDistribution(weights, probabilities.map(BernoulliDistribution(_))))
-      val mixtureModelExpr = mixtureModelFunc(col("initialWeights"), col("initialProbabilities"))
-      counts
-        .withColumn("initialWeights", getUDFWithDefault(initialWeights, initialWeightsCol))
-        .withColumn("initialProbabilities", getUDFWithDefault(initialProbabilities, initialProbabilitiesCol))
-        .withColumn("initialMixtureModel", mixtureModelExpr)
-    }
-
-    asDataFrame(transformWithState(mixtureInput))
+  protected def buildInitialMixtureModel(dataFrame: DataFrame): DataFrame = {
+    val mixtureModelFunc = udf(
+      (weights: Seq[Double], probabilities: Seq[Double]) =>
+        BernoulliMixtureDistribution(weights, probabilities.map(BernoulliDistribution(_))))
+    val mixtureModelExpr = mixtureModelFunc(col("initialWeights"), col("initialProbabilities"))
+    dataFrame
+      .withColumn("initialWeights", getUDFWithDefault(initialWeights, initialWeightsCol))
+      .withColumn("initialProbabilities", getUDFWithDefault(initialProbabilities, initialProbabilitiesCol))
+      .withColumn("initialMixtureModel", mixtureModelExpr)
   }
-
-  protected def stateUpdateSpec = new MixtureUpdateSpec[
-    Boolean,
-    BernoulliDistribution,
-    BernoulliMixtureDistribution,
-    BernoulliMixtureInput,
-    BernoulliMixtureState,
-    BernoulliMixtureOutput](getUpdateHoldout, getMinibatchSize)
-
 }
 
 
@@ -126,7 +97,7 @@ private[mixture] trait HasInitialProbabilities extends Params {
     "initialProbabilities",
     "initialProbabilities")
 
-  final def getInitialMeans: Array[Double] = $(initialProbabilities)
+  final def getInitialProbabilities: Array[Double] = $(initialProbabilities)
 }
 
 
@@ -139,15 +110,4 @@ private[mixture] trait HasInitialProbabilitiesCol extends Params {
   )
 
   final def getInitialProbabilitiesCol: String = $(initialProbabilitiesCol)
-}
-
-
-private[mixture] trait HasBernoulliMixtureModelCol extends Params {
-
-  final val bernoulliMixtureModelCol: Param[String] = new Param[String](
-    this,
-    "bernoulliMixtureModelCol",
-    "bernoulliMixtureModelCol")
-
-  final def getBernoulliMixtureModelCol: String = $(bernoulliMixtureModelCol)
 }
