@@ -322,5 +322,37 @@ private[mixture] trait HasBatchTrainTol extends Params {
 
   setDefault(batchTrainTol, 0.1)
 
+  /**
+   * Getter for batch train tolerance
+   *
+   * @group getParam
+   */
   final def getBatchTrainTol: Double  = $(batchTrainTol)
+}
+
+
+private[mixture] trait HasBatchTrainEnabled extends Params {
+
+  /**
+   * Flag for enabling batch EM
+   *
+   * @group param
+   */
+
+  final val batchTrainEnabled: Param[Boolean] = new BooleanParam(
+    this,
+    "batchTrainEnabled",
+    "Flag to enable batch EM. Unless enabled, the transformer will do online EM. Online EM can be done with" +
+      "both streaming and batch dataframes, whereas batch EM can only be done with batch dataframes. Default is false"
+  )
+
+  setDefault(batchTrainEnabled, false)
+
+  /**
+   * Getter for batch EM flag
+   *
+   * @group getParam
+   */
+  final def getBatchTrainEnabled: Boolean = $(batchTrainEnabled)
+
 }

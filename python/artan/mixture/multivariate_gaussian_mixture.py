@@ -97,29 +97,8 @@ class _HasInitialCovariancesCol(Params):
         return self.getOrDefault(self.initialCovariancesCol)
 
 
-class _HasGaussianMixtureModelCol(Params):
-    """
-    Mixin for gaussian mixture model parameter.
-    """
-
-    gaussianMixtureModelCol = Param(
-        Params._dummy(),
-        "gaussianMixtureModelCol",
-        "Initial mixture model from dataframe column", TypeConverters.toString)
-
-    def __init__(self):
-        super(_HasGaussianMixtureModelCol, self).__init__()
-
-    def getGaussianMixtureModelCol(self):
-        """
-        Gets the value of gmm col or its default value.
-        """
-        return self.getOrDefault(self.gaussianMixtureModelCol)
-
-
 class MultivariateGaussianMixture(StatefulTransformer, MixtureParams, _HasInitialMeans, _HasInitialMeansCol,
-                                  _HasInitialCovariances, _HasInitialCovariancesCol,
-                                  _HasGaussianMixtureModelCol):
+                                  _HasInitialCovariances, _HasInitialCovariancesCol):
     """
     Online multivariate gaussian mixture transformer, based on Cappe(2010) Online Expectation-Maximisation
     """
@@ -164,12 +143,3 @@ class MultivariateGaussianMixture(StatefulTransformer, MixtureParams, _HasInitia
         :return: MultivariateGaussianMixture
         """
         return self._set(initialCovariancesCol=value)
-
-    def setGaussianMixtureModelCol(self, value):
-        """
-        Sets the initial gmm from dataframe column
-
-        :param value: String
-        :return: MultivariateGaussianMixture
-        """
-        return self._set(gaussianMixtureModelCol=value)

@@ -108,12 +108,3 @@ class BernoulliMixture(StatefulTransformer, MixtureParams, _HasInitialProbabilit
         :return: BernoulliMixture
         """
         return self._set(initialProbabilitiesCol=value)
-
-    def setBernoulliMixtureModelCol(self, value):
-        """
-        Sets the initial cmm from dataframe column
-
-        :param value: String
-        :return: BernoulliMixture
-        """
-        return self._set(bernoulliMixtureModelCol=value)

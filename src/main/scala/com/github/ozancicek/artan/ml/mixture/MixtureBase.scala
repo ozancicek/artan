@@ -36,7 +36,7 @@ import scala.reflect.runtime.universe.TypeTag
 private[mixture] trait MixtureParams[TransformerType]
   extends HasInitialWeights with HasInitialWeightsCol with HasStepSizeCol with HasStepSize with HasSampleCol
   with HasUpdateHoldout with HasMinibatchSize with HasMinibatchSizeCol with HasDecayRate with HasInitialMixtureModelCol
-  with HasBatchTrainMaxIter with HasBatchTrainTol with HasUpdateHoldoutCol {
+  with HasBatchTrainMaxIter with HasBatchTrainTol with HasUpdateHoldoutCol with HasBatchTrainEnabled {
 
   /**
    * Sets the initial weights of the mixtures. The weights should sum up to 1.0.
@@ -159,6 +159,16 @@ private[mixture] trait MixtureParams[TransformerType]
    */
   def setBatchTrainTol(value: Double): TransformerType = set(batchTrainTol, value)
     .asInstanceOf[TransformerType]
+
+  /**
+   * Enables batch EM mode. When enabled, [[transform]] method will do an iterative EM training with multiple passes
+   * as opposed to online training with single pass.
+   *
+   * Disabled by default
+   *
+   * @group setParam
+   */
+  def setEnableBatchEM: TransformerType = set(batchTrainEnabled, true).asInstanceOf[TransformerType]
 }
 
 
@@ -192,7 +202,7 @@ private[mixture] abstract class FiniteMixture[
   }
 
   /**
-   * Convert input dataframe to mixture input dataframe
+   * Convert samples dataframe to mixture input dataframe
    */
   private def asMixtureInput(dataset: Dataset[_]): DataFrame = {
     val samples = dataset
@@ -214,10 +224,18 @@ private[mixture] abstract class FiniteMixture[
    */
   protected def buildInitialMixtureModel(dataframe: DataFrame): DataFrame
 
+
   /**
-   * Online EM, estimates the mixture model with a single pass
+   * Transforms the dataframe of samples to a dataframe of mixture parameter estimates.
    */
-  def transform(dataset: Dataset[_]): DataFrame = {
+  def transform(dataset: Dataset[_]): DataFrame = if (getBatchTrainEnabled) batchEM(dataset) else onlineEM(dataset)
+
+  /**
+   * Online EM, mixture model estimation with a single pass.
+   *
+   * Valid for both streaming datasets and batch datasets.
+   */
+  private def onlineEM(dataset: Dataset[_]): DataFrame = {
     transformAndValidateSchema(dataset.schema)
 
     val mixtureInput = asMixtureInput(dataset)
@@ -225,11 +243,13 @@ private[mixture] abstract class FiniteMixture[
   }
 
   /**
-   * Batch EM, estimates the mixture model with multiple passes. Note that implementation is not optimized
+   * Batch EM, mixture model estimation with multiple passes. Note that implementation is not optimized
    * for performance, it re-uses the same procedures designed for Online EM. It can be used for creating
    * a prior for online algorithm, or offline refinement of online results for a subset of samples.
+   *
+   * Only valid for batch datasets.
    */
-  def batchEMTransform(dataset: Dataset[_]): DataFrame = {
+  private def batchEM(dataset: Dataset[_]): DataFrame = {
     transformAndValidateSchema(dataset.schema)
 
     val maxIter = getBatchTrainMaxIter
@@ -244,12 +264,12 @@ private[mixture] abstract class FiniteMixture[
       .withColumn("stateKey", getStateKeyColumn)
       .withColumn("decayRate", lit(null))
       .withColumn("updateHoldout", lit(0))
-      .drop("minibatchSize")
+      .drop("minibatchSize").localCheckpoint()
 
+    // Calculate minibatch size across states and join with samples
     val minibatchSize = samples.groupBy("stateKey")
       .agg(count("sample").alias("minibatchSize"))
-
-    val mixtureInput = samples.join(minibatchSize, Seq("stateKey")).cache()
+    val mixtureInput = samples.join(minibatchSize, Seq("stateKey"), "left").localCheckpoint()
 
     val emIter = (in: DataFrame) => {
       val modelState = struct(col("stateIndex"), col("mixtureModel"), col("loglikelihood"))
@@ -288,7 +308,7 @@ private[mixture] abstract class FiniteMixture[
         log.warn(s"Loglikelihood decreased on iteration $iteration")
       }
     }
-    model
+    model.withColumnRenamed("initialMixtureModel", "mixtureModel")
   }
 
   protected def stateUpdateSpec = new MixtureUpdateSpec[
@@ -366,20 +386,25 @@ private[mixture] class MixtureUpdateSpec[
         currentState.stateIndex, newSamples, currentState.summaryModel, currentState.mixtureModel, Double.MinValue)
     } else {
 
+      // Determine the step size, which is the inertia <1.0 of the sufficient statistics of current vs previous state.
       val stepSize = row.decayRate match {
         case Some(rate) => pow(2 + currentState.stateIndex, -rate)
         case None => row.stepSize
       }
 
+      // Stochastic update of sufficient statistics
       val newSummaryModel = MixtureDistribution
         .stochasticUpdate[SampleType, DistributionType, MixtureType](
         currentState.summaryModel, currentState.mixtureModel, newSamples, stepSize)
 
+      // Calculate mixture params from sufficient statistics
       val newMixtureModel = if (currentState.stateIndex < updateHoldout) {
         currentState.mixtureModel
       } else {
         MixtureDistribution.inverseWeightedMixture[SampleType, DistributionType, MixtureType](newSummaryModel)
       }
+
+      // Calculate the loglikelihood of new parameters
       val ll = newMixtureModel.loglikelihood(newSamples)
       val stateIndex = currentState.stateIndex + 1
       stateFactory.createState(stateIndex, List.empty[SampleType], newSummaryModel, newMixtureModel, ll)

@@ -152,6 +152,29 @@ class PoissonMixtureTests(ReusedSparkTestCase):
             mae_rate = _mae(dist.rate, self.rates[i])
             assert(mae_rate < 2)
 
+    def test_batch_pmm(self):
+        sample_size = 100
+
+        samples = self.generate_samples(self.weights, self.rates, sample_size)
+
+        samples_df = self.spark.createDataFrame(samples, ["sample"])
+
+        pmm = PoissonMixture(3) \
+            .setInitialRates([1.0, 7.0, 10.0]) \
+            .setEnableBatchTrain()\
+            .setBatchTrainMaxIter(5)\
+            .setBatchTrainTol(0.1)
+
+        result = pmm.transform(samples_df) \
+            .collect()[0]
+
+        mixture_model = result.mixtureModel
+        mae_weights = _mae(np.array(mixture_model.weights), np.array(self.weights))
+        assert(mae_weights < 0.1)
+        for i, dist in enumerate(mixture_model.distributions):
+            mae_rate = _mae(dist.rate, self.rates[i])
+            assert(mae_rate < 2)
+
 
 class BernoulliMixtureTests(ReusedSparkTestCase):
     np.random.seed(0)

@@ -58,30 +58,9 @@ class _HasInitialRatesCol(Params):
         return self.getOrDefault(self.initialRatesCol)
 
 
-class _HasPoissonMixtureModelCol(Params):
+class PoissonMixture(StatefulTransformer, MixtureParams, _HasInitialRates, _HasInitialRatesCol):
     """
-    Mixin for initial poisson parameter.
-    """
-
-    poissonMixtureModelCol = Param(
-        Params._dummy(),
-        "poissonMixtureModelCol",
-        "Initial mixture model from dataframe column", TypeConverters.toString)
-
-    def __init__(self):
-        super(_HasPoissonMixtureModelCol, self).__init__()
-
-    def getPoissonMixtureModelCol(self):
-        """
-        Gets the value of pmm col or its default value.
-        """
-        return self.getOrDefault(self.poissonMixtureModelCol)
-
-
-class PoissonMixture(StatefulTransformer, MixtureParams, _HasInitialRates, _HasInitialRatesCol,
-                     _HasPoissonMixtureModelCol):
-    """
-    Online multivariate poisson mixture transformer, based on Cappe(2010) Online Expectation-Maximisation
+    Online poisson mixture transformer, based on Cappe(2010) Online Expectation-Maximisation
     """
 
     def __init__(self, mixtureCount):
@@ -106,12 +85,3 @@ class PoissonMixture(StatefulTransformer, MixtureParams, _HasInitialRates, _HasI
         :return: PoissonMixture
         """
         return self._set(initialRatesCol=value)
-
-    def setPoissonMixtureModelCol(self, value):
-        """
-        Sets the initial pmm from dataframe column
-
-        :param value: String
-        :return: PoissonMixture
-        """
-        return self._set(poissonMixtureModelCol=value)
