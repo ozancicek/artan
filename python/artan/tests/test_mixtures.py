@@ -163,7 +163,8 @@ class PoissonMixtureTests(ReusedSparkTestCase):
             .setInitialRates([1.0, 7.0, 10.0]) \
             .setEnableBatchTrain()\
             .setBatchTrainMaxIter(5)\
-            .setBatchTrainTol(0.1)
+            .setBatchTrainTol(0.1)\
+            .setStepSize(1)
 
         result = pmm.transform(samples_df) \
             .collect()[0]

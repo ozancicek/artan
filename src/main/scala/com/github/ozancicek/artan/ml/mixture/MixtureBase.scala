@@ -257,10 +257,9 @@ private[mixture] abstract class FiniteMixture[
 
     log.info(s"Starting EM iterations with min loglikelihood improvement $minDelta and maxIter $maxIter")
 
-    // Ensure that stepSize = 1.0 and updateHoldout = 0.0 and minibatchSize = sampleSize, which will
+    // Ensure minibatchSize = sampleSize, which will
     // convert stochastic expectation approximation to 'traditional' expectation
     val samples = asMixtureInput(dataset)
-      .withColumn("stepSize", lit(1.0))
       .withColumn("stateKey", getStateKeyColumn)
       .withColumn("decayRate", lit(null))
       .withColumn("updateHoldout", lit(0))
