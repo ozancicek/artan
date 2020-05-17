@@ -161,8 +161,8 @@ private[mixture] trait MixtureParams[TransformerType]
     .asInstanceOf[TransformerType]
 
   /**
-   * Enables batch EM mode. When enabled, [[transform]] method will do an iterative EM training with multiple passes
-   * as opposed to online training with single pass.
+   * Enables batch EM mode. When enabled, transform method will do an iterative EM training
+   * with multiple passes as opposed to online training with single pass.
    *
    * Disabled by default
    *

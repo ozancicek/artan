@@ -19,20 +19,29 @@ package com.github.ozancicek.artan.ml.stats
 
 import scala.math.log
 
-
+/**
+ * Represents a bernoulli distribution
+ *
+ * @param probability probability of success, between 0 and 1
+ */
 case class BernoulliDistribution(probability: Double) extends Distribution[Boolean, BernoulliDistribution] {
 
-  override def loglikelihoods(samples: Seq[Boolean]): Seq[Double] = {
+  /**
+   * Returns the logpmf of sample sequence
+   *
+   * @param samples bernoulli sample sequence
+   */
+  def loglikelihoods(samples: Seq[Boolean]): Seq[Double] = {
     samples.map(s => log(if (s) probability else 1 - probability))
   }
 
-  override def scal(weight: Double): BernoulliDistribution = BernoulliDistribution(weight * probability)
+  private[artan] def scal(weight: Double): BernoulliDistribution = BernoulliDistribution(weight * probability)
 
-  override def axpy(weight: Double, other: BernoulliDistribution): BernoulliDistribution = {
+  private[artan] def axpy(weight: Double, other: BernoulliDistribution): BernoulliDistribution = {
     BernoulliDistribution(weight * other.probability + probability)
   }
 
-  override def summarize(weights: Seq[Double], samples: Seq[Boolean]): BernoulliDistribution = {
+  private[artan] def summarize(weights: Seq[Double], samples: Seq[Boolean]): BernoulliDistribution = {
     val newRate = weights.zip(samples).foldLeft(0.0) {
       case(s, cur) => s + (if (cur._2) cur._1 else 0.0) / samples.length
     }

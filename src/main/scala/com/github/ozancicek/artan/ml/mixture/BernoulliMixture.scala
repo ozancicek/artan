@@ -27,7 +27,11 @@ import org.apache.spark.sql.types._
 
 
 /**
- * Online bernoulli mixture transformer, based on Cappe (2010) Online Expectation-Maximisation
+ * Online bernoulli mixture estimator with a stateful transformer, based on Cappe (2010) Online
+ * Expectation-Maximisation paper.
+ *
+ * Outputs an estimate for each input sample in a single pass, by replacing the E-step in EM with a stochastic
+ * E-step.
  *
  * @param mixtureCount number of mixture components
  */
@@ -73,8 +77,22 @@ class BernoulliMixture(
     asDataFrameTransformSchema(outEncoder.schema)
   }
 
+  /**
+   * Sets the initial bernoulli probabilities of the mixtures. The length of the array should be equal to mixture
+   * count, each element in the array should be between 0 and 1.
+   *
+   * Default is equally spaced probabilities between 0 and 1
+   *
+   * @group setParam
+   */
   def setInitialProbabilities(value: Array[Double]): BernoulliMixture = set(initialProbabilities, value)
 
+  /**
+   * Sets the initial probabilities from dataframe column to set different probabilities across different models.
+   * Overrides the parameter set by [[setInitialProbabilities]]
+   *
+   * @group setParam
+   */
   def setInitialProbabilitiesCol(value: String): BernoulliMixture = set(initialProbabilitiesCol, value)
 
   protected def buildInitialMixtureModel(dataFrame: DataFrame): DataFrame = {
@@ -92,22 +110,55 @@ class BernoulliMixture(
 
 private[mixture] trait HasInitialProbabilities extends Params {
 
+  def mixtureCount: Int
+
+  private def getDefault = {
+    val start = 1.0/(mixtureCount + 2)
+    val interval = 1.0/(mixtureCount + 1)
+
+    (start until (1.0 - interval) by interval).toArray
+  }
+
+  /**
+   * Initial probabilities of the mixtures.
+   *
+   * @group param
+   */
   final val initialProbabilities: Param[Array[Double]] = new DoubleArrayParam(
     this,
     "initialProbabilities",
-    "initialProbabilities")
+    "Initial bernoulli probabilities of the mixtures. The length of the array should be equal to mixture" +
+      "count, each element in the array should be between 0 and 1. Default is equally spaced probabilities between" +
+      "0 and 1")
 
+  setDefault(initialProbabilities, getDefault)
+
+  /**
+   * Getter for initial probabilities column
+   *
+   * @group getParam
+   */
   final def getInitialProbabilities: Array[Double] = $(initialProbabilities)
 }
 
 
 private[mixture] trait HasInitialProbabilitiesCol extends Params {
 
+  /**
+   * Initial probabilities from dataframe column.
+   *
+   * @group param
+   */
   final val initialProbabilitiesCol: Param[String] = new Param[String](
     this,
     "initialProbabilitiesCol",
-    "initialProbabilitiesCol"
+    "Initial probabilities from dataframe column. Overrides the [[initialProbabilities]] parameter"
   )
 
+  /**
+   * Getter for initial probabilities column
+   *
+   * @group getParam
+   */
   final def getInitialProbabilitiesCol: String = $(initialProbabilitiesCol)
 }

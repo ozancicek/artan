@@ -20,11 +20,10 @@ package com.github.ozancicek.artan.ml.state
 import org.apache.spark.ml.linalg.Vector
 import java.sql.Timestamp
 
-import com.github.ozancicek.artan.ml.filter.HasCalculateLoglikelihood
 import com.github.ozancicek.artan.ml.stats._
 
 
-sealed trait MixtureState[
+private[ml] sealed trait MixtureState[
   SampleType,
   DistributionType <: Distribution[SampleType, DistributionType],
   MixtureType <: MixtureDistribution[SampleType, DistributionType, MixtureType]] extends State {
@@ -40,7 +39,7 @@ sealed trait MixtureState[
 }
 
 
-sealed trait MixtureInput[
+private[ml] sealed trait MixtureInput[
   SampleType,
   DistributionType <: Distribution[SampleType, DistributionType],
   MixtureType <: MixtureDistribution[SampleType, DistributionType, MixtureType]] extends KeyedInput[String] {
@@ -59,7 +58,7 @@ sealed trait MixtureInput[
 }
 
 
-sealed trait MixtureOutput[
+private[ml] sealed trait MixtureOutput[
   SampleType,
   DistributionType <: Distribution[SampleType, DistributionType],
   MixtureType <: MixtureDistribution[SampleType, DistributionType, MixtureType]] extends KeyedOutput[String] {
@@ -90,7 +89,15 @@ private[ml] case class GaussianMixtureState(
     loglikelihood: Double)
   extends MixtureState[Vector, MultivariateGaussianDistribution, GaussianMixtureDistribution]
 
-
+/**
+ * Case class representing the output of a gaussian mixture estimation
+ *
+ * @param stateKey Key of the state
+ * @param stateIndex index of the filter, incremented on each minibatch of samples
+ * @param mixtureModel mixture model estimation with weights and distributions
+ * @param eventTime event time of the input measurement
+ * @param loglikelihood likelihood of samples processed at this state (not cumulative)
+ */
 case class GaussianMixtureOutput(
     stateKey: String,
     stateIndex: Long,
@@ -120,7 +127,15 @@ private[ml] case class BernoulliMixtureState(
     loglikelihood: Double)
   extends MixtureState[Boolean, BernoulliDistribution, BernoulliMixtureDistribution]
 
-
+/**
+ * Case class representing the output of a bernoulli mixture estimation
+ *
+ * @param stateKey Key of the state
+ * @param stateIndex index of the filter, incremented on each minibatch of samples
+ * @param mixtureModel mixture model estimation with weights and distributions
+ * @param eventTime event time of the input measurement
+ * @param loglikelihood likelihood of samples processed at this state (not cumulative)
+ */
 case class BernoulliMixtureOutput(
     stateKey: String,
     stateIndex: Long,
@@ -150,7 +165,15 @@ private[ml] case class PoissonMixtureState(
     loglikelihood: Double)
   extends MixtureState[Long, PoissonDistribution, PoissonMixtureDistribution]
 
-
+/**
+ * Case class representing the output of a poisson mixture estimation
+ *
+ * @param stateKey Key of the state
+ * @param stateIndex index of the filter, incremented on each minibatch of samples
+ * @param mixtureModel mixture model estimation with weights and distributions
+ * @param eventTime event time of the input measurement
+ * @param loglikelihood likelihood of samples processed at this state (not cumulative)
+ */
 case class PoissonMixtureOutput(
     stateKey: String,
     stateIndex: Long,
@@ -160,7 +183,7 @@ case class PoissonMixtureOutput(
   extends MixtureOutput[Long, PoissonDistribution, PoissonMixtureDistribution]
 
 
-private[artan] trait MixtureStateFactory[
+private[ml] trait MixtureStateFactory[
   SampleType,
   DistributionType <: Distribution[SampleType, DistributionType],
   MixtureType <: MixtureDistribution[SampleType, DistributionType, MixtureType],
@@ -184,7 +207,10 @@ private[artan] trait MixtureStateFactory[
 }
 
 
-private[artan] object MixtureStateFactory {
+/**
+ * Helper object to generically create mixture states.
+ */
+private[ml] object MixtureStateFactory {
 
   def apply[
     SampleType,

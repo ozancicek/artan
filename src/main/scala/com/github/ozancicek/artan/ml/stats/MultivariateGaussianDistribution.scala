@@ -23,11 +23,21 @@ import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector, Matrix, Vector}
 
 import scala.math.{Pi, log}
 
-
+/**
+ * Represents a multivariate gaussian distribution
+ *
+ * @param mean Mean vector of the distribution
+ * @param covariance Covariance matrix of the distribution
+ */
 case class MultivariateGaussianDistribution(mean: Vector, covariance: Matrix)
   extends Distribution[Vector, MultivariateGaussianDistribution] {
 
-  override def loglikelihoods(samples: Seq[Vector]): Seq[Double] = {
+  /**
+   * Returns the logpdf of sample sequence
+   *
+   * @param samples gaussian sample sequence
+   */
+  def loglikelihoods(samples: Seq[Vector]): Seq[Double] = {
     val normConst = MultivariateGaussian.normConst(mean.size, covariance.toDense)
 
     samples.map { sample =>
@@ -36,7 +46,7 @@ case class MultivariateGaussianDistribution(mean: Vector, covariance: Matrix)
     }
   }
 
-  override def summarize(weights: Seq[Double], samples: Seq[Vector]): MultivariateGaussianDistribution = {
+  private[artan] def summarize(weights: Seq[Double], samples: Seq[Vector]): MultivariateGaussianDistribution = {
     val meanSummary = new DenseVector(Array.fill(mean.size){0.0})
     val covSummary = DenseMatrix.zeros(covariance.numRows, covariance.numCols)
     samples.zip(weights).foreach { case(v, d) =>
@@ -48,7 +58,7 @@ case class MultivariateGaussianDistribution(mean: Vector, covariance: Matrix)
     MultivariateGaussianDistribution(meanSummary, covSummary)
   }
 
-  override def scal(weight: Double): MultivariateGaussianDistribution = {
+  private[artan] def scal(weight: Double): MultivariateGaussianDistribution = {
     val weightedMean = mean.toDense.copy
     BLAS.scal(weight, weightedMean)
     val weightedCov = DenseMatrix.zeros(mean.size, mean.size)
@@ -56,7 +66,7 @@ case class MultivariateGaussianDistribution(mean: Vector, covariance: Matrix)
     MultivariateGaussianDistribution(weightedMean, weightedCov)
   }
 
-  override def axpy(weight: Double, other: MultivariateGaussianDistribution): MultivariateGaussianDistribution = {
+  private[artan] def axpy(weight: Double, other: MultivariateGaussianDistribution): MultivariateGaussianDistribution = {
     val newMean = mean.copy
     BLAS.axpy(weight, other.mean, newMean)
     val newCov = covariance.toDense.copy
@@ -66,7 +76,7 @@ case class MultivariateGaussianDistribution(mean: Vector, covariance: Matrix)
 }
 
 
-private[ml] object MultivariateGaussian {
+private[artan] object MultivariateGaussian {
 
   def unnormalizedlogpdf(
     point: DenseVector,

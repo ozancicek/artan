@@ -19,18 +19,27 @@ package com.github.ozancicek.artan.ml.stats
 import com.google.common.math.BigIntegerMath
 import scala.math.log
 
-
+/**
+ * Represents a poisson distribution with a single parameter
+ *
+ * @param rate Rate parameter.
+ */
 case class PoissonDistribution(rate: Double) extends Distribution[Long, PoissonDistribution] {
 
-  override def loglikelihoods(samples: Seq[Long]): Seq[Double] = samples.map(i => Poisson.logpmf(i, rate))
+  /**
+   * Returns logpmf of sample sequence
+   *
+   * @param samples poisson sample sequence
+   */
+  def loglikelihoods(samples: Seq[Long]): Seq[Double] = samples.map(i => Poisson.logpmf(i, rate))
 
-  override def scal(weight: Double): PoissonDistribution = PoissonDistribution(weight * rate)
+  private[artan] def scal(weight: Double): PoissonDistribution = PoissonDistribution(weight * rate)
 
-  override def axpy(weight: Double, other: PoissonDistribution): PoissonDistribution = {
+  private[artan] def axpy(weight: Double, other: PoissonDistribution): PoissonDistribution = {
     PoissonDistribution(other.rate * weight + rate)
   }
 
-  override def summarize(weights: Seq[Double], samples: Seq[Long]): PoissonDistribution = {
+  private[artan] def summarize(weights: Seq[Double], samples: Seq[Long]): PoissonDistribution = {
     val newRate = weights.zip(samples).foldLeft(0.0) {
       case(s, cur) => s + cur._1 * cur._2 /samples.length
     }
@@ -39,7 +48,7 @@ case class PoissonDistribution(rate: Double) extends Distribution[Long, PoissonD
 
 }
 
-private[ml] object Poisson {
+private[artan] object Poisson {
 
   def logpmf(count: Long, rate:Double): Double = {
     val fac = BigIntegerMath.factorial(count.toInt).doubleValue()

@@ -17,7 +17,7 @@
 
 package com.github.ozancicek.artan.ml.mixture
 
-import com.github.ozancicek.artan.ml.state.{PoissonMixtureInput, PoissonMixtureOutput, PoissonMixtureState, StatefulTransformer}
+import com.github.ozancicek.artan.ml.state.{PoissonMixtureInput, PoissonMixtureOutput, PoissonMixtureState}
 import com.github.ozancicek.artan.ml.stats.{PoissonDistribution, PoissonMixtureDistribution}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
@@ -27,7 +27,10 @@ import org.apache.spark.sql.types._
 
 
 /**
- * Online poisson mixture transformer, based on Cappe(2010) Online Expectation-Maximisation
+ * Online poisson mixture estimation with stateful transformer, based on Cappe(2010) Online Expectation-Maximisation.
+ *
+ * Outputs an estimate for each input sample in a single pass, by replacing the E-step in EM with a stochastic
+ * E-step.
  *
  * @param mixtureCount number of mixture components
  */
@@ -70,8 +73,18 @@ class PoissonMixture(val mixtureCount: Int, override val uid: String)
     asDataFrameTransformSchema(outEncoder.schema)
   }
 
+  /**
+   * Sets the initial poisson rates of the mixtures. The length of the array should be equal to [[mixtureCount]]
+   *
+   * @group setParam
+   */
   def setInitialRates(value: Array[Double]): PoissonMixture = set(initialRates, value)
 
+  /**
+   * Sets the initial rates from dataframe column. Overrides the parameter set from [[setInitialRates]]
+   *
+   * @group setParam
+   */
   def setInitialRatesCol(value: String): PoissonMixture = set(initialRatesCol, value)
 
   protected def buildInitialMixtureModel(dataFrame: DataFrame): DataFrame = {
@@ -91,23 +104,43 @@ private[mixture] trait HasInitialRates extends Params {
 
   def mixtureCount: Int
 
+  /**
+   * Initial poisson rates of the mixtures.
+   *
+   * @group param
+   */
   final val initialRates:  Param[Array[Double]] = new DoubleArrayParam(
     this,
     "initialRates",
-    "initialRates")
+    "Initial poisson rates of the mixtures. The length of the array should be equal to [[mixtureCount]]")
   setDefault(initialRates, Array.tabulate(mixtureCount)(_ + 1.0))
 
+  /**
+   * Getter for initial poisson rates parameter
+   *
+   * @group getParam
+   */
   final def getInitialRates: Array[Double] = $(initialRates)
 }
 
 
 private[mixture] trait HasInitialRatesCol extends Params {
 
+  /**
+   * Initial rates from dataframe column
+   *
+   * @group param
+   */
   final val initialRatesCol: Param[String] = new Param[String](
     this,
     "initialRatesCol",
-    "initialRatesCol"
+    "Initial poisson rates from dataframe column. Overrides the [[initialRates]] parameter"
   )
 
+  /**
+   * Getter for initial rates
+   *
+   * @group getParam
+   */
   final def getInitialRatesCol: String = $(initialRatesCol)
 }

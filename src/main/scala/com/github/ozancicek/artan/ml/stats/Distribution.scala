@@ -21,41 +21,92 @@ package com.github.ozancicek.artan.ml.stats
 import org.apache.spark.ml.linalg.Vector
 import scala.math.{log, exp}
 
-
+/**
+ * Represents a multivariate gaussian mixture distribution
+ *
+ * @param weights Weight of each distribution, should sum up to 1.0
+ * @param distributions Gaussian distributions
+ */
 case class GaussianMixtureDistribution(weights: Seq[Double], distributions: Seq[MultivariateGaussianDistribution])
   extends MixtureDistribution[Vector, MultivariateGaussianDistribution, GaussianMixtureDistribution]
 
-
+/**
+ * Represents a poisson gaussian mixture distribution
+ *
+ * @param weights Weight of each distribution, should sum up to 1.0
+ * @param distributions Poisson distributions
+ */
 case class PoissonMixtureDistribution(weights: Seq[Double], distributions: Seq[PoissonDistribution])
   extends MixtureDistribution[Long, PoissonDistribution, PoissonMixtureDistribution]
 
-
+/**
+ * Represents a bernoulli mixture distribution
+ *
+ * @param weights Weight of each distribution, should sum up to 1.0
+ * @param distributions Bernoulli distributions
+ */
 case class BernoulliMixtureDistribution(weights: Seq[Double], distributions: Seq[BernoulliDistribution])
   extends MixtureDistribution[Boolean, BernoulliDistribution, BernoulliMixtureDistribution]
 
-
-trait Distribution[
+/**
+ * Base trait for distribution
+ *
+ * @tparam SampleType Distribution sample type
+ * @tparam DistributionType Distribution type
+ */
+private[artan] trait Distribution[
   SampleType,
   DistributionType <: Distribution[SampleType, DistributionType]] extends Product {
 
   def loglikelihoods(samples: Seq[SampleType]): Seq[Double]
 
-  def scal(weight: Double): DistributionType
+  /**
+   * Scale the distribution parameter with a constant
+   */
+  private[artan] def scal(weight: Double): DistributionType
 
-  def summarize(weights: Seq[Double], samples: Seq[SampleType]): DistributionType
+  /**
+   * Returns sufficient statistics of weighted samples
+   *
+   * @param weights weight of the samples
+   * @param samples sample sequence
+   */
+  private[artan] def summarize(weights: Seq[Double], samples: Seq[SampleType]): DistributionType
 
-  def axpy(weight: Double, other: DistributionType): DistributionType
-
+  /**
+   * AXPY operation on distribution parameters
+   */
+  private[artan] def axpy(weight: Double, other: DistributionType): DistributionType
 }
 
 
-sealed trait MixtureDistribution[
+private[artan] sealed trait MixtureDistribution[
   SampleType,
   DistributionType <: Distribution[SampleType, DistributionType],
   MixtureType <: MixtureDistribution[SampleType, DistributionType, MixtureType]] extends Product {
 
+
+  /**
+   * Weights of the mixture distribution, should sum up to 1.0 and should align with [[distributions]].
+   */
   def weights: Seq[Double]
+
+  /**
+   * Distributions of the mixture
+   */
   def distributions: Seq[DistributionType]
+
+  /**
+   * Evaluates loglikelihood of the input sample sequence
+   *
+   * @param samples sample sequence
+   * @return
+   */
+  def loglikelihood(samples: Seq[SampleType]): Double = {
+    distributions.zip(weights).map { case (dist, weight) =>
+      dist.loglikelihoods(samples).map(exp(_)*weight)
+    }.transpose.map(s => log(s.sum)).sum
+  }
 
   private def weightedLikelihoods(samples: Seq[SampleType]): Seq[Seq[Double]] = {
 
@@ -74,12 +125,6 @@ sealed trait MixtureDistribution[
       distSamples.map(ll => exp(ll - logProbSum))
     }
     normedLikelihoods.transpose
-  }
-
-  def loglikelihood(samples: Seq[SampleType]): Double = {
-    distributions.zip(weights).map { case (dist, weight) =>
-      dist.loglikelihoods(samples).map(exp(_)*weight)
-    }.transpose.map(s => log(s.sum)).sum
   }
 
   private def summary(

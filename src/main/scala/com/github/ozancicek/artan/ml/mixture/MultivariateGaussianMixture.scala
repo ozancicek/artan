@@ -27,7 +27,11 @@ import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.types._
 
 /**
- * Online multivariate gaussian mixture transformer, based on Cappe(2010) Online Expectation-Maximisation
+ * Online multivariate gaussian mixture estimation with a stateful transformer, based on Cappe(2010) Online
+ * Expectation-Maximisation paper.
+ *
+ * Outputs an estimate for each input sample in a single pass, by replacing the E-step in EM with a stochastic
+ * E-step.
  *
  * @param mixtureCount number of mixture components
  */
@@ -57,18 +61,41 @@ class MultivariateGaussianMixture(
     copyValues(that, extra)
   }
 
+  /**
+   * Sets the initial mean vectors of the mixtures as a nested array of doubles. The dimensions of the array should
+   * be mixtureCount x sample vector size
+   *
+   * @group setParam
+   */
   def setInitialMeans(value: Array[Array[Double]]): MultivariateGaussianMixture = {
     set(initialMeans, value)
   }
 
+  /**
+   * Sets the initial means from dataframe column. Overrides the value set by [[setInitialMeans]]
+   *
+   * @group setParam
+   */
   def setInitialMeansCol(value: String): MultivariateGaussianMixture = {
     set(initialMeansCol, value)
   }
 
+  /**
+   * Sets the initial covariance matrices of the mixtures as a nested array of doubles. The dimensions of the array
+   * should be mixtureCount x sampleSize**2
+   *
+   * @group setParam
+   */
   def setInitialCovariances(value: Array[Array[Double]]): MultivariateGaussianMixture = {
     set(initialCovariances, value)
   }
 
+  /**
+   * Sets the initial covariance matrices of the mixtures from dataframe column. Overrides the value set
+   * by [[setInitialCovariances]]
+   *
+   * @group setParam
+   */
   def setInitialCovariancesCol(value: String): MultivariateGaussianMixture = {
     set(initialCovariancesCol, value)
   }
@@ -126,46 +153,92 @@ class MultivariateGaussianMixture(
 
 private[mixture] trait HasInitialMeans extends Params {
 
+  def mixtureCount: Int
+  /**
+   * Initial means of the mixtures
+   *
+   * @group param
+   */
   final val initialMeans: Param[Array[Array[Double]]] = new DoubleArrayArrayParam(
     this,
     "initialMeans",
-    "initialMeans")
+    "Initial mean vectors of the mixtures as a nested array of doubles. The dimensions of the array should" +
+      "be mixtureCount x sampleLength.",
+    (in: Array[Array[Double]]) => in.length == mixtureCount)
 
+  /**
+   * Getter for initial means
+   *
+   * @group getParam
+   */
   final def getInitialMeans: Array[Array[Double]] = $(initialMeans)
 }
 
 
 private[mixture] trait HasInitialMeansCol extends Params {
 
+  /**
+   * Initial means from dataframe column
+   *
+   * @group param
+   */
   final val initialMeansCol: Param[String] = new Param[String](
     this,
     "initialMeansCol",
-    "initialMeansCol"
+    "Initial mean vectors from dataframe column. Overrides the [[initialMeans]] parameter."
   )
 
+  /**
+   * Getter for initial means column
+   *
+   * @group getParam
+   */
   final def getInitialMeansCol: String = $(initialMeansCol)
 }
 
 
 private[mixture] trait HasInitialCovariances extends Params {
 
+  def mixtureCount: Int
+
+  /**
+   * Initial covariances nested array, column major and mixtureCount x sampleSize**2
+   *
+   * @group param
+   */
   final val initialCovariances: Param[Array[Array[Double]]] = new DoubleArrayArrayParam(
     this,
     "initialCovariances",
-    "initialCovariances"
-  )
+    "initial covariance matrices of the mixtures as a nested array of doubles. The dimensions of the nested" +
+      "array should be mixtureCount x sampleSize**2.",
+    (in: Array[Array[Double]]) => in.length == mixtureCount)
 
+  /**
+   * Getter for initial covariances parameter
+   *
+   * @group getParam
+   */
   final def getInitialCovariances: Array[Array[Double]] = $(initialCovariances)
 }
 
 
 private[mixture] trait HasInitialCovariancesCol extends Params {
 
+  /**
+   * Initial covariances from dataframe column
+   *
+   * @group param
+   */
   final val initialCovariancesCol: Param[String] = new Param[String](
     this,
     "initialCovariancesCol",
-    "initialCovariancesCol"
+    "Initial covariances from dataframe column. Overrides the [[initialCovariances]] parameter."
   )
 
+  /**
+   * Getter for initial covariances column
+   *
+   * @group getParam
+   */
   final def getInitialCovariancesCol: String = $(initialCovariancesCol)
 }
