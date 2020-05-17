@@ -25,7 +25,9 @@ class HasSampleCol(Params):
 
     sampleCol = Param(
         Params._dummy(),
-        "sampleCol", "Input sample column", TypeConverters.toString)
+        "sampleCol",
+        "Column name for input to mixture models",
+        TypeConverters.toString)
 
     def __init__(self):
         super(HasSampleCol, self).__init__()
@@ -44,7 +46,8 @@ class HasInitialWeights(Params):
 
     initialWeights = Param(
         Params._dummy(),
-        "initialWeights", "Initial weights of mixtures", TypeConverters.toListFloat)
+        "initialWeights", "Initial weights of the mixtures. The weights should sum up to 1.0 .",
+        TypeConverters.toListFloat)
 
     def __init__(self):
         super(HasInitialWeights, self).__init__()
@@ -63,7 +66,8 @@ class HasInitialWeightsCol(Params):
 
     initialWeightsCol = Param(
         Params._dummy(),
-        "initialWeightsCol", "Initial weights of mixtures from dataframe column", TypeConverters.toString)
+        "initialWeightsCol", "Initial weights of mixtures from dataframe column",
+        TypeConverters.toString)
 
     def __init__(self):
         super(HasInitialWeightsCol, self).__init__()
@@ -77,12 +81,17 @@ class HasInitialWeightsCol(Params):
 
 class HasStepSize(Params):
     """
-    Mixin for step size parameter
+    Mixin for controlling the inertia of the current parameter.
     """
 
     stepSize = Param(
         Params._dummy(),
-        "stepSize", "Step size for stochastic expectation approximation", TypeConverters.toFloat)
+        "stepSize",
+        "Weights the current parameter of the model against the old parameter. A step size of 1.0 means ignore" +
+        "the old parameter, whereas a step size of 0 means ignore the current parameter. Values closer to 1.0 will" +
+        "increase speed of convergence, but might have adverse effects on stability. In online setting," +
+        "it is advised to set small values close to 0.0. Default is 0.01",
+        TypeConverters.toFloat)
 
     def __init__(self):
         super(HasStepSize, self).__init__()
@@ -101,7 +110,9 @@ class HasStepSizeCol(Params):
 
     stepSizeCol = Param(
         Params._dummy(),
-        "stepSizeCol", "Step size parameter from dataframe column", TypeConverters.toString)
+        "stepSizeCol",
+        "stepSize parameter from dataframe column instead of a constant value across all samples",
+        TypeConverters.toString)
 
     def __init__(self):
         super(HasStepSizeCol, self).__init__()
@@ -119,7 +130,10 @@ class HasDecayRate(Params):
     """
     decayRate = Param(
         Params._dummy(),
-        "decayRate", "Param for enabling decaying step size", TypeConverters.toFloat)
+        "decayRate",
+        "Step size as a decaying function rather than a constant, which might be preferred in batch training." +
+        "If set, the step size will be replaced with the output of the function" +
+        "stepSize = (2 + kIter)**(-decayRate)", TypeConverters.toFloat)
 
     def __init__(self):
         super(HasDecayRate, self).__init__()
@@ -138,7 +152,11 @@ class HasMinibatchSize(Params):
 
     minibatchSize = Param(
         Params._dummy(),
-        "minibatchSize", "Mini-batch size controlling the number of samples in a batch", TypeConverters.toInt)
+        "minibatchSize",
+        "Size for batching samples together in online EM algorithm. Estimate will be produced once per each batch" +
+        "Having larger batches increases stability with increased memory footprint. Each minibatch is stored in" +
+        "mixture transformer state independently from spark minibatches.",
+        TypeConverters.toInt)
 
     def __init__(self):
         super(HasMinibatchSize, self).__init__()
@@ -157,7 +175,9 @@ class HasMinibatchSizeCol(Params):
 
     minibatchSizeCol = Param(
         Params._dummy(),
-        "minibatchSizeCol", "Set minibatch size from dataframe column", TypeConverters.toString)
+        "minibatchSizeCol",
+        "Set minibatch size from dataframe column",
+        TypeConverters.toString)
 
     def __init__(self):
         super(HasMinibatchSizeCol, self).__init__()
@@ -176,7 +196,10 @@ class HasUpdateHoldout(Params):
 
     updateHoldout = Param(
         Params._dummy(),
-        "updateHoldout", "Update holdout for preventing updates in initial iterations", TypeConverters.toInt)
+        "updateHoldout",
+        "Controls after how many samples the mixture will start calculating estimates. Preventing update" +
+        "in first few samples might be preferred for stability.",
+        TypeConverters.toInt)
 
     def __init__(self):
         super(HasUpdateHoldout, self).__init__()
@@ -195,7 +218,9 @@ class HasUpdateHoldoutCol(Params):
 
     updateHoldoutCol = Param(
         Params._dummy(),
-        "updateHoldoutCol", "Update holdout parameter from dataframe column", TypeConverters.toString)
+        "updateHoldoutCol",
+        "updateHoldout from dataframe column rather than a constant value across all states",
+        TypeConverters.toString)
 
     def __init__(self):
         super(HasUpdateHoldoutCol, self).__init__()
@@ -215,7 +240,8 @@ class HasInitialMixtureModelCol(Params):
     initialMixtureModelCol = Param(
         Params._dummy(),
         "initialMixtureModelCol",
-        "Initial mixture model from dataframe column", TypeConverters.toString)
+        "Sets the initial mixture model from struct column conforming to mixture distribution",
+        TypeConverters.toString)
 
     def __init__(self):
         super(HasInitialMixtureModelCol, self).__init__()
@@ -235,7 +261,9 @@ class HasBatchTrainEnabled(Params):
     batchTrainEnabled = Param(
         Params._dummy(),
         "batchTrainEnabled",
-        "Flag for enabling batch train mode", TypeConverters.toBoolean)
+        "Flag to enable batch EM. Unless enabled, the transformer will do online EM. Online EM can be done with" +
+        "both streaming and batch dataframes, whereas batch EM can only be done with batch dataframes. Default is false",
+        TypeConverters.toBoolean)
 
     def __init__(self):
         super(HasBatchTrainEnabled, self).__init__()
@@ -254,7 +282,9 @@ class HasBatchTrainMaxIter(Params):
 
     batchTrainMaxIter = Param(
         Params._dummy(),
-        "batchTrainMaxIter", "Max number of iterations in batch EM train mode", TypeConverters.toInt)
+        "batchTrainMaxIter",
+        "Maximum iterations in batch train mode, default is 30",
+        TypeConverters.toInt)
 
     def __init__(self):
         super(HasBatchTrainMaxIter, self).__init__()
@@ -273,7 +303,9 @@ class HasBatchTrainTol(Params):
 
     batchTrainTol = Param(
         Params._dummy(),
-        "batchTrainTol", "Min change in loglikelihood to stop iterations in batch EM mode", TypeConverters.toFloat)
+        "batchTrainTol",
+        "Min change in loglikelihood to stop iterations in batch EM mode. Default is 0.1",
+        TypeConverters.toFloat)
 
     def __init__(self):
         super(HasBatchTrainTol, self).__init__()
@@ -292,7 +324,12 @@ class MixtureParams(HasSampleCol, HasStepSize, HasStepSizeCol, HasInitialWeights
 
     def setSampleCol(self, value):
         """
-        Sets the sample column parameter
+        Sets the sample column for the mixture model inputs. Depending on the mixture distribution, sample type should
+        be different.
+
+        Bernoulli => Boolean
+        Poisson => Long
+        MultivariateGaussian => Vector
 
         :param value: String
         :return: MixtureTransformer
@@ -301,7 +338,12 @@ class MixtureParams(HasSampleCol, HasStepSize, HasStepSizeCol, HasInitialWeights
 
     def setStepSize(self, value):
         """
-        Sets the step size parameter
+        Sets the step size parameter, which weights the current parameter of the model against the old parameter.
+        A step size of 1.0 means ignore the old parameter, whereas a step size of 0 means ignore the current parameter.
+        Values closer to 1.0 will increase speed of convergence, but might have adverse effects on stability. For online
+        EM, it is advised to set it close to 0.0.
+
+        Default is 0.1
 
         :param value: Int
         :return: MixtureTransformer
@@ -310,7 +352,8 @@ class MixtureParams(HasSampleCol, HasStepSize, HasStepSizeCol, HasInitialWeights
 
     def setStepSizeCol(self, value):
         """
-        Sets the step size column parameter
+        Sets the step size from dataframe column, which would allow setting different step sizes accross measurements.
+        Overrides the value set by setStepSize
 
         :param value: String
         :return: MixtureTransformer
@@ -319,14 +362,20 @@ class MixtureParams(HasSampleCol, HasStepSize, HasStepSizeCol, HasInitialWeights
 
     def setDecayRate(self, value):
         """
-        Enables decaying step size
+        Sets the step size as a decaying function rather than a constant step size, which might be preferred
+        for batch training. If set, the step size will be replaced with the output of following function:
+
+        stepSize = (2 + kIter)**(-decayRate)
+
+        Where kIter is incremented by 1 on each minibatch.
+
         :return: MixtureTransformer
         """
         return self._set(decayRate=value)
 
     def setInitialWeights(self, value):
         """
-        Sets the initial mixture weights parameter
+        Sets the initial weights of the mixtures. The weights should sum up to 1.0.
 
         :param value: List[Float]
         :return: MixtureTransformer
@@ -344,7 +393,10 @@ class MixtureParams(HasSampleCol, HasStepSize, HasStepSizeCol, HasInitialWeights
 
     def setMinibatchSize(self, value):
         """
-        Sets the minibatch size parameter
+        Sets the minibatch size for batching samples together in online EM algorithm. Estimate will be produced once
+        per each batch. Having larger batches increases stability with increased memory footprint.
+
+        Default is 1
 
         :param value: Int
         :return: MixtureTransformer
@@ -353,7 +405,8 @@ class MixtureParams(HasSampleCol, HasStepSize, HasStepSizeCol, HasInitialWeights
 
     def setMinibatchSizeCol(self, value):
         """
-        Sets the minibatch size parameter from dataframe column
+        Sets the minibatch size from dataframe column rather than a constant minibatch size across all states.
+        Overrides setMinibatchSize setting.
 
         :param value: Int
         :return: MixtureTransformer
@@ -362,7 +415,8 @@ class MixtureParams(HasSampleCol, HasStepSize, HasStepSizeCol, HasInitialWeights
 
     def setUpdateHoldout(self, value):
         """
-        Sets the update holdout parameter
+        Sets the update holdout parameter which controls after how many samples the mixture will start calculating
+        estimates. Preventing update in first few samples might be preferred for stability.
 
         :param value: Int
         :return: MixtureTransformer
@@ -371,7 +425,8 @@ class MixtureParams(HasSampleCol, HasStepSize, HasStepSizeCol, HasInitialWeights
 
     def setUpdateHoldoutCol(self, value):
         """
-        Sets the update holdout parameter from dataframe column
+        Sets the update holdout parameter from dataframe column rather than a constant value across all states.
+        Overrides the value set by setUpdateHoldout
 
         :param value: String
         :return: MixtureTransormer
@@ -380,7 +435,7 @@ class MixtureParams(HasSampleCol, HasStepSize, HasStepSizeCol, HasInitialWeights
 
     def setInitialMixtureModelCol(self, value):
         """
-        Sets the initial mixture model column
+        Sets the initial mixture model directly from dataframe column
 
         :param value: String
         :return: MixtureTransformer

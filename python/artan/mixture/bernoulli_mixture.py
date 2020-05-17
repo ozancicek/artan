@@ -83,7 +83,12 @@ class _HasBernoulliMixtureModelCol(Params):
 class BernoulliMixture(StatefulTransformer, MixtureParams, _HasInitialProbabilities, _HasInitialProbabilitiesCol,
                        _HasBernoulliMixtureModelCol):
     """
-    Online multivariate bernoulli mixture transformer, based on Cappe(2010) Online Expectation-Maximisation
+    Online bernoulli mixture estimator with a stateful transformer, based on Cappe (2010) Online
+    Expectation-Maximisation paper.
+
+    Outputs an estimate for each input sample in a single pass, by replacing the E-step in EM with a recursively
+    averaged stochastic E-step.
+
     """
 
     def __init__(self, mixtureCount):

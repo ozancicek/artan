@@ -59,7 +59,7 @@ private[mixture] trait MixtureParams[TransformerType]
    * Sets the step size parameter, which weights the current parameter of the model against the old parameter.
    * A step size of 1.0 means ignore the old parameter, whereas a step size of 0 means ignore the current parameter.
    * Values closer to 1.0 will increase speed of convergence, but might have adverse effects on stability. In an online
-   * setting, its advised to set it close to 0.0.
+   * setting, it is advised to set it close to 0.0.
    *
    * Default is 0.1
    *
@@ -133,7 +133,6 @@ private[mixture] trait MixtureParams[TransformerType]
    * @group setParam
    */
   def setDecayRate(value: Double): TransformerType = set(decayRate, value).asInstanceOf[TransformerType]
-
 
   /**
    * Sets the initial mixture model directly from dataframe column

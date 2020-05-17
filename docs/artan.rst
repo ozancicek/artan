@@ -9,6 +9,7 @@ Subpackages
 
    artan.filter
    artan.smoother
+   artan.mixture
    artan.state
    artan.testing
    artan.tests

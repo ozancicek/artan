@@ -60,7 +60,11 @@ class _HasInitialRatesCol(Params):
 
 class PoissonMixture(StatefulTransformer, MixtureParams, _HasInitialRates, _HasInitialRatesCol):
     """
-    Online poisson mixture transformer, based on Cappe(2010) Online Expectation-Maximisation
+    Online poisson mixture estimator with a stateful transformer, based on Cappe (2010) Online
+    Expectation-Maximisation paper.
+
+    Outputs an estimate for each input sample in a single pass, by replacing the E-step in EM with a recursively
+    averaged stochastic E-step.
     """
 
     def __init__(self, mixtureCount):

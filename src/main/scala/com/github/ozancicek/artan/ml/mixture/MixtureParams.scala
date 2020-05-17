@@ -78,7 +78,7 @@ private[mixture] trait HasStepSize extends Params {
   final val stepSize: Param[Double] = new DoubleParam(
     this,
     "stepSize",
-    "weights the current parameter of the model against the old parameter. A step size of 1.0 means ignore" +
+    "Weights the current parameter of the model against the old parameter. A step size of 1.0 means ignore" +
       "the old parameter, whereas a step size of 0 means ignore the current parameter. Values closer to 1.0 will" +
       "increase speed of convergence, but might have adverse effects on stability. In online setting," +
       "its advised to set it close to 0.0.",
@@ -129,7 +129,7 @@ private[mixture] trait HasDecayRate extends Params {
     "decayRate",
     "Step size as a decaying function rather than a constant, which might be preferred at batch training." +
       "If set, the step size will be replaced with the output of following function" +
-      "stepSize = pow(2 + kIter, -decayRate)",
+      "stepSize = (2 + kIter)**(-decayRate)",
     ParamValidators.ltEq(1.0)
   )
 
@@ -271,7 +271,7 @@ private[mixture] trait HasInitialMixtureModelCol extends Params {
   final val initialMixtureModelCol: Param[String] = new Param[String](
     this,
     "initialMixtureModelCol",
-    "Sets the initial mixture model from struct column conforming to mixture distributions case class")
+    "Sets the initial mixture model from struct column conforming to the case class of mixture distribution")
 
   /**
    * Getter for initial mixture model column
