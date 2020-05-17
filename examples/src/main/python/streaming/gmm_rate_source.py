@@ -45,8 +45,8 @@ if __name__ == "__main__":
     spark = SparkSession.builder.appName("GMMRateSource").getOrCreate()
     spark.sparkContext.setLogLevel("WARN")
 
+    # Define sample generating expression, 3 gaussians and a uniform random for mixture weights
     num_mixtures = 3
-    minibatch_size = 10
     dist1 = randnMultiGaussian(np.array([1.0, 2.0]), np.eye(2), seed=0)
     dist2 = randnMultiGaussian(np.array([10.0, 5.0]), np.eye(2)*2 + 2, seed=1)
     dist3 = randnMultiGaussian(np.array([4.0, 4.0]), np.eye(2)*5, seed=2)
@@ -62,12 +62,13 @@ if __name__ == "__main__":
         .withColumn("stateKey", F.col("mod").cast("String"))\
         .withColumn("sample", mixture)
 
+    minibatch_size = 1
     eye = [1.0, 0.0, 0.0, 1.0]
     gmm = MultivariateGaussianMixture(3)\
         .setStateKeyCol("stateKey")\
         .setInitialMeans([[3.0, 5.0], [6.0, 6.0], [7.0, 1.0]])\
         .setInitialCovariances([eye, eye, eye])\
-        .setStepSize(0.1)\
+        .setStepSize(0.01)\
         .setMinibatchSize(minibatch_size)
 
     truncate_weights = F.udf(lambda x: "[%.2f, %.2f, %.2f]" % (x[0], x[1], x[2]), StringType())

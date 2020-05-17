@@ -21,9 +21,15 @@ import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector, Matrices, Matrix, V
 import org.apache.spark.ml.{BLAS, LAPACK}
 import org.apache.spark.sql.Column
 import org.apache.spark.sql.expressions.UserDefinedFunction
+import scala.reflect.runtime.universe.TypeTag
 
 
 object SparkFunctions {
+
+  private def literal[T: TypeTag](in: T): Column = {
+    val f = udf(() => in)
+    f()
+  }
 
   private def cholesky(in: Matrix): Matrix = {
     val result = in.toDense.copy
@@ -177,7 +183,7 @@ object SparkFunctions {
    */
   def randMultiGaussian(mean: Vector, covariance: Matrix, seed: Long = 0): Column = {
     val root = cholesky(covariance)
-    scaleToMultiGaussian(lit(mean), lit(root), randnVector(mean.size, seed))
+    scaleToMultiGaussian(literal(mean), literal(covariance), randnVector(mean.size, seed))
   }
 
   /**
