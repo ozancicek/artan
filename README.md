@@ -22,9 +22,9 @@ looking to explore hidden states, this library could fit to your use case. Speci
 - **Model-parallelism.** Training multiple models is supported in all estimators. 
 - **Online learning.** Model parameters are updated sequentially with measurements with a single pass. The state used
 by the algorithms are bounded with #models and model parameters.
-- **Latent state estimation.** With a focus on use on time series estimation, implemented methods include filtering (
-Kalman filters, EKF, UKF, Multiple-Model Adaptive filters, etc..), smoothing (RTS), finite mixture models (
-Gaussian, Poisson, Bernoulli). 
+- **Latent state estimation.** With a focus on time series estimation, implemented methods include hidden state estimation
+with filtering (Kalman filters, EKF, UKF, Multiple-Model Adaptive filters, etc..), smoothing (RTS), finite mixture
+models (MultivariateGaussian, Poisson, etc,..). 
 
 Artan requires Scala 2.11, Spark 2.4+ and Python 3,6+
 
