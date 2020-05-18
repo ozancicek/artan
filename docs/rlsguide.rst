@@ -27,9 +27,11 @@ Import RLS filter & spark, start spark session.
 
 Define model parameters, #models and udf's to generate training data.
 
-Each feature and label can be associated with a
-different model by creating a key column & specifying it with `setStateKeyCol`. Not specifying any key column will result
-in training a single model. Training data is generated using streaming rate source. Streaming rate source generates
+Training multiple models is achieved by mapping samples to models. Each label and featuers can be associated with a
+different model by creating a 'key' column and specifying it with `setStateKeyCol`. Not specifying any
+key column will result in training a single model.
+
+Training data is generated using streaming rate source. Streaming rate source generates
 consecutive numbers with timestamps. These consecutive numbers are binned for different models and then used for
 generating label & features vectors.
 

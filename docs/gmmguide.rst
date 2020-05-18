@@ -28,6 +28,9 @@ observations in a mini-batch style, which can also be set as a hyperparameter.
 Scala
 -----
 
+Import MultivarateGaussianMixture and functions to generate samples from multivariate gaussian. The mixture weights
+are sampled using uniform distribution.
+
     .. code-block:: scala
 
         import com.github.ozancicek.artan.ml.mixture.MultivariateGaussianMixture
@@ -48,7 +51,7 @@ Scala
         val numMixtures = 3
         val minibatchSize = 1
 
-        // Define 3 gaussians for sample generating expression
+        // 3 gaussians for sample generating expression
         val dist1 = randMultiGaussian(new DenseVector(Array(1.0, 2.0)), DenseMatrix.eye(2), seed=0)
         val dist2 = randMultiGaussian(new DenseVector(Array(10.0, 5.0)), new DenseMatrix(2, 2, Array(4, 2, 2, 4)), seed=1)
         val dist3 = randMultiGaussian(new DenseVector(Array(4.0, 4.0)), new DenseMatrix(2, 2, Array(5, 0, 0, 5)), seed=2)
@@ -57,6 +60,13 @@ Scala
         val weight = rand(seed=0)
         val mixture = when(weight < 0.2, dist1).when(weight < 0.5, dist2).otherwise(dist3)
 
+Training multiple models is achieved by mapping samples to models. Each sample can be associated with a
+different model by creating a 'key' column for it and passing it as a parameter with `setStateKeyCol`. Not specifying any
+key column will result in training a single model.
+
+Training data is generated using streaming rate source. Streaming rate source generates
+consecutive numbers with timestamps. These consecutive numbers are binned to simulate sampling for different models.
+
     .. code-block:: scala
 
         val inputDf = spark.readStream.format("rate").option("rowsPerSecond", rowsPerSecond).load
@@ -64,6 +74,7 @@ Scala
           .withColumn("stateKey", $"mod".cast("String"))
           .withColumn("sample", mixture)
 
+        // Set initial values and hyperparams.
         val gmm = new MultivariateGaussianMixture(3)
           .setStateKeyCol("stateKey")
           .setInitialMeans(Array(Array(3.0, 5.0), Array(6.0, 6.0), Array(7.0, 1.0)))
@@ -71,7 +82,17 @@ Scala
           .setStepSize(0.01)
           .setMinibatchSize(minibatchSize)
 
+Run the transformer. The transformer outputs estimates for mixture model parameters for each sample (or minibatch set
+by setMinibatchSize). Note that due to continuous estimation of the model, inference abstractions
+compatible with spark ml pipelines are not implemented yet.
+
+
     .. code-block:: scala
+
+        // Helper udf to pretty print dense vectors & arrays
+        val floor = (in: Double) => (math floor in * 100)/100
+        val truncateVector = udf((in: DenseVector) => in.values.map(floor))
+        val truncateArray= udf((in: Seq[Double]) => in.map(floor))
 
         val query = gmm.transform(inputDf)
           .select(
@@ -133,6 +154,8 @@ See `examples <https://github.com/ozancicek/artan/blob/master/examples/src/main/
 Python
 ------
 
+Import MultivarateGaussianMixture and functions to generate samples from multivariate gaussian. The mixture weights
+are sampled using uniform distribution.
 
     .. code-block:: python
 
@@ -162,6 +185,13 @@ Python
             .when(weight < 0.5, dist2)\
             .otherwise(dist3)
 
+Training multiple models is achieved by mapping samples to models. Each sample can be associated with a
+different model by creating a 'key' column for it and passing it as a parameter with `setStateKeyCol`. Not specifying any
+key column will result in training a single model.
+
+Training data is generated using streaming rate source. Streaming rate source generates
+consecutive numbers with timestamps. These consecutive numbers are binned to simulate sampling for different models.
+
     .. code-block:: python
 
         input_df = spark.readStream.format("rate").option("rowsPerSecond", mps).load()\
@@ -178,6 +208,9 @@ Python
             .setStepSize(0.01)\
             .setMinibatchSize(minibatch_size)
 
+Run the transformer. The transformer outputs estimates for mixture model parameters for each sample (or minibatch set
+by setMinibatchSize). Note that due to continuous estimation of the model, inference abstractions
+compatible with spark ml pipelines are not implemented yet.
 
     .. code-block:: python
 

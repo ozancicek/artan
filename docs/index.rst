@@ -54,6 +54,7 @@ Guides
         ekfguide
         ukfguide
         mmaeguide
+        gmmguide
         stateguide
 
 

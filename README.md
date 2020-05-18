@@ -6,7 +6,7 @@
 [![Documentation Status](https://readthedocs.org/projects/artan/badge/?version=latest)](https://artan.readthedocs.io/en/latest/?badge=latest)
 
 
-Model-parallel bayesian filtering with Apache Spark.
+Model-parallel online latent state estimation with Apache Spark.
 
 - [Overview](#overview)
 - [Download](#download)
@@ -15,13 +15,16 @@ Model-parallel bayesian filtering with Apache Spark.
 
 ## Overview
 
-This library provides supports for running various bayesian filters in parallel with Apache Spark. Uses arbitrary
-stateful transformation capabilities of Spark DataFrames to define model-parallel bayesian filters. Therefore, it
-is suitable for latent state estimation of many similar small scale systems rather than a big single system.
+This library provides supports for model-parallel latent state estimation with Apache Spark, with a focus on online
+learning compatible with structured streaming. If are receiving online measurements from multiple systems and
+looking to explore hidden states, this library could fit to your use case. Specific focuses are;
 
-Both structured streaming & batch processing modes are supported. Implemented filters extend SparkML Transformers, so
-you can transform a DataFrame of measurements to a DataFrame of estimated states with Kalman filters
-(extended, unscented, etc,..) and various other filters as a part of your SparkML Pipeline.
+- **Model-parallelism.** Training multiple models is supported in all estimators. 
+- **Online learning.** Model parameters are updated sequentially with measurements with a single pass. The state used
+by the algorithms are bounded with #models and model parameters.
+- **Latent state estimation.** With a focus on use on time series estimation, implemented methods include filtering (
+Kalman filters, EKF, UKF, Multiple-Model Adaptive filters, etc..), smoothing (RTS), finite mixture models (
+Gaussian, Poisson, Bernoulli). 
 
 Artan requires Scala 2.11, Spark 2.4+ and Python 3,6+
 
@@ -46,7 +49,7 @@ Note that pip will only install the python dependencies. To submit pyspark jobs,
 
 ## Docs and Examples
 
-Visit [docs](https://artan.readthedocs.io/) and [examples](https://github.com/ozancicek/artan/blob/master/examples/src/main) for all sample scripts.
+Visit [docs](https://artan.readthedocs.io/) to get started and see [examples](https://github.com/ozancicek/artan/blob/master/examples/src/main) for all sample scripts.
 
 ### Structured streaming examples
 - Local linear trend filtering with Linear Kalman Filter ([python](https://github.com/ozancicek/artan/blob/master/examples/src/main/python/streaming/lkf_rate_source_llt.py), [scala](https://github.com/ozancicek/artan/blob/master/examples/src/main/scala/com/github/ozancicek/artan/examples/streaming/LKFRateSourceLLT.scala))
@@ -54,3 +57,4 @@ Visit [docs](https://artan.readthedocs.io/) and [examples](https://github.com/oz
 - Nonlinear estimation with Extended Kalman Filter ([scala](https://github.com/ozancicek/artan/blob/master/examples/src/main/scala/com/github/ozancicek/artan/examples/streaming/EKFRateSourceGLMLog.scala))
 - Nonlinear estimation with Unscented Kalman Filter ([scala](https://github.com/ozancicek/artan/blob/master/examples/src/main/scala/com/github/ozancicek/artan/examples/streaming/UKFRateSourceGLMLog.scala))
 - Multiple-Model Adaptive estimation ([scala](https://github.com/ozancicek/artan/blob/master/examples/src/main/scala/com/github/ozancicek/artan/examples/streaming/MMAERateSourceOLS.scala))
+- Online Gaussian Mixture Model ([python](https://github.com/ozancicek/artan/blob/master/examples/src/main/python/streaming/gmm_rate_source.py), [scala](https://github.com/ozancicek/artan/blob/master/examples/src/main/scala/com/github/ozancicek/artan/examples/streaming/GMMRateSource.scala))
