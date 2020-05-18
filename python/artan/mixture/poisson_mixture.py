@@ -74,7 +74,7 @@ class PoissonMixture(StatefulTransformer, MixtureParams, _HasInitialRates, _HasI
 
     def setInitialRates(self, value):
         """
-        Sets the initial poisson rates parameter
+        Sets the initial poisson rates of the mixtures. The length of the array should be equal to mixtureCount.
 
         :param value: List[Float]
         :return: PoissonMixture
@@ -83,7 +83,7 @@ class PoissonMixture(StatefulTransformer, MixtureParams, _HasInitialRates, _HasI
 
     def setInitialRatesCol(self, value):
         """
-        Sets the initial poisson rates from dataframe column
+        Sets the initial rates from dataframe column. Overrides the parameter set from setInitialRates.
 
         :param value: String
         :return: PoissonMixture

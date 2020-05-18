@@ -1,8 +1,8 @@
 Online Nonlinear Regression with Extended Kalman Filter
 =======================================================
 
-EKF can be used for systems where measurement or state process updates are nonlinear
-functions. In order to do nonlinear updates with EKF, the update function along and its jacobian
+Exctended Kalman Filter (EKF) can be used for systems where measurement or state process updates are nonlinear
+functions. In order to do nonlinear updates with EKF, the update function and its jacobian
 must be specified.
 
 To demonstrate a simple nonlinear example, the following generalized linear model with log link & gaussian noise is used.
@@ -44,8 +44,9 @@ Import EKF and start spark session.
 
 Define the model parameters and udf's to generate training data.
 
-For EKF, we need to define the nonlinear function and its jacobian if there is any. In this example, only the measurement function
-is nonlinear, so it's enough to define the function mapping the state to measurement and measurement jacobian.
+For EKF, it is necessary define the nonlinear function and its jacobian if there is any. Only the measurement function
+is nonlinear in this example, so it's enough to define the function mapping the state to measurement and
+measurement jacobian.
 
 In order to help these functions define evolving behaviour across measurements, they also accept `processModel` or `measurementModel`
 as a second argument. So the signature of the function must be  ``(Vector, Matrix) => Vector`` for the nonlinear

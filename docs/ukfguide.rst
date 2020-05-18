@@ -1,8 +1,8 @@
 Online Nonlinear Regression with Unscented Kalman Filter
 ========================================================
 
-Similar with EKF, Unscented Kalman Filter (UKF) can be used for systems where measurement or state process updates
-are nonlinear functions. The advantage of UKF over EKF is that, For UKF you don't have to specify jacobian function of the
+Similar to EKF, Unscented Kalman Filter (UKF) can be used for systems where measurement or state process updates
+are nonlinear functions. The advantage of UKF over EKF is not having to specify jacobian function of the
 nonlinear update. UKF uses deterministic sampling algorithms to estimate state and its covariance, so instead you have
 to specify sampling algorithm and its hyperparameters that suits your problem. The example demonstrated here is same with
 the :ref:`previous section <Online Nonlinear Regression with Extended Kalman Filter>`

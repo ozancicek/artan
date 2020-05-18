@@ -114,7 +114,8 @@ class MultivariateGaussianMixture(StatefulTransformer, MixtureParams, _HasInitia
 
     def setInitialMeans(self, value):
         """
-        Sets the initial means parameter
+        Sets the initial mean vectors of the mixtures as a nested array of doubles. The dimensions of the array should
+        be mixtureCount x sample vector size
 
         :param value: List[List[Float]]
         :return: MultivariateGaussianMixture
@@ -123,7 +124,7 @@ class MultivariateGaussianMixture(StatefulTransformer, MixtureParams, _HasInitia
 
     def setInitialMeansCol(self, value):
         """
-        Sets the initial means from dataframe column
+        Sets the initial means from dataframe column. Overrides the value set by setInitialMeans.
 
         :param value: String
         :return: MultivariateGaussianMixture
@@ -132,7 +133,8 @@ class MultivariateGaussianMixture(StatefulTransformer, MixtureParams, _HasInitia
 
     def setInitialCovariances(self, value):
         """
-        Sets the initial covariances parameter
+        Sets the initial covariance matrices of the mixtures as a nested array of doubles. The dimensions of the array
+        should be mixtureCount x sampleSize**2
 
         :param value: List[List[Float]]
         :return: MultivariateGaussianMixture
@@ -141,7 +143,8 @@ class MultivariateGaussianMixture(StatefulTransformer, MixtureParams, _HasInitia
 
     def setInitialCovariancesCol(self, value):
         """
-        Sets the initial covariances from dataframe column
+        Sets the initial covariance matrices of the mixtures from dataframe column. Overrides the value set
+        by setInitialCovariances
 
         :param value: String
         :return: MultivariateGaussianMixture

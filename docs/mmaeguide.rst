@@ -1,6 +1,6 @@
 Multiple-Model Adaptive Estimation
 ==================================
-Multiple-Model Adaptive Estimation (MMAE) mostly consists of a parallel bank of kalman filters to
+Multiple-Model Adaptive Estimation (MMAE) consists of a parallel bank of kalman filters to
 provide multiple estimates. From these parallel bank of filters, the state is estimated weighted by the likelihood
 of the residuals conditioned on the measurement sequence.
 
@@ -51,7 +51,9 @@ Define the model parameters and udf's to generate training data.
           new DenseVector(Array(a*x + b*y + c + r))
         })
 
-Define the filter and enable MMAE output. MMAE outputs a single state estimate by joining all the states weighted
+Define the filter and enable MMAE output.
+
+MMAE outputs a single state estimate by joining all the states weighted
 by their likelihoods. The likelihood of each filter is defined in a sliding window of consecutive measurements. This
 window can be set from ``setSlidingLikelihoodWindow``. Also since multiple measurements are aggregated to output a
 single estimate, without a time window in streaming mode the aggregation of multiple states would result in an unbounded

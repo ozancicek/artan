@@ -98,7 +98,10 @@ class BernoulliMixture(StatefulTransformer, MixtureParams, _HasInitialProbabilit
 
     def setInitialProbabilities(self, value):
         """
-        Sets the initial probabilities parameter
+        Sets the initial bernoulli probabilities of the mixtures. The length of the array should be equal to mixture
+        count, each element in the array should be between 0 and 1.
+
+        Default is equally spaced probabilities between 0 and 1
 
         :param value: List[Float]
         :return: BernoulliMixture
@@ -107,7 +110,8 @@ class BernoulliMixture(StatefulTransformer, MixtureParams, _HasInitialProbabilit
 
     def setInitialProbabilitiesCol(self, value):
         """
-        Sets the initial probabilities from dataframe column
+        Sets the initial probabilities from dataframe column to set different probabilities across different models.
+        Overrides the parameter set by setInitialProbabilities.
 
         :param value: String
         :return: BernoulliMixture

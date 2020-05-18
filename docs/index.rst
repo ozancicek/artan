@@ -23,12 +23,12 @@ paths.
         spark-submit \\-\\-packages com.github.ozancicek:artan_2.11:|artan_version|
 
 
-For developing with Scala, the dependencies can be retrieved from Maven Central.
+For Scala, the dependencies can be retrieved from Maven Central.
 
 
         libraryDependencies += "com.github.ozancicek" %% "artan" % "|artan_version|"
 
-For developing with Python, the dependencies can be installed with pip.
+For Python, the dependencies can be installed with pip.
 
 
         pip install artan

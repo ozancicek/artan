@@ -48,9 +48,9 @@ Import Kalman filter and start spark session.
 
 Define the model parameters and udf's to generate training data.
 
-Since the aim is to estimate the model parameters,
-the state of the filter is model parameters. Label will become measurements vector with size 1. Features
-will be denoted with a 1x3 measurement model matrix, which will map the state to measurements with a dot product.
+Since the aim is to estimate the model parameters, the state of the filter is model parameters.
+Labels will be represented with measurements vector with size 1. Features will be represented with a
+1x3 measurement model matrix, which will map the state to measurements with a dot product.
 
     .. code-block:: scala
 
@@ -88,7 +88,7 @@ All of the filter parameters can be set either as an input dataframe column, or 
 `ml.linalg.Vector` or `ml.linalg.Matrix`. Specifying parameters from dataframe columns will allow you to have
 varying values across measurements/filters.
 
-For this example, measurement and measurement model should be varying across
+Int this example, measurement and measurement model should be varying across
 measurements, so they're set from dataframe columns. Process model, process noise, measurement noise and initial covariance
 can be same for all measurements/filters, so their values are set directly with matrices.
 
@@ -179,9 +179,9 @@ Import Kalman Filter and start spark session.
 
 Define model parameters, #models and udf's to generate training data.
 
-Since the aim is to estimate the model parameters,
-the state of the filter is model parameters. Label will become measurements vector with size 1. Features
-will be denoted with a 1x3 measurement model matrix, which will map the state to measurements with a dot product.
+Since the aim is to estimate the model parameters, the state of the filter is model parameters.
+Labels will be represented with measurements vector with size 1. Features will be represented with a
+1x3 measurement model matrix, which will map the state to measurements with a dot product.
 
     .. code-block:: python
 
@@ -212,8 +212,8 @@ All of the filter parameters can be set either as an input dataframe column, or 
 `ml.linalg.Vector` or `ml.linalg.Matrix`. Specifying parameters from dataframe columns will allow you to have
 varying values across measurements/filters.
 
-For this example, measurement and measurement model should be varying across
-measurements, so they're set from dataframe columns. Process model, process noise, measurement noise and initial covariance
+In this example, measurement and measurement model should be varying across measurements, so they're set from
+dataframe columns. Process model, process noise, measurement noise and initial covariance
 can be same for all measurements/filters, so their values are set directly with matrices.
 
     .. code-block:: python
