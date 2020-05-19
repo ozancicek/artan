@@ -15,14 +15,17 @@ Stochastic E-Step:
 M-Step:
 
     .. math::
-        \hat{\theta}_t &= R(\hat{s}_{t+1})
+        \hat{\theta}_{t+1} &= R(\hat{s}_{t+1})
 
 Where :math:`\hat{s}_{t}` is the expected sufficient statistics of the distribution at step :math:`t`,
 :math:`\hat{\theta}_t` is the estimated mixture parameters, function :math:`f` maps model parameters and
 observations to sufficient statistics and function :math:`R` maps sufficient statistics to model parameters.
 :math:`\alpha_t` is a hyperparemeter called step size. Step size is valued between 0 and 1 and it
-controls convergence and stability. The stability of the algorithm can further be increased by processing
-observations in a mini-batch style, which can also be set as a hyperparameter.
+controls convergence and stability.
+
+At each time step `t`, sufficient statistics can be generated from a single measurement or multiple measurements
+in a mini-batch style. Mini-batch processing will improve the stability of the algorithm, and it be set as
+a hyperparameter.
 
 
 Scala
@@ -84,7 +87,7 @@ consecutive numbers with timestamps. These consecutive numbers are binned to sim
 
 Run the transformer. The transformer outputs estimates for mixture model parameters for each sample (or minibatch set
 by setMinibatchSize). Note that due to continuous estimation of the model, inference abstractions
-compatible with spark ml pipelines are not implemented yet.
+compatible with spark ml pipelines are not implemented yet. The output dataframe consists of estimated model.
 
 
     .. code-block:: scala
@@ -210,7 +213,7 @@ consecutive numbers with timestamps. These consecutive numbers are binned to sim
 
 Run the transformer. The transformer outputs estimates for mixture model parameters for each sample (or minibatch set
 by setMinibatchSize). Note that due to continuous estimation of the model, inference abstractions
-compatible with spark ml pipelines are not implemented yet.
+compatible with spark ml pipelines are not implemented yet. The output dataframe consists of estimated model.
 
     .. code-block:: python
 

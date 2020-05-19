@@ -57,24 +57,29 @@ if __name__ == "__main__":
         .when(weight < 0.5, dist2)\
         .otherwise(dist3)
 
+    # Generate measurements for multiple models by modding the incremental $"value" column
     input_df = spark.readStream.format("rate").option("rowsPerSecond", mps).load()\
         .withColumn("mod", F.col("value") % num_states)\
         .withColumn("stateKey", F.col("mod").cast("String"))\
         .withColumn("sample", mixture)
 
+    # Set parameters of the mixture model, with different means and identity cov matrices.
     minibatch_size = 1
+    initial_means = [[3.0, 5.0], [6.0, 6.0], [7.0, 1.0]]
     eye = [1.0, 0.0, 0.0, 1.0]
+    initial_covs = [eye, eye, eye]
     gmm = MultivariateGaussianMixture(3)\
         .setStateKeyCol("stateKey")\
-        .setInitialMeans([[3.0, 5.0], [6.0, 6.0], [7.0, 1.0]])\
-        .setInitialCovariances([eye, eye, eye])\
+        .setInitialMeans(initial_means)\
+        .setInitialCovariances(initial_covs)\
         .setStepSize(0.01)\
         .setMinibatchSize(minibatch_size)
 
+    # Helper udfs to pretty print vectors to console
     truncate_weights = F.udf(lambda x: "[%.2f, %.2f, %.2f]" % (x[0], x[1], x[2]), StringType())
-
     truncate_mean = F.udf(lambda x: "[%.2f, %.2f]" % (x[0], x[1]), StringType())
 
+    # Run the transformer, extract estimated means from mixtureModel struct.
     query = gmm.transform(input_df)\
         .select(
             "stateKey", "stateIndex", "mixtureModel.weights",
