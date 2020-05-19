@@ -16,15 +16,16 @@ Model-parallel online latent state estimation with Apache Spark.
 ## Overview
 
 This library provides supports for model-parallel latent state estimation with Apache Spark, with a focus on online
-learning compatible with structured streaming. If are receiving online measurements from multiple systems and
-looking to explore hidden states, this library could fit to your use case. Specific focuses are;
+learning compatible with structured streaming. Mainly developed for time series estimation of latent variables of many small
+scale systems, this library could fit to your use case if you're looking for:
 
-- **Model-parallelism.** Training multiple models is supported in all estimators. 
+- **Model-parallelism.** Model-parallelism is the main mode of parallelism, such as training multiple similar time series 
+models from online measurements/multiple sensors, or same models with different priors/hyperparameters etc,..
 - **Online learning.** Model parameters are updated sequentially with measurements with a single pass. The state used
 by the algorithms are bounded with #models and model parameters.
-- **Latent state estimation.** With a focus on time series estimation, implemented methods include hidden state estimation
-with filtering (Kalman filters, EKF, UKF, Multiple-Model Adaptive filters, etc..), smoothing (RTS), finite mixture
-models (MultivariateGaussian, Poisson, etc,..). 
+- **Latent state estimation.** Focusing on methods for hidden state estimation, implemented methods include solutions for
+filtering (Kalman filters, EKF, UKF, Multiple-Model Adaptive filters, etc..) problems, smoothing (RTS) problems,
+finite mixture models (Multivariate Gaussian, Poisson, Bernoulli, etc,..). 
 
 Artan requires Scala 2.11, Spark 2.4+ and Python 3,6+
 
