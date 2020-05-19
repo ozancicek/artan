@@ -27,7 +27,7 @@ import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.types._
 
 /**
- * Online multivariate gaussian mixture estimation with a stateful transformer, based on Cappe(2010) Online
+ * Online multivariate gaussian mixture estimation with a stateful transformer, based on Cappe(2011) Online
  * Expectation-Maximisation paper.
  *
  * Outputs an estimate for each input sample in a single pass, by replacing the E-step in EM with a stochastic

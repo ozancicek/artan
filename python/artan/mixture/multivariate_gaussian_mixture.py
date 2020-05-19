@@ -100,7 +100,7 @@ class _HasInitialCovariancesCol(Params):
 class MultivariateGaussianMixture(StatefulTransformer, MixtureParams, _HasInitialMeans, _HasInitialMeansCol,
                                   _HasInitialCovariances, _HasInitialCovariancesCol):
     """
-    Online gaussian mixture estimator with a stateful transformer, based on Cappe (2010) Online
+    Online gaussian mixture estimator with a stateful transformer, based on Cappe (2011) Online
     Expectation-Maximisation paper.
 
     Outputs an estimate for each input sample in a single pass, by replacing the E-step in EM with a recursively

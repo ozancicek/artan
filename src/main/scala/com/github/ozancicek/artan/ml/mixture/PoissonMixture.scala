@@ -27,7 +27,7 @@ import org.apache.spark.sql.types._
 
 
 /**
- * Online poisson mixture estimation with stateful transformer, based on Cappe(2010) Online Expectation-Maximisation.
+ * Online poisson mixture estimation with stateful transformer, based on Cappe(2011) Online Expectation-Maximisation.
  *
  * Outputs an estimate for each input sample in a single pass, by replacing the E-step in EM with a stochastic
  * E-step.

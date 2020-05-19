@@ -83,7 +83,7 @@ class _HasBernoulliMixtureModelCol(Params):
 class BernoulliMixture(StatefulTransformer, MixtureParams, _HasInitialProbabilities, _HasInitialProbabilitiesCol,
                        _HasBernoulliMixtureModelCol):
     """
-    Online bernoulli mixture estimator with a stateful transformer, based on Cappe (2010) Online
+    Online bernoulli mixture estimator with a stateful transformer, based on Cappe (2011) Online
     Expectation-Maximisation paper.
 
     Outputs an estimate for each input sample in a single pass, by replacing the E-step in EM with a recursively
