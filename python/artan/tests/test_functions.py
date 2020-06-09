@@ -18,9 +18,9 @@
 
 from artan.testing.sql_utils import ReusedSparkTestCase
 from artan.spark_functions import (
-    arrayToVector, vectorToArray, onesVector, zerosVector
+    arrayToVector, vectorToArray, onesVector, zerosVector, arrayToMatrix, matrixToArray
 )
-from pyspark.ml.linalg import Vectors
+from pyspark.ml.linalg import Vectors, Matrices
 import pyspark.sql.functions as F
 import numpy as np
 
@@ -49,3 +49,17 @@ class SparkFunctionTests(ReusedSparkTestCase):
         np.testing.assert_array_almost_equal(row[1].vec_ones.toArray(), np.array([1, 1, 1]))
         np.testing.assert_array_almost_equal(row[0].vec_zeros.toArray(), np.array([0, 0]))
         np.testing.assert_array_almost_equal(row[1].vec_zeros.toArray(), np.array([0, 0, 0]))
+
+    def test_array_matrix(self):
+        eye = np.array([1.0, 0.0, 0.0, 1.0])
+        mat = self.spark.createDataFrame([(eye.tolist(),)], ["array"]) \
+            .withColumn("mat", arrayToMatrix(2, 2, F.col("array"))) \
+            .select("mat").head().mat
+        np.testing.assert_array_almost_equal(eye.reshape(2, 2), mat.toArray())
+
+    def test_matrix_array(self):
+        mat = Matrices.dense(2, 2, [1.0, 2.0, 3.0, 4.0])
+        arr = self.spark.createDataFrame([(mat,)], ["mat"]) \
+            .withColumn("arr", matrixToArray("mat")) \
+            .select("arr").head().arr
+        np.testing.assert_array_almost_equal(np.array(arr.values), mat.toArray().reshape(4, order="F"))

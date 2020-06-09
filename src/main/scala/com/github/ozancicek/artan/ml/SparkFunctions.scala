@@ -16,15 +16,21 @@
  */
 
 package com.github.ozancicek.artan.ml
-import org.apache.spark.sql.functions.{array, col, lit, randn, udf}
+import org.apache.spark.sql.functions.{array, col, randn, udf}
 import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector, Matrices, Matrix, Vector, Vectors}
 import org.apache.spark.ml.{BLAS, LAPACK}
 import org.apache.spark.sql.Column
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import scala.reflect.runtime.universe.TypeTag
 
+/**
+ * Case class for outputting matrix values
+ */
+private[artan] case class MatrixValues(numRows: Int, numCols: Int, values: Array[Double])
+
 
 object SparkFunctions {
+
 
   private def literal[T: TypeTag](in: T): Column = {
     val f = udf(() => in)
@@ -69,6 +75,13 @@ object SparkFunctions {
    */
   def arrayToMatrix: UserDefinedFunction = udf { (numRows: Int, numCols: Int, arr: Seq[Double]) =>
     new DenseMatrix(numRows, numCols, arr.toArray)
+  }
+
+  /**
+   * UDF for transforming matrix to column major array of doubles
+   */
+  def matrixToArray: UserDefinedFunction = udf { mat: Matrix =>
+    MatrixValues(mat.numRows, mat.numCols, mat.toArray)
   }
 
   /**

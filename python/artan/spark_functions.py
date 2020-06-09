@@ -70,6 +70,17 @@ def arrayToMatrix(numRowsCol, numColsCol, arrayCol):
     return _function_factory([numRows, numCols, arrayCol], _spark_functions().arrayToMatrix())
 
 
+def matrixToArray(matrixCol):
+    """
+    Converts matrix column to array of doubles
+
+    :param matrixCol: Matrix column, either string column name or column expression
+    :return: struct of (numRows, numCols, values) where values are column major values of matrix
+    """
+    return _function_factory([matrixCol], _spark_functions().matrixToArray())
+
+
+
 def zerosVector(sizeCol):
     """
     Creates vector of zeros column
