@@ -20,7 +20,7 @@ import os
 from setuptools import setup
 
 
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 
 with open("README.md") as f:
     long_description = f.read()
@@ -28,7 +28,7 @@ with open("README.md") as f:
 setup(
     name='artan',
     version=VERSION,
-    description='Model-parallel bayesian filtering with Apache Spark.',
+    description='Online latent state estimation with Apache Spark.',
     long_description_content_type="text/markdown",
     long_description=long_description,
     author='Ozan Cicekci',
