@@ -1,18 +1,18 @@
 import Dependencies._
 
-val defaultScalaVersion = "2.11.8"
+val defaultScalaVersion = "2.12.10"
 
 val scalaVer = sys.props.getOrElse("scala.version", defaultScalaVersion)
 
-val defaultSparkVersion = "2.4.4"
+val defaultSparkVersion = "3.0.0"
 
 val sparkVer = sys.props.getOrElse("spark.version", defaultSparkVersion)
 
 val components = Seq("streaming", "sql", "mllib")
 
-val shortDesc = "Bayesian filtering with Spark"
+val shortDesc = "Online latent state estimation with Apache Spark."
 
-val longDesc = """Model-parallel kalman and bayesian filtering with Apache Spark.
+val longDesc = """Online latent state estimation with Apache Spark.
                   |
                   |This library allows you to define model-parallel kalman & bayesian filters by leveraging arbitrary
                   |stateful transformation capabilities of Spark DataFrames. Supports both structured streaming and
@@ -20,7 +20,7 @@ val longDesc = """Model-parallel kalman and bayesian filtering with Apache Spark
 
 lazy val settings = Seq(
   scalaVersion := scalaVer,
-  version := "0.3.1",
+  version := "0.4.0-SNAPSHOT",
   organization := "com.github.ozancicek",
   organizationName := "ozancicek",
   sparkVersion := sparkVer,
@@ -59,7 +59,7 @@ credentials += Credentials(Path.userHome / ".ivy2" / ".sparkpackagescredentials"
 
 credentials += Credentials(Path.userHome / ".ivy2" / ".sonatypecredentials")
 
-spShortDescription := "Bayesian filtering with Spark"
+spShortDescription := "Online latent state estimation with Apache Spark."
 
 spDescription := shortDesc
 

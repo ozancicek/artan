@@ -20,7 +20,7 @@ import os
 from setuptools import setup
 
 
-VERSION = "0.3.1"
+VERSION = "0.4.0"
 
 with open("README.md") as f:
     long_description = f.read()
