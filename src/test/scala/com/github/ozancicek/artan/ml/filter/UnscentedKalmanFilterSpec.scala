@@ -25,9 +25,7 @@ import org.apache.spark.sql.Dataset
 import scala.math.{abs, exp, sqrt}
 
 
-case class UKFOLSMeasurement(measurement: DenseVector, measurementModel: DenseMatrix)
-
-case class UKFGLMMeasurement(measurement: DenseVector, measurementModel: DenseMatrix)
+case class UKFMeasurement(measurement: DenseVector, measurementModel: DenseMatrix)
 
 
 class UnscentedKalmanFilterSpec
@@ -83,7 +81,7 @@ class UnscentedKalmanFilterSpec
     }
 
     val measurements = zs.map { case (x, y, z) =>
-      UKFGLMMeasurement(new DenseVector(Array(z)), new DenseMatrix(1, 3, Array(x, y, 1)))
+      UKFMeasurement(new DenseVector(Array(z)), new DenseMatrix(1, 3, Array(x, y, 1)))
     }.toSeq
 
     val measurementFunc = (in: Vector, model: Matrix) => {
@@ -105,7 +103,7 @@ class UnscentedKalmanFilterSpec
       .setMerweKappa(-0.7)
       .setCalculateMahalanobis
 
-    val query = (in: Dataset[UKFGLMMeasurement]) => filter.transform(in)
+    val query = (in: Dataset[UKFMeasurement]) => filter.transform(in)
 
     it("should estimate model parameters") {
       val modelState = query(measurements.toDS)
@@ -124,6 +122,79 @@ class UnscentedKalmanFilterSpec
 
     it("should have same result for batch & stream mode") {
       testAppendQueryAgainstBatch(measurements, query, "UKFGLMModel")
+    }
+  }
+
+  describe("Poisson process estimation") {
+
+    val pm = new DenseMatrix(2, 2, Array(1.0, 0.0, 0.0, 1.0))
+    val pn = new DenseMatrix(2, 2, Array(0.00001, 0.0, 0.0, 0.00001))
+    val mn = new DenseMatrix(1, 1, Array(0.1))
+
+    val modelFunc = (state: Vector, model: Matrix) => {
+      val vals = model.toArray
+      exp(vals(0)*state(0) + vals(1)*state(1))
+    }
+
+    val mFunc = (state: Vector, model: Matrix) => {
+      new DenseVector(Array(modelFunc(state, model)))
+    }
+
+    val lbound = new DenseVector(Array(0.0, 0.0))
+    val ubound = new DenseVector(Array(10.0, 10.0))
+
+    val filter = new UnscentedKalmanFilter(2, 1)
+      .setInitialState(new DenseVector(Array(0.0, 0.0)))
+      .setInitialCovariance(
+        new DenseMatrix(2, 2, Array(10.0, 0.0, 0.0, 10.0)))
+      .setMeasurementCol("measurement")
+      .setMeasurementModelCol("measurementModel")
+      .setMeasurementNoise(mn)
+      .setMeasurementFunction(mFunc)
+      .setProcessModel(pm)
+      .setProcessNoise(pn)
+      .setSigmaPointLowerBound(lbound)
+      .setSigmaPointUpperBound(ubound)
+
+    val c1 = 2
+    val c2 = 4
+
+    val rates = Seq.fill(20) {1.0} ++ Seq.fill(50) {1.10} ++ Seq.fill(50) {0.95} ++ Seq.fill(150) {1.0}
+    val measurements = rates.map { p=>
+      val rate = exp(c1 - c2 * p)
+      val obs = breeze.stats.distributions.Poisson(rate).draw()
+      val measurement = new DenseVector(Array(obs))
+      val mm = new DenseMatrix(1, 2, Array(1.0, -p))
+      UKFMeasurement(measurement, mm)
+    }.toDF()
+
+    val modelState = filter.transform(measurements)
+    it("should estimate parameters") {
+
+      val lastState = modelState.collect
+        .filter(row=>row.getAs[Long]("stateIndex") == rates.size)(0)
+        .getAs[DenseVector]("state")
+
+      val coeffs = new DenseVector(Array(c1, c2))
+      val mae = (0 until coeffs.size).foldLeft(0.0) {
+        case(s, i) => s + abs(lastState(i) - coeffs(i))
+      } / coeffs.size
+      val threshold = 1.0
+      assert(mae < threshold)
+    }
+
+    it("should stay within bounds") {
+      modelState.collect.foreach{ row=>
+        val state = row.getAs[DenseVector]("state")
+        // Enforce lbound
+        state.values.zip(lbound.values).foreach { case(s, lb) =>
+          assert(s >= lb)
+        }
+        // Enforce ubound
+        state.values.zip(ubound.values).foreach { case(s, ub) =>
+          assert(s <= ub)
+        }
+      }
     }
   }
 }

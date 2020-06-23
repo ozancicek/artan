@@ -144,6 +144,22 @@ class UnscentedKalmanFilter(
   def setEnableAdaptiveProcessNoise: this.type = set(adaptiveProcessNoise, true)
 
   /**
+   * Sets a lower bound for sigma point sampling. Lower bound is enforced with 'clipping'.
+   *
+   * By default there is no lower bound.
+   * @group setParam
+   */
+  def setSigmaPointLowerBound(value: Vector): this.type = set(sigmaPointLowerBound, value)
+
+  /**
+   * Sets an upper bound for sigma point sampling. Upper bound is enforced with 'clipping'.
+   *
+   * By default there is no upper bound.
+   * @group setParam
+   */
+  def setSigmaPointUpperBound(value: Vector): this.type = set(sigmaPointUpperBound, value)
+
+  /**
    * Creates a copy of this instance with the same UID and some extra params.
    */
   override def copy(extra: ParamMap): UnscentedKalmanFilter =  {
@@ -333,6 +349,27 @@ private[filter] trait SigmaPoints extends Serializable {
 
   val covWeights: DenseVector
 
+  val lbound: Option[Vector]
+
+  val ubound: Option[Vector]
+
+  protected def applyBounds(in: DenseVector): DenseVector = {
+    val arr = in.values
+    lbound match {
+      case Some(vec) => vec.toArray.zipWithIndex.foreach { case(bound, i)  =>
+        if (arr(i) < bound) { arr(i) = bound }
+      }
+      case None =>
+    }
+    ubound match {
+      case Some(vec) => vec.toArray.zipWithIndex.foreach { case(bound, i) =>
+        if (arr(i) > bound) { arr(i) = bound }
+      }
+      case None =>
+    }
+    new DenseVector(arr)
+  }
+
   // Not stored as a matrix due to columnwise operations
   def sigmaPoints(mean: DenseVector, cov: DenseMatrix): List[DenseVector]
 
@@ -359,7 +396,11 @@ private[filter] trait SigmaPoints extends Serializable {
 }
 
 
-private[filter] class JulierSigmaPoints(val stateSize: Int, val kappa: Double) extends SigmaPoints {
+private[filter] class JulierSigmaPoints(
+    val stateSize: Int,
+    val kappa: Double,
+    val lbound: Option[Vector],
+    val ubound: Option[Vector]) extends SigmaPoints {
 
   private val initConst = 0.5/(stateSize + kappa)
 
@@ -382,7 +423,7 @@ private[filter] class JulierSigmaPoints(val stateSize: Int, val kappa: Double) e
         BLAS.axpy(1.0, right, meanPos)
         val meanNeg = mean.copy
         BLAS.axpy(-1.0, right, meanNeg)
-        (meanPos::coeffs._1, meanNeg::coeffs._2)
+        (applyBounds(meanPos)::coeffs._1, applyBounds(meanNeg)::coeffs._2)
       }
     }
     pos.reverse:::neg.reverse
@@ -395,7 +436,9 @@ private[filter] class MerweSigmaPoints(
     val stateSize: Int,
     val alpha: Double,
     val beta: Double,
-    val kappa: Double) extends SigmaPoints {
+    val kappa: Double,
+    val lbound: Option[Vector],
+    val ubound: Option[Vector]) extends SigmaPoints {
 
   private val lambda = pow(alpha, 2) * (stateSize + kappa) - stateSize
 
@@ -424,7 +467,7 @@ private[filter] class MerweSigmaPoints(
         BLAS.axpy(1.0, right, meanPos)
         val meanNeg = mean.copy
         BLAS.axpy(-1.0, right, meanNeg)
-        (meanPos::coeffs._1, meanNeg::coeffs._2)
+        (applyBounds(meanPos)::coeffs._1, applyBounds(meanNeg)::coeffs._2)
       }
     }
     pos.reverse:::neg.reverse
@@ -435,6 +478,13 @@ private[filter] class MerweSigmaPoints(
 
 private[filter] trait HasMerweAlpha extends Params {
 
+  /**
+   * Alpha parameter for merwe sigma point algorithm. Advised to be between 0 and 1.
+   *
+   * Default is 0.3
+   *
+   * @group param
+   */
   final val merweAlpha: DoubleParam = new DoubleParam(
     this,
     "merweAlpha",
@@ -443,12 +493,24 @@ private[filter] trait HasMerweAlpha extends Params {
 
   setDefault(merweAlpha, 0.3)
 
+  /**
+   * Getter for merwe alpha parameter
+   *
+   * @group getParam
+   */
   final def getMerweAlpha: Double = $(merweAlpha)
 }
 
 
 private[filter] trait HasMerweBeta extends Params {
 
+  /**
+   * Beta parameter for merwe sigma point algorithm. 2.0 is advised for gaussian noise
+   *
+   * Default is 2.0
+   *
+   * @group param
+   */
   final val merweBeta: DoubleParam = new DoubleParam(
     this,
     "merweBeta",
@@ -457,12 +519,24 @@ private[filter] trait HasMerweBeta extends Params {
 
   setDefault(merweBeta, 2.0)
 
+  /**
+   * Getter for beta parameter
+   *
+   * @group getParam
+   */
   final def getMerweBeta: Double = $(merweBeta)
 }
 
 
 private[filter] trait HasMerweKappa extends Params {
 
+  /**
+   * Kappa parameter for merwe sigma point algorithm. Advised value is (3 - stateSize)
+   *
+   * Default is 0.1
+   *
+   * @group param
+   */
   final val merweKappa: DoubleParam = new DoubleParam(
     this,
     "merweKappa",
@@ -471,12 +545,24 @@ private[filter] trait HasMerweKappa extends Params {
 
   setDefault(merweKappa, 0.1)
 
+  /**
+   * Getter for merwe kappa parameter
+   *
+   * @group getParam
+   */
   final def getMerweKappa: Double = $(merweKappa)
 }
 
 
 private[filter] trait HasJulierKappa extends Params {
 
+  /**
+   * Kappa parameter for julier sigma point algorithm.
+   *
+   * Default is 1.0
+   *
+   * @group param
+   */
   final val julierKappa: DoubleParam = new DoubleParam(
     this,
     "julierKappa",
@@ -485,6 +571,11 @@ private[filter] trait HasJulierKappa extends Params {
 
   setDefault(julierKappa, 1.0)
 
+  /**
+   * Getter for julier kappa parameter
+   *
+   * @group getParam
+   */
   final def getJulierKappa: Double = $(julierKappa)
 }
 
@@ -514,6 +605,13 @@ private[filter] trait AdaptiveNoiseParams extends Params with HasAdaptiveProcess
 
 private[filter] trait HasAdaptiveProcessNoise extends Params {
 
+  /**
+   * Param for enabling adaptive process noise.
+   *
+   * Disabled by default
+   *
+   * @group param
+   */
   final val adaptiveProcessNoise: BooleanParam = new BooleanParam(
     this,
     "adaptiveProcessNoise",
@@ -521,11 +619,24 @@ private[filter] trait HasAdaptiveProcessNoise extends Params {
   )
   setDefault(adaptiveProcessNoise, false)
 
+  /**
+   * Getter for adaptive process noise flag
+   *
+   * @group getParam
+   */
   final def getAdaptiveProcessNoise: Boolean = $(adaptiveProcessNoise)
 }
 
 private[filter] trait HasAdaptiveProcessNoiseThreshold extends Params {
 
+  /**
+   * Threshold for activating adaptive process noise, measured as mahalanobis distance from residual and
+   * its covariance.
+   *
+   * Default is 2.0
+   *
+   * @group param
+   */
   final val adaptiveProcessNoiseThreshold: DoubleParam = new DoubleParam(
     this,
     "adaptiveProcessNoiseThreshold",
@@ -535,12 +646,24 @@ private[filter] trait HasAdaptiveProcessNoiseThreshold extends Params {
 
   setDefault(adaptiveProcessNoiseThreshold, 2.0)
 
+  /**
+   * Getter for adaptive process noise threshold
+   *
+   * @group getParam
+   */
   final def getAdaptiveProcessNoiseThreshold: Double = $(adaptiveProcessNoiseThreshold)
 }
 
 
 private[filter] trait HasAdaptiveProcessNoiseLambda extends Params {
 
+  /**
+   * Weight factor controlling the stability of noise updates. Should be between 0 and 1
+   *
+   * Default is 0.9
+   *
+   * @group param
+   */
   final val adaptiveProcessNoiseLambda: DoubleParam = new DoubleParam(
     this,
     "adaptiveProcessNoiseLambda",
@@ -549,42 +672,124 @@ private[filter] trait HasAdaptiveProcessNoiseLambda extends Params {
 
   setDefault(adaptiveProcessNoiseLambda, 0.9)
 
+  /**
+   * Getter for adaptive process noise lambda parameter
+   *
+   * @group getParam
+   */
   final def getAdaptiveProcessNoiseLambda: Double = $(adaptiveProcessNoiseLambda)
 }
 
 private[filter] trait HasAdaptiveProcessNoiseAlpha extends Params {
 
+  /**
+   * Weight factor controlling the sensitivity of noise updates. Should be greater than 0.0
+   * Large values give more influence to lambda factor.
+   *
+   * @group param
+   */
   final val adaptiveProcessNoiseAlpha: DoubleParam = new DoubleParam(
     this,
     "adaptiveProcessNoiseAlpha",
-    "Weight factor controlling the senstivity of noise updates. Should be greater than 0.0" +
+    "Weight factor controlling the sensitivity of noise updates. Should be greater than 0.0" +
     "Large values give more influence to lambda factor"
   )
 
   setDefault(adaptiveProcessNoiseAlpha, 1.0)
 
+  /**
+   * Getter for adaptive process noise alpha parameter
+   *
+   * @group getParam
+   */
   final def getAdaptiveProcessNoiseAlpha: Double = $(adaptiveProcessNoiseAlpha)
 }
 
 
+private[filter] trait HasSigmaPointLowerBound extends Params {
+
+  /**
+   * Lower bound vector for sigma point sampling. If set, generated sigma point samples will be
+   * bounded. If state transition and measurement functions also respect these bounds, then the estimated state
+   * will be bounded for all measurements.
+   *
+   * @group param
+   */
+  final val sigmaPointLowerBound: Param[Vector] = new Param[Vector](
+    this,
+    "sigmaPointLowerBound",
+    "Lower bound vector for sigma point sampling. If set, generated sigma point samples will be" +
+    "bounded. If state transition and measurement functions also respect these bounds, then the estimated state" +
+    "will be bounded for all measurements."
+  )
+
+  /**
+   * Getter for sigma point lower bound
+   *
+   * @group getParam
+   */
+  final def getSigmaPointLowerBound: Option[Vector] = get(sigmaPointLowerBound)
+
+}
+
+private[filter] trait HasSigmaPointUpperBound extends Params {
+
+  /**
+   * Upper bound vector for sigma point sampling. If set, generated sigma point samples will be
+   * bounded. If state transition and measurement functions also respect these bounds, then the estimated state
+   * will be bounded for all measurements.
+   *
+   * @group param
+   */
+  final val sigmaPointUpperBound: Param[Vector] = new Param[Vector](
+    this,
+    "sigmaPointUpperBound",
+    "Upper bound vector for sigma point sampling. If set, generated sigma point samples will be" +
+      "bounded. If state transition and measurement functions also respect these bounds, then the estimated state" +
+      "will be bounded for all measurements."
+  )
+
+  /**
+   * Getter for sigma point upper bound
+   *
+   * @group getParam
+   */
+  final def getSigmaPointUpperBound: Option[Vector] = get(sigmaPointUpperBound)
+
+}
+
 /**
  * Trait for parameters of sigma point algorithms.
  */
-private[filter] trait SigmaPointsParams extends HasMerweAlpha with HasMerweBeta with HasMerweKappa with HasJulierKappa {
+private[filter] trait SigmaPointsParams extends HasMerweAlpha with HasMerweBeta with HasMerweKappa with HasJulierKappa
+  with HasSigmaPointLowerBound with HasSigmaPointUpperBound {
 
   def stateSize: Int
 
+
+  /**
+   * Parameter for choosing sigma point sampling algorithm. Options are 'merwe' and 'julier'
+   *
+   * @group param
+   */
   final val sigmaPoints: Param[String] = new Param[String](
     this,
     "sigmaPoints",
-    "sigma pints"
+    "Sigma point sampling algorithm, options are 'merwe' and 'julier'"
   )
   setDefault(sigmaPoints, "merwe")
 
+  /**
+   * Getter for sigma point algorithm helper class
+   *
+   * @group getParam
+   */
   final def getSigmaPoints: SigmaPoints = {
     $(sigmaPoints) match {
-      case "merwe" => new MerweSigmaPoints(stateSize, $(merweAlpha), $(merweBeta), $(merweKappa))
-      case "julier" => new JulierSigmaPoints(stateSize, $(julierKappa))
+      case "merwe" => new MerweSigmaPoints(
+        stateSize, $(merweAlpha), $(merweBeta), $(merweKappa), getSigmaPointLowerBound, getSigmaPointUpperBound)
+      case "julier" => new JulierSigmaPoints(
+        stateSize, $(julierKappa), getSigmaPointLowerBound, getSigmaPointUpperBound)
       case _ => throw new Exception("Unsupported sigma point algorithm")
     }
   }
