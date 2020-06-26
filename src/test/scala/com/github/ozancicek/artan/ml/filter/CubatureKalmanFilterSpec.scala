@@ -40,7 +40,7 @@ class CubatureKalmanFilterSpec
       }
 
       val filter = new CubatureKalmanFilter(3, 1)
-        .setInitialCovariance(
+        .setInitialStateCovariance(
           new DenseMatrix(3, 3, Array(10.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 10.0)))
         .setMeasurementCol("measurement")
         .setMeasurementModelCol("measurementModel")
@@ -62,7 +62,7 @@ class CubatureKalmanFilterSpec
       }
 
       val filter = new CubatureKalmanFilter(3, 1)
-        .setInitialCovariance(
+        .setInitialStateCovariance(
           new DenseMatrix(3, 3, Array(10.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 10.0)))
         .setMeasurementCol("measurement")
         .setMeasurementModelCol("measurementModel")

@@ -19,6 +19,7 @@ package com.github.ozancicek.artan.ml.filter
 
 import com.github.ozancicek.artan.ml.linalg.LinalgUtils
 import com.github.ozancicek.artan.ml.state.{KalmanInput, KalmanState}
+import com.github.ozancicek.artan.ml.stats.MultivariateGaussianDistribution
 import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector, Matrix, Vector}
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable
@@ -45,7 +46,7 @@ import org.apache.spark.ml.BLAS
  * State prediction:
  *  x_k = f(x_k-1, F_k) + B_k * u_k + w_k
  *
- * Measurement incorporation:
+ * Measurement update:
  *  z_k = h(x_k, H_k) + v_k
  *
  * Where v_k and w_k are noise vectors drawn from zero mean, Q_k and R_k covariance
@@ -141,7 +142,7 @@ private[filter] class CubatureKalmanStateCompute(
     state: KalmanState,
     process: KalmanInput): KalmanState = {
 
-    val cubaturePoints = cubature.cubaturePoints(state.state.toDense, state.stateCovariance.toDense)
+    val cubaturePoints = cubature.cubaturePoints(state.state)
 
     val processModel = process.processModel.get
     val processFunction = processFunc.getOrElse(
@@ -157,14 +158,13 @@ private[filter] class CubatureKalmanStateCompute(
       newCubatures
     }
 
-    val (stateMean, stateCov) = cubature.cubatureTransform(
+    val newDist = cubature.cubatureTransform(
       stateCubaturePoints,
       processNoise.toDense,
       scala.math.pow(fadingFactor, 2))
     KalmanState(
-      state.stateIndex + 1, stateMean, stateCov,
-      state.residual, state.residualCovariance,
-      state.processNoise, state.slidingLoglikelihood)
+      state.stateIndex + 1, newDist,
+      state.residual, state.processNoise, state.slidingLoglikelihood)
   }
 
   private def estimateCrossCovariance(
@@ -187,9 +187,9 @@ private[filter] class CubatureKalmanStateCompute(
     storeResidual: Boolean,
     likelihoodWindow: Int): KalmanState = {
 
-    val (stateMean, stateCov) = (state.state.toDense, state.stateCovariance.toDense)
+    val (stateMean, stateCov) = (state.state.mean.toDense, state.state.covariance.toDense)
 
-    val stateCubaturePoints = cubature.cubaturePoints(stateMean, stateCov)
+    val stateCubaturePoints = cubature.cubaturePoints(state.state)
     val measurementModel = process.measurementModel.get
 
     // Default measurement function is measurementModel * state
@@ -201,8 +201,9 @@ private[filter] class CubatureKalmanStateCompute(
     val measurementCubaturePoints = stateCubaturePoints
       .map(x => measurementFunction(x, measurementModel).toDense)
 
-    val (estimateMean, estimateCov) = cubature
+    val estimateDist = cubature
       .cubatureTransform(measurementCubaturePoints, measurementNoise, 1.0)
+    val (estimateMean, estimateCov) = (estimateDist.mean.toDense, estimateDist.covariance.toDense)
 
     val crossCov = estimateCrossCovariance(stateCubaturePoints, stateMean, measurementCubaturePoints, estimateMean)
 
@@ -218,11 +219,12 @@ private[filter] class CubatureKalmanStateCompute(
     BLAS.axpy(1.0, stateCov, newCov)
     BLAS.axpy(-1.0, covUpdate, newCov)
 
-    val (res, resCov) = if (storeResidual) (Some(residual), Some(estimateCov)) else (None, None)
-    val ll = updateSlidingLikelihood(state.slidingLoglikelihood, likelihoodWindow, res, resCov)
+    val resDist = if (storeResidual) Some(MultivariateGaussianDistribution(residual, estimateCov)) else None
+    val ll = updateSlidingLikelihood(state.slidingLoglikelihood, likelihoodWindow, resDist)
 
+    val newDist = MultivariateGaussianDistribution(newMean, newCov)
     KalmanState(
-      state.stateIndex, newMean, newCov, res, resCov, state.processNoise, ll)
+      state.stateIndex, newDist, resDist, state.processNoise, ll)
   }
 }
 
@@ -249,10 +251,10 @@ private[filter] class CubaturePoints(val stateSize: Int) extends Serializable {
     genSymmetricVectors(weight) ++ genSymmetricVectors(-weight)
   }
 
-  def cubaturePoints(mean: DenseVector, covariance: DenseMatrix): List[DenseVector] = {
-    val sqrtCov = LinalgUtils.sqrt(covariance)
+  def cubaturePoints(distribution: MultivariateGaussianDistribution): List[DenseVector] = {
+    val sqrtCov = LinalgUtils.sqrt(distribution.covariance.toDense)
     cubatureVectors.map { cubVec =>
-      val point = mean.copy
+      val point = distribution.mean.toDense.copy
       BLAS.gemv(1.0, sqrtCov, cubVec, 1.0, point)
       point
     }
@@ -261,7 +263,7 @@ private[filter] class CubaturePoints(val stateSize: Int) extends Serializable {
   def cubatureTransform(
     cubaturePoints: List[DenseVector],
     noise: DenseMatrix,
-    weight: Double): (DenseVector, DenseMatrix) = {
+    weight: Double): MultivariateGaussianDistribution = {
 
     val newMean = new DenseVector(Array.fill(noise.numCols) {0.0})
     cubaturePoints.foreach { point =>
@@ -275,6 +277,6 @@ private[filter] class CubaturePoints(val stateSize: Int) extends Serializable {
       BLAS.dger( -weight/cubaturePoints.size, newMean, newMean, newCov)
     }
 
-    (newMean, newCov)
+    MultivariateGaussianDistribution(newMean, newCov)
   }
 }

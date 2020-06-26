@@ -26,7 +26,7 @@ import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.BLAS
 import org.apache.spark.sql._
 import org.apache.spark.sql.Encoders
-import org.apache.spark.sql.functions.{col, udf}
+import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
 
 
@@ -54,7 +54,7 @@ class RecursiveLeastSquaresFilter(
     override val uid: String)
   extends StatefulTransformer[String, RLSInput, RLSState, RLSOutput, RecursiveLeastSquaresFilter]
   with HasLabelCol with HasFeaturesCol with HasForgettingFactor
-  with HasInitialState with HasRegularizationMatrix with HasInitialStateCol with HasRegularizationMatrixCol {
+  with HasInitialStateMean with HasRegularizationMatrix with HasInitialStateMeanCol with HasRegularizationMatrixCol {
 
   protected implicit val stateKeyEncoder = Encoders.STRING
 
@@ -121,13 +121,13 @@ class RecursiveLeastSquaresFilter(
    * initial estimates across filters. Default is zero vector.
    * @group setParam
    */
-  def setInitialEstimate(value: Vector): this.type = set(initialState, value)
+  def setInitialEstimate(value: Vector): this.type = set(initialStateMean, value)
 
   /**
    * Set initial estimate column.
    * @group setParam
    */
-  def setInitialEstimateCol(value: String): this.type = set(initialStateCol, value)
+  def setInitialEstimateCol(value: String): this.type = set(initialStateMeanCol, value)
 
   /**
    * Set regularization matrix column.
@@ -162,7 +162,7 @@ class RecursiveLeastSquaresFilter(
     val rlsUpdateDS = dataset
       .withColumn("label", col($(labelCol)))
       .withColumn("features", col($(featuresCol)))
-      .withColumn("initialState", getUDFWithDefault(initialState, initialStateCol))
+      .withColumn("initialState", getUDFWithDefault(initialStateMean, initialStateMeanCol))
       .withColumn("initialCovariance", getUDFWithDefault(regularizationMatrix, regularizationMatrixCol))
 
     transformWithState(rlsUpdateDS)

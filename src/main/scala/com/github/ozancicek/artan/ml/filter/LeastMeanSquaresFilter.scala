@@ -25,7 +25,6 @@ import org.apache.spark.ml.param.shared._
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.BLAS
 import org.apache.spark.sql._
-import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.Encoders
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
@@ -55,8 +54,8 @@ class LeastMeanSquaresFilter(
     val featuresSize: Int,
     override val uid: String)
   extends StatefulTransformer[String, LMSInput, LMSState, LMSOutput, LeastMeanSquaresFilter]
-  with HasLabelCol with HasFeaturesCol with HasInitialState with HasLearningRate with HasRegularizationConstant
-  with HasInitialStateCol {
+  with HasLabelCol with HasFeaturesCol with HasInitialStateMean with HasLearningRate with HasRegularizationConstant
+  with HasInitialStateMeanCol {
 
   protected implicit val stateKeyEncoder = Encoders.STRING
 
@@ -98,13 +97,13 @@ class LeastMeanSquaresFilter(
    * Default is zero vector
    * @group setParam
    */
-  def setInitialEstimate(value: Vector): this.type = set(initialState, value)
+  def setInitialEstimate(value: Vector): this.type = set(initialStateMean, value)
 
   /**
    * Set initial estimate vector column. It will override setInitialEstimate.
    * @group setParam
    */
-  def setInitialEstimateCol(value: String): this.type = set(initialStateCol, value)
+  def setInitialEstimateCol(value: String): this.type = set(initialStateMeanCol, value)
 
   /**
    * Set learning rate controlling the speed of convergence. Without noise, 1.0 is optimal since filter is normalized.
@@ -145,7 +144,7 @@ class LeastMeanSquaresFilter(
     val lmsUpdateDS = dataset
       .withColumn("label", col($(labelCol)))
       .withColumn("features", col($(featuresCol)))
-      .withColumn("initialState", getUDFWithDefault(initialState, initialStateCol))
+      .withColumn("initialState", getUDFWithDefault(initialStateMean, initialStateMeanCol))
     transformWithState(lmsUpdateDS)
   }
 

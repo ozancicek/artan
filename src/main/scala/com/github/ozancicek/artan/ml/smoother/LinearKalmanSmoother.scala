@@ -20,6 +20,7 @@ package com.github.ozancicek.artan.ml.smoother
 import com.github.ozancicek.artan.ml.filter.{KalmanUpdateParams, LinearKalmanFilter}
 import com.github.ozancicek.artan.ml.linalg.LinalgUtils
 import com.github.ozancicek.artan.ml.state.{KalmanOutput, RTSOutput, StateUpdateSpec, StatefulTransformer}
+import com.github.ozancicek.artan.ml.stats.MultivariateGaussianDistribution
 import org.apache.spark.ml.BLAS
 import org.apache.spark.ml.linalg.DenseMatrix
 import org.apache.spark.ml.param.{IntParam, ParamMap, ParamValidators}
@@ -125,36 +126,34 @@ private[smoother] class LKFSmootherStateSpec(val lag: Int)
           in.stateKey,
           in.stateIndex,
           in.state,
-          in.stateCovariance,
-          DenseMatrix.zeros(in.state.size, in.state.size),
+          DenseMatrix.zeros(in.state.mean.size, in.state.mean.size),
           in.eventTime)
       }
 
       case Some(prev) => {
         val model = in.processModel.get.toDense
-        val nextState = model.multiply(in.state)
-        val covUpdate = model.multiply(in.stateCovariance.toDense)
+        val nextState = model.multiply(in.state.mean)
+        val covUpdate = model.multiply(in.state.covariance.toDense)
 
         val nextCov = in.processNoise.get.toDense
         BLAS.gemm(1.0, covUpdate, model.transpose, 1.0, nextCov)
-        val gain = in.stateCovariance.multiply(model.transpose).multiply(LinalgUtils.pinv(nextCov))
+        val gain = in.state.covariance.multiply(model.transpose).multiply(LinalgUtils.pinv(nextCov))
 
-        val residual = prev.state.copy
+        val residual = prev.state.mean.copy
         BLAS.axpy(-1.0, nextState, residual)
 
-        val newMean = in.state.toDense.copy
+        val newMean = in.state.mean.toDense.copy
         BLAS.gemv(1.0, gain, residual, 1.0, newMean)
 
-        val covDiff = prev.stateCovariance.toDense.copy
+        val covDiff = prev.state.covariance.toDense.copy
         BLAS.axpy(-1.0, nextCov, covDiff)
-        val newCow = in.stateCovariance.toDense.copy
-        BLAS.gemm(1.0, gain.multiply(covDiff), gain.transpose, 1.0, newCow)
+        val newCov = in.state.covariance.toDense.copy
+        BLAS.gemm(1.0, gain.multiply(covDiff), gain.transpose, 1.0, newCov)
 
         RTSOutput(
           in.stateKey,
           in.stateIndex,
-          newMean,
-          newCow,
+          MultivariateGaussianDistribution(newMean, newCov),
           gain,
           in.eventTime
         )

@@ -19,6 +19,7 @@ package com.github.ozancicek.artan.ml.filter
 
 import com.github.ozancicek.artan.ml.linalg.LinalgUtils
 import com.github.ozancicek.artan.ml.state.{KalmanInput, KalmanState}
+import com.github.ozancicek.artan.ml.stats.MultivariateGaussianDistribution
 import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector, Matrix, Vector}
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.param._
@@ -50,7 +51,7 @@ import scala.math.pow
  * State prediction:
  *  x_k = f(x_k-1, F_k) + B_k * u_k + w_k
  *
- * Measurement incorporation:
+ * Measurement update:
  *  z_k = h(x_k, H_k) + v_k
  *
  * Where v_k and w_k are noise vectors drawn from zero mean, Q_k and R_k covariance
@@ -213,7 +214,7 @@ private[filter] class UnscentedKalmanStateCompute(
     state: KalmanState,
     process: KalmanInput): KalmanState = {
 
-    val sigmaPoints = sigma.sigmaPoints(state.state.toDense, state.stateCovariance.toDense)
+    val sigmaPoints = sigma.sigmaPoints(state.state)
 
     val processModel = process.processModel.get
     val processFunction = processFunc.getOrElse(
@@ -230,15 +231,12 @@ private[filter] class UnscentedKalmanStateCompute(
       newSigmas
     }
 
-    val (stateMean, stateCov) = sigma.unscentedTransform(
+    val newState = sigma.unscentedTransform(
       stateSigmaPoints,
       processNoise.toDense,
       fadingFactorSquare)
 
-    KalmanState(
-      state.stateIndex + 1, stateMean, stateCov,
-      state.residual, state.residualCovariance,
-      state.processNoise, state.slidingLoglikelihood)
+    KalmanState(state.stateIndex + 1, newState, state.residual, state.processNoise, state.slidingLoglikelihood)
   }
 
   def getAdaptiveProcessNoise(
@@ -278,11 +276,9 @@ private[filter] class UnscentedKalmanStateCompute(
     storeResidual: Boolean,
     likelihoodWindow: Int): KalmanState = {
 
-    val (stateMean, stateCov) = (state.state.toDense, state.stateCovariance.toDense)
-
-    /* Differently from E. Merwe (2000) paper, sigma points are re-calculated from predicted state rather than
+    /* Different from E. Merwe (2000) paper, sigma points are re-calculated from predicted state rather than
     estimated state from previous time step. Produces marginally better estimates.*/
-    val stateSigmaPoints = sigma.sigmaPoints(stateMean, stateCov)
+    val stateSigmaPoints = sigma.sigmaPoints(state.state)
     val measurementModel = process.measurementModel.get
 
     // Default measurement function is measurementModel * state
@@ -293,16 +289,17 @@ private[filter] class UnscentedKalmanStateCompute(
     // Propagate state through measurement function & perform unscented transform
     val measurementSigmaPoints = stateSigmaPoints
       .map(x => measurementFunction(x, measurementModel).toDense)
-    val (estimateMean, estimateCov) = sigma
+    val estimateDist = sigma
       .unscentedTransform(measurementSigmaPoints, measurementNoise, 1.0)
+    val (estimateMean, estimateCov) = (estimateDist.mean.toDense, estimateDist.covariance.toDense)
     val fadingFactorSquare = scala.math.pow(fadingFactor, 2)
 
-    val crossCov = DenseMatrix.zeros(state.state.size, process.measurement.get.size)
+    val crossCov = DenseMatrix.zeros(state.state.mean.size, process.measurement.get.size)
     stateSigmaPoints.zip(measurementSigmaPoints).zipWithIndex.foreach {
       case ((stateSigma, measurementSigma), i) => {
 
         val stateResidual = stateSigma.copy
-        BLAS.axpy(-1.0, stateMean, stateResidual)
+        BLAS.axpy(-1.0, state.state.mean, stateResidual)
         val measurementResidual = measurementSigma.copy
         BLAS.axpy(-1.0, estimateMean, measurementResidual)
 
@@ -315,14 +312,14 @@ private[filter] class UnscentedKalmanStateCompute(
     val gain = crossCov.multiply(LinalgUtils.pinv(estimateCov))
     val residual = process.measurement.get.copy.toDense
     BLAS.axpy(-1.0, estimateMean, residual)
-    val newMean = stateMean.copy
+    val newMean = state.state.mean.toDense.copy
     BLAS.gemv(1.0, gain, residual, 1.0, newMean)
     val covUpdate = gain.multiply(estimateCov).multiply(gain.transpose)
-    val newCov = DenseMatrix.zeros(stateCov.numRows, stateCov.numCols)
-    BLAS.axpy(fadingFactorSquare, stateCov, newCov)
+    val newCov = DenseMatrix.zeros(state.state.covariance.numRows, state.state.covariance.numCols)
+    BLAS.axpy(fadingFactorSquare, state.state.covariance.toDense, newCov)
     BLAS.axpy(-1.0, covUpdate, newCov)
 
-    val (res, resCov) = if (storeResidual) (Some(residual), Some(estimateCov)) else (None, None)
+    val resDist = if (storeResidual) Some(MultivariateGaussianDistribution(residual, estimateCov)) else None
 
     val processNoise = getAdaptiveProcessNoise(
       state.processNoise.getOrElse(process.processNoise.get).toDense,
@@ -330,11 +327,9 @@ private[filter] class UnscentedKalmanStateCompute(
       estimateCov,
       gain
     )
-
-    val ll = updateSlidingLikelihood(state.slidingLoglikelihood, likelihoodWindow, res, resCov)
-
-    KalmanState(
-      state.stateIndex, newMean, newCov, res, resCov, processNoise, ll)
+    val ll = updateSlidingLikelihood(state.slidingLoglikelihood, likelihoodWindow, resDist)
+    val newDist = MultivariateGaussianDistribution(newMean, newCov)
+    KalmanState(state.stateIndex, newDist, resDist, processNoise, ll)
   }
 }
 
@@ -371,12 +366,12 @@ private[filter] trait SigmaPoints extends Serializable {
   }
 
   // Not stored as a matrix due to columnwise operations
-  def sigmaPoints(mean: DenseVector, cov: DenseMatrix): List[DenseVector]
+  def sigmaPoints(dist: MultivariateGaussianDistribution): List[DenseVector]
 
   def unscentedTransform(
     sigmaPoints: List[DenseVector],
     noise: DenseMatrix,
-    fadeFactor: Double): (DenseVector, DenseMatrix) = {
+    fadeFactor: Double): MultivariateGaussianDistribution = {
 
     val newMean = new DenseVector(Array.fill(noise.numCols) {0.0})
     sigmaPoints.zipWithIndex.foreach {
@@ -391,7 +386,7 @@ private[filter] trait SigmaPoints extends Serializable {
       BLAS.axpy(-1.0, newMean, residual)
       BLAS.dger(covWeights(i) * fadeFactor, residual, residual, newCov)
     }
-    (newMean, newCov)
+    MultivariateGaussianDistribution(newMean, newCov)
   }
 }
 
@@ -412,7 +407,9 @@ private[filter] class JulierSigmaPoints(
 
   val covWeights: DenseVector = meanWeights
 
-  def sigmaPoints(mean: DenseVector, cov: DenseMatrix): List[DenseVector] = {
+  def sigmaPoints(dist: MultivariateGaussianDistribution): List[DenseVector] = {
+    val mean = dist.mean.toDense
+    val cov = dist.covariance.toDense
     val covUpdate = DenseMatrix.zeros(cov.numRows, cov.numCols)
     BLAS.axpy(kappa + stateSize, cov, covUpdate)
     val sqrt = LinalgUtils.sqrt(covUpdate)
@@ -456,16 +453,16 @@ private[filter] class MerweSigmaPoints(
     new DenseVector(weights)
   }
 
-  def sigmaPoints(mean: DenseVector, cov: DenseMatrix): List[DenseVector] = {
-    val covUpdate = DenseMatrix.zeros(cov.numRows, cov.numCols)
-    BLAS.axpy(lambda + stateSize, cov, covUpdate)
+  def sigmaPoints(dist: MultivariateGaussianDistribution): List[DenseVector] = {
+    val covUpdate = DenseMatrix.zeros(dist.covariance.numRows, dist.covariance.numCols)
+    BLAS.axpy(lambda + stateSize, dist.covariance.toDense, covUpdate)
     val sqrt = LinalgUtils.sqrt(covUpdate)
 
-    val (pos, neg) = sqrt.rowIter.foldLeft((List(mean), List[DenseVector]())) {
+    val (pos, neg) = sqrt.rowIter.foldLeft((List(dist.mean.toDense), List[DenseVector]())) {
       case (coeffs, right) => {
-        val meanPos = mean.copy
+        val meanPos = dist.mean.toDense.copy
         BLAS.axpy(1.0, right, meanPos)
-        val meanNeg = mean.copy
+        val meanNeg = dist.mean.toDense.copy
         BLAS.axpy(-1.0, right, meanNeg)
         (applyBounds(meanPos)::coeffs._1, applyBounds(meanNeg)::coeffs._2)
       }

@@ -19,17 +19,16 @@ package com.github.ozancicek.artan.ml.filter
 
 import com.github.ozancicek.artan.ml.linalg.LinalgUtils
 import com.github.ozancicek.artan.ml.state.{KalmanInput, KalmanOutput, KalmanState, StateUpdateSpec, StatefulTransformer}
-import com.github.ozancicek.artan.ml.stats.MultivariateGaussian
+import com.github.ozancicek.artan.ml.stats.{MultivariateGaussian, MultivariateGaussianDistribution}
 import org.apache.spark.ml.linalg.SQLDataTypes
-import org.apache.spark.ml.linalg.{DenseVector, DenseMatrix, Matrix, Vector}
+import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector, Matrix, Vector}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.BLAS
 import org.apache.spark.sql._
 import org.apache.spark.sql.Encoders
-import org.apache.spark.sql.functions.{col, lit, udf, sum, window}
+import org.apache.spark.sql.functions.{col, lit, sum, udf, window, struct}
 import org.apache.spark.sql.types._
 
-import scala.reflect.runtime.universe.TypeTag
 import scala.collection.immutable.Queue
 
 /**
@@ -40,8 +39,9 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
   with HasProcessModelCol with HasProcessNoiseCol with HasControlCol
   with HasControlFunctionCol with HasProcessModel with HasMeasurementModel
   with HasProcessNoise with HasMeasurementNoise
-  with HasInitialState with HasInitialCovariance with HasFadingFactor
-  with HasInitialStateCol with HasInitialCovarianceCol with HasOutputSystemMatrices {
+  with HasInitialStateMean with HasInitialStateCovariance with HasFadingFactor
+  with HasInitialStateMeanCol with HasInitialStateCovarianceCol with HasInitialStateDistributionCol
+  with HasOutputSystemMatrices {
 
   /**
    * Set the initial state vector with size (stateSize).
@@ -51,7 +51,7 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
    * initial state vector across filters or measurements, set the dataframe column with setInitialStateCol
    * @group setParam
    */
-  def setInitialState(value: Vector): ImplType = set(initialState, value).asInstanceOf[ImplType]
+  def setInitialStateMean(value: Vector): ImplType = set(initialStateMean, value).asInstanceOf[ImplType]
 
   /**
    * Set the column corresponding to initial state vector.
@@ -59,7 +59,7 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
    * The vectors in the column should be of size (stateSize).
    * @group setParam
    */
-  def setInitialStateCol(value: String): ImplType = set(initialStateCol, value).asInstanceOf[ImplType]
+  def setInitialStateMeanCol(value: String): ImplType = set(initialStateMeanCol, value).asInstanceOf[ImplType]
 
   /**
    * Set the initial covariance matrix with dimensions (stateSize, stateSize)
@@ -68,7 +68,7 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
    * measurements after timeout, it will again start from this initial covariance vector. Default is identity matrix.
    * @group setParam
    */
-  def setInitialCovariance(value: Matrix): ImplType = set(initialCovariance, value).asInstanceOf[ImplType]
+  def setInitialStateCovariance(value: Matrix): ImplType = set(initialStateCovariance, value).asInstanceOf[ImplType]
 
   /**
    * Set the column corresponding to initial covariance matrix.
@@ -76,7 +76,16 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
    * The matrices in the column should be of dimensions (stateSize, statesize).
    * @group setParam
    */
-  def setInitialCovarianceCol(value: String): ImplType = set(initialCovarianceCol, value).asInstanceOf[ImplType]
+  def setInitialStateCovarianceCol(value: String): ImplType = set(initialStateCovarianceCol, value)
+    .asInstanceOf[ImplType]
+
+  /**
+   * Set the column corresponding to initial distribution from a struct column rather than individual
+   * mean and covariance columns.
+   * @group setParam
+   */
+  def setInitialStateDistributionCol(value: String): ImplType = set(initialStateDistributionCol, value)
+    .asInstanceOf[ImplType]
 
   /**
    * Fading factor for giving more weights to more recent measurements. If needed, it should be greater than one.
@@ -338,11 +347,56 @@ private[filter] abstract class KalmanTransformer[
     LinalgUtils.mahalanobis(residual.toDense, zeroMean, covariance.toDense)
   })
 
-  private def withLoglikelihood(df: DataFrame): DataFrame = df
-    .withColumn("loglikelihood", loglikelihoodUDF(col("residual"), col("residualCovariance")))
+  private def checkLoglikelihood(df: DataFrame): DataFrame = {
+    if (getCalculateLoglikelihood) {
+      df.withColumn("loglikelihood", loglikelihoodUDF(col("residual.mean"), col("residual.covariance")))
+    }
+    else {
+      df
+    }
+  }
 
-  private def withMahalanobis(df: DataFrame): DataFrame = df
-    .withColumn("mahalanobis", mahalanobisUDF(col("residual"), col("residualCovariance")))
+  private def checkLoglikelihoodSchema(fields: List[StructField]): List[StructField] = {
+    if (getCalculateLoglikelihood) StructField("loglikelihood", DoubleType)::fields else fields
+  }
+
+  private def checkMahalanobis(df: DataFrame): DataFrame = {
+    if (getCalculateMahalanobis) {
+      df.withColumn("mahalanobis", mahalanobisUDF(col("residual.mean"), col("residual.covariance")))
+    }
+    else {
+      df
+    }
+  }
+
+  private def checkMahalanobisSchema(fields: List[StructField]): List[StructField] = {
+    if (getCalculateMahalanobis) StructField("mahalanobis", DoubleType)::fields else fields
+  }
+
+  private def checkSlidingLikelihood(df: DataFrame): DataFrame = {
+    if (!getCalculateSlidingLikelihood) df.drop("slidingLikelihood") else df
+  }
+
+  private def checkSlidingLikelihoodSchema(fields: List[StructField]): List[StructField] = {
+    if (!getCalculateSlidingLikelihood) fields.filterNot(f => f.name == "slidingLikelihood") else fields
+  }
+
+  private def checkResidual(df: DataFrame): DataFrame = {
+    if (outputResiduals) df else df.drop("residual")
+  }
+
+  private def checkResidualSchema(fields: List[StructField]): List[StructField] = {
+    if (outputResiduals) fields else fields.filterNot(f => f.name =="residual")
+  }
+
+  private def checkSystemMatrices(df: DataFrame): DataFrame = {
+    if (getOutputSystemMatrices) df else df.drop("processModel", "processNoise", "measurementModel")
+  }
+
+  private def checkSystemMatricesSchema(fields: List[StructField]): List[StructField] = {
+    if (getOutputSystemMatrices) fields else fields
+      .filterNot(f => Set("processModel", "processNoise", "measurementModel").contains(f.name))
+  }
 
   // Output residuals if any of mahalanobis or likelihood calculations are requested
   protected def outputResiduals: Boolean = {
@@ -352,73 +406,25 @@ private[filter] abstract class KalmanTransformer[
   override protected def asDataFrame(in: Dataset[KalmanOutput]): DataFrame = {
     val outDF = super.asDataFrame(in)
 
-    val resFiltered = if (outputResiduals) {
-      val dfWithMahalanobis = if (getCalculateMahalanobis) withMahalanobis(outDF) else outDF
-      val dfWithlikelihood = if (getCalculateLoglikelihood) withLoglikelihood(dfWithMahalanobis) else dfWithMahalanobis
-      val dfWithSlidinglikelihood = if (!getCalculateSlidingLikelihood) {
-        dfWithlikelihood.drop("slidingLikelihood")
-      }
-      else {
-        dfWithlikelihood
-      }
-      dfWithSlidinglikelihood
-    }
-    else {
-      outDF.drop("residual", "residualCovariance", "slidingLikelihood")
-    }
+    val checks = (checkLoglikelihood _)
+      .andThen(checkMahalanobis _)
+      .andThen(checkSlidingLikelihood _)
+      .andThen(checkResidual _)
+      .andThen(checkSystemMatrices _)
 
-    val systemFiltered = if (getOutputSystemMatrices) {
-      resFiltered
-    }
-    else {
-      resFiltered.drop("processModel", "processNoise", "measurementModel")
-    }
-    systemFiltered
+    checks(outDF)
   }
 
   override protected def asDataFrameTransformSchema(schema: StructType): StructType = {
     val outSchema = super.asDataFrameTransformSchema(schema)
 
-    // add columns depending on the residual calculation, mahalanobis and likelihoods
-    val resFiltered = if (outputResiduals) {
+    val checks = (checkLoglikelihoodSchema _)
+      .andThen(checkMahalanobisSchema _)
+      .andThen(checkSlidingLikelihoodSchema _)
+      .andThen(checkResidualSchema _)
+      .andThen(checkSystemMatricesSchema _)
 
-      // add mahalanobis distance if calculation enabled
-
-      val withMahalanobis = if (getCalculateMahalanobis) {
-        outSchema.add(StructField("mahalanobis", DoubleType))
-      }
-      else {
-        outSchema
-      }
-
-      // add loglikelihood if calculation enabled
-      val withLikelihood = if (getCalculateLoglikelihood) {
-        withMahalanobis.add(StructField("logLikelihood", DoubleType))
-      } else {
-        withMahalanobis
-      }
-
-      // Remove sliding likelihood if not requested
-      val withSlidingLikelihood = if (!getCalculateSlidingLikelihood) {
-        StructType(withLikelihood.filter(f => f.name == "slidingLikelihood"))
-      } else {
-        withLikelihood
-      }
-
-      withSlidingLikelihood
-    }
-    else {
-      StructType(outSchema.filter(f => Set("residual", "residualCovariance").contains(f.name)))
-    }
-
-    // Filter system matrices from output if not required
-    val systemFiltered = if (getOutputSystemMatrices) {
-      resFiltered
-    }
-    else {
-      StructType(resFiltered.filter(f => Set("processModel", "processNoise", "measurementModel").contains(f.name)))
-    }
-    systemFiltered
+    StructType(checks(outSchema.toList))
   }
 
   private[artan] def filter(dataset: Dataset[_]): Dataset[KalmanOutput] = {
@@ -457,8 +463,8 @@ private[filter] abstract class KalmanTransformer[
       val aggVecFunc = LinalgUtils.axpyVectorAggregate(stateSize)
       val aggMatFunc = LinalgUtils.axpyMatrixAggregate(stateSize, stateSize)
 
-      val aggStateExpr = scalVector(normExpr, aggVecFunc(col("slidingLikelihood"), col("state")))
-      val aggCovExpr = scalMatrix(normExpr, aggMatFunc(col("slidingLikelihood"), col("stateCovariance")))
+      val aggStateExpr = scalVector(normExpr, aggVecFunc(col("slidingLikelihood"), col("state.mean")))
+      val aggCovExpr = scalMatrix(normExpr, aggMatFunc(col("slidingLikelihood"), col("state.covariance")))
 
       val windowKeys = if (isSet(multipleModelMeasurementWindowDuration)) {
         Seq(window(col(getEventTimeCol), getMultipleModelMeasurementWindow).alias(getEventTimeCol))
@@ -469,7 +475,9 @@ private[filter] abstract class KalmanTransformer[
 
       stateEstimates
         .groupBy(groupKeys: _*)
-        .agg(aggStateExpr.alias("state"), aggCovExpr.alias("stateCovariance"))
+        .agg(aggStateExpr.alias("mean"), aggCovExpr.alias("covariance"))
+        .withColumn("state", struct("mean", "covariance"))
+        .drop("mean", "covariance")
     } else {
       stateEstimates
     }
@@ -477,9 +485,17 @@ private[filter] abstract class KalmanTransformer[
 
   private def toKalmanInput(dataset: Dataset[_]): DataFrame = {
     /* Get the column expressions and convert to Dataset[KalmanInput]*/
+    val initialStateExpr = if (isSet(initialStateDistributionCol)) {
+      col(getInitialStateDistributionCol)
+    }
+    else {
+      struct("mean", "covariance")
+    }
+
     dataset
-      .withColumn("initialState", getUDFWithDefault(initialState, initialStateCol))
-      .withColumn("initialCovariance", getUDFWithDefault(initialCovariance, initialCovarianceCol))
+      .withColumn("mean", getUDFWithDefault(initialStateMean, initialStateMeanCol))
+      .withColumn("covariance", getUDFWithDefault(initialStateCovariance, initialStateCovarianceCol))
+      .withColumn("initialState", initialStateExpr)
       .withColumn("measurement", getMeasurementExpr)
       .withColumn("measurementModel", getUDFWithDefault(measurementModel, measurementModelCol))
       .withColumn("measurementNoise", getUDFWithDefault(measurementNoise, measurementNoiseCol))
@@ -525,9 +541,7 @@ private[filter] trait KalmanStateUpdateSpec[+Compute <: KalmanStateCompute]
       key,
       state.stateIndex,
       state.state,
-      state.stateCovariance,
       state.residual,
-      state.residualCovariance,
       row.eventTime,
       getOutputProcessModel(row, state),
       getOutputProcessNoise(row, state),
@@ -545,8 +559,6 @@ private[filter] trait KalmanStateUpdateSpec[+Compute <: KalmanStateCompute]
       .getOrElse(KalmanState(
         0L,
         row.initialState,
-        row.initialCovariance,
-        None,
         None,
         None,
         Queue.empty[Double]))
@@ -570,11 +582,12 @@ private[filter] trait KalmanStateCompute extends Serializable {
   def updateSlidingLikelihood(
     slidingLoglikelihood: Queue[Double],
     likelihoodWindow: Int,
-    residual: Option[Vector],
-    covariance: Option[Matrix]): Queue[Double] = {
+    residualDist: Option[MultivariateGaussianDistribution]): Queue[Double] = {
 
-    (residual, covariance) match {
-      case (Some(res), Some(cov)) => {
+    residualDist match {
+      case Some(dist) => {
+        val res = dist.mean
+        val cov = dist.covariance
         val zeroMean = new DenseVector(Array.fill(res.size) {0.0})
         val ll = MultivariateGaussian.logpdf(res.toDense, zeroMean, cov.toDense)
         if (slidingLoglikelihood.size >= likelihoodWindow) {
@@ -584,7 +597,7 @@ private[filter] trait KalmanStateCompute extends Serializable {
           slidingLoglikelihood.enqueue(ll)
         }
       }
-      case (_,_) => slidingLoglikelihood
+      case _ => slidingLoglikelihood
     }
   }
 

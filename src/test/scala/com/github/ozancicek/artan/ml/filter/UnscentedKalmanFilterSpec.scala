@@ -44,7 +44,7 @@ class UnscentedKalmanFilterSpec
       }
 
       val filter = new UnscentedKalmanFilter(3, 1)
-        .setInitialCovariance(
+        .setInitialStateCovariance(
           new DenseMatrix(3, 3, Array(10.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 10.0)))
         .setMeasurementCol("measurement")
         .setMeasurementModelCol("measurementModel")
@@ -91,7 +91,7 @@ class UnscentedKalmanFilterSpec
     }
 
     val filter = new UnscentedKalmanFilter(3, 1)
-      .setInitialCovariance(
+      .setInitialStateCovariance(
         new DenseMatrix(3, 3, Array(0.1, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.1)))
       .setMeasurementCol("measurement")
       .setMeasurementModelCol("measurementModel")
@@ -108,9 +108,9 @@ class UnscentedKalmanFilterSpec
     it("should estimate model parameters") {
       val modelState = query(measurements.toDS)
 
-      val lastState = modelState.collect
+      val lastState = modelState.select("state.mean", "stateIndex").collect
         .filter(row=>row.getAs[Long]("stateIndex") == n)(0)
-        .getAs[DenseVector]("state")
+        .getAs[DenseVector]("mean")
 
       val coeffs = new DenseVector(Array(a, b, c))
       val mae = (0 until coeffs.size).foldLeft(0.0) {
@@ -144,8 +144,8 @@ class UnscentedKalmanFilterSpec
     val ubound = new DenseVector(Array(10.0, 10.0))
 
     val filter = new UnscentedKalmanFilter(2, 1)
-      .setInitialState(new DenseVector(Array(0.0, 0.0)))
-      .setInitialCovariance(
+      .setInitialStateMean(new DenseVector(Array(0.0, 0.0)))
+      .setInitialStateCovariance(
         new DenseMatrix(2, 2, Array(10.0, 0.0, 0.0, 10.0)))
       .setMeasurementCol("measurement")
       .setMeasurementModelCol("measurementModel")
@@ -171,9 +171,9 @@ class UnscentedKalmanFilterSpec
     val modelState = filter.transform(measurements)
     it("should estimate parameters") {
 
-      val lastState = modelState.collect
+      val lastState = modelState.select("state.mean", "stateIndex").collect
         .filter(row=>row.getAs[Long]("stateIndex") == rates.size)(0)
-        .getAs[DenseVector]("state")
+        .getAs[DenseVector]("mean")
 
       val coeffs = new DenseVector(Array(c1, c2))
       val mae = (0 until coeffs.size).foldLeft(0.0) {
@@ -184,8 +184,8 @@ class UnscentedKalmanFilterSpec
     }
 
     it("should stay within bounds") {
-      modelState.collect.foreach{ row=>
-        val state = row.getAs[DenseVector]("state")
+      modelState.select("state.mean").collect.foreach{ row=>
+        val state = row.getAs[DenseVector]("mean")
         // Enforce lbound
         state.values.zip(lbound.values).foreach { case(s, lb) =>
           assert(s >= lb)

@@ -61,7 +61,7 @@ import org.apache.spark.ml.BLAS
  * State prediction:
  *  x_k = f(x_k-1, F_k) + B_k * u_k + w_k
  *
- * Measurement incorporation:
+ * Measurement update:
  *  z_k = h(x_k, H_k) + v_k
  *
  * Where v_k and w_k are noise vectors drawn from zero mean, q_j * Q_k * q_j.T and r_j * R_k *r_j.T covariance
@@ -176,19 +176,19 @@ private[filter] class ExtendedKalmanStateSpec(
   override def getOutputProcessModel(
     row: KalmanInput,
     state: KalmanState): Option[Matrix] = {
-    row.processModel.map(m => kalmanCompute.getProcessModel(state.state.toDense, m.toDense))
+    row.processModel.map(m => kalmanCompute.getProcessModel(state.state.mean.toDense, m.toDense))
   }
 
   override def getOutputProcessNoise(
     row: KalmanInput,
     state: KalmanState): Option[Matrix] = {
-    row.processNoise.map(m => kalmanCompute.getProcessNoise(state.state.toDense, m.toDense))
+    row.processNoise.map(m => kalmanCompute.getProcessNoise(state.state.mean.toDense, m.toDense))
   }
 
   override def getOutputMeasurementModel(
     row: KalmanInput,
     state: KalmanState): Option[Matrix] = {
-    row.measurementModel.map(m => kalmanCompute.getMeasurementModel(state.state.toDense, m.toDense))
+    row.measurementModel.map(m => kalmanCompute.getMeasurementModel(state.state.mean.toDense, m.toDense))
   }
 
   val kalmanCompute = new ExtendedKalmanStateCompute(

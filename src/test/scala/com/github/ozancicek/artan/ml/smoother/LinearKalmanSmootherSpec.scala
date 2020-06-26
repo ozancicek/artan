@@ -57,7 +57,7 @@ class LinearKalmanSmootherSpec
 
       val filter = new LinearKalmanSmoother(2, 1)
         .setMeasurementCol("measurement")
-        .setInitialCovariance(
+        .setInitialStateCovariance(
           new DenseMatrix(2, 2, Array(1000, 0, 0, 1000)))
         .setProcessModel(
           new DenseMatrix(2, 2, Array(1, 0, 1, 1)))
@@ -79,7 +79,7 @@ class LinearKalmanSmootherSpec
       it("should obtain the trend") {
         val batchState = query(Random.shuffle(measurements).toDS)
         val stats = batchState.groupBy($"stateKey")
-          .agg(Summarizer.mean($"state").alias("avg"))
+          .agg(Summarizer.mean($"state.mean").alias("avg"))
           .head
         assert(scala.math.abs(stats.getAs[DenseVector]("avg")(0) - numSamples / 2) < 2.0)
         assert(scala.math.abs(stats.getAs[DenseVector]("avg")(1) - 1.0) < 1.0)
@@ -91,7 +91,7 @@ class LinearKalmanSmootherSpec
     describe("Ordinary least squares") {
 
       val filter = new LinearKalmanSmoother(3, 1)
-        .setInitialCovariance(
+        .setInitialStateCovariance(
           new DenseMatrix(3, 3, Array(10.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 10.0)))
         .setMeasurementCol("measurement")
         .setMeasurementModelCol("measurementModel")
@@ -133,7 +133,7 @@ class LinearKalmanSmootherSpec
       }
 
       val filter = new LinearKalmanSmoother(2, 1)
-        .setInitialCovariance(
+        .setInitialStateCovariance(
           new DenseMatrix(2, 2, Array(10.0, 0.0, 0.0, 10.0)))
         .setMeasurementCol("measurement")
         .setProcessModelCol("processModel")
@@ -148,13 +148,13 @@ class LinearKalmanSmootherSpec
       it("should filter the measurements") {
         val modelState = query(measurements.toDS())
 
-        val lastState = modelState.collect
+        val lastState = modelState.select("state.mean", "stateIndex").collect
           .filter(row=>row.getAs[Long]("stateIndex") == numSamples - 1)(0)
-          .getAs[DenseVector]("state")
+          .getAs[DenseVector]("mean")
 
         val stats = modelState.groupBy($"stateKey")
           .agg(
-            Summarizer.mean($"state").alias("avg"))
+            Summarizer.mean($"state.mean").alias("avg"))
           .head
         assert(scala.math.abs(stats.getAs[DenseVector]("avg")(0) - zs.reduce(_ + _)/zs.size) < 1.0)
       }

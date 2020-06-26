@@ -58,7 +58,7 @@ class ExtendedKalmanFilterSpec
       }
 
       val filter = new ExtendedKalmanFilter(3, 1)
-        .setInitialCovariance(
+        .setInitialStateCovariance(
           new DenseMatrix(3, 3, Array(10.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 10.0)))
         .setMeasurementCol("measurement")
         .setMeasurementModelCol("measurementModel")
@@ -124,13 +124,13 @@ class ExtendedKalmanFilterSpec
         val covExtract = udf((in: Matrix) => in(0, 0))
 
         val stats = modelState
-          .withColumn("residualCovariance", covExtract($"residualCovariance"))
+          .withColumn("residualCovariance", covExtract($"residual.covariance"))
           .groupBy($"stateKey")
           .agg(
             avg($"mahalanobis").alias("mahalanobis"),
             avg($"loglikelihood").alias("loglikelihood"),
             avg($"residualCovariance").alias("residualCovariance"),
-            Summarizer.mean($"state").alias("avg"))
+            Summarizer.mean($"state.mean").alias("avg"))
           .head
 
         assert(scala.math.abs(stats.getAs[DenseVector]("avg")(0) - zs.reduce(_ + _)/zs.size) < 1.0)

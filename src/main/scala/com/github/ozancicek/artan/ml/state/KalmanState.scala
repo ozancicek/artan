@@ -22,6 +22,8 @@ import org.apache.spark.ml.linalg.{Matrix, Vector}
 import scala.collection.immutable.Queue
 import java.sql.Timestamp
 
+import com.github.ozancicek.artan.ml.stats.MultivariateGaussianDistribution
+
 /**
  * Case class for inputs of a kalman filter. Let state at step k be denoted with x_k, measurement with
  * z_k, where x_k and z_k are vectors of length n_state and n_obs
@@ -34,7 +36,6 @@ import java.sql.Timestamp
  *
  * @param stateKey Key of the filter state.
  * @param initialState x_0, Vector with length n_state
- * @param initialCovariance Covariance matrix with dimensions (n_state, n_state)
  * @param measurement z_k, Vector with length n_obs
  * @param measurementModel H_k, Matrix with dimensions (n_state, n_obs)
  * @param measurementNoise v_k, Matrix with dimensions (n_obs, n_obs)
@@ -46,8 +47,7 @@ import java.sql.Timestamp
  */
 private[ml] case class KalmanInput(
     stateKey: String,
-    initialState: Vector,
-    initialCovariance: Matrix,
+    initialState: MultivariateGaussianDistribution,
     measurement: Option[Vector],
     measurementModel: Option[Matrix],
     measurementNoise: Option[Matrix],
@@ -68,9 +68,7 @@ private[ml] case class KalmanInput(
  * @param stateKey Key of the state
  * @param stateIndex index of the filter, incremented only on state evolution
  * @param state x_k, the state vector with length n_state
- * @param stateCovariance state covariance matrix with dimensions n_state, n_state
  * @param residual residual of x_k and z_k, vector with length n_obs
- * @param residualCovariance covariance of residual, matrix with dimensions n_obs, n_obs
  * @param eventTime event time of input measurement
  * @param processModel process model used at this state
  * @param processNoise process noise used at this state
@@ -80,10 +78,8 @@ private[ml] case class KalmanInput(
 case class KalmanOutput(
     stateKey: String,
     stateIndex: Long,
-    state: Vector,
-    stateCovariance: Matrix,
-    residual: Option[Vector],
-    residualCovariance: Option[Matrix],
+    state: MultivariateGaussianDistribution,
+    residual: Option[MultivariateGaussianDistribution],
     eventTime: Option[Timestamp],
     processModel: Option[Matrix],
     processNoise: Option[Matrix],
@@ -95,10 +91,8 @@ case class KalmanOutput(
  */
 private[ml] case class KalmanState(
     stateIndex: Long,
-    state: Vector,
-    stateCovariance: Matrix,
-    residual: Option[Vector],
-    residualCovariance: Option[Matrix],
+    state: MultivariateGaussianDistribution,
+    residual: Option[MultivariateGaussianDistribution],
     processNoise: Option[Matrix],
     slidingLoglikelihood: Queue[Double]) extends State
 
@@ -108,15 +102,13 @@ private[ml] case class KalmanState(
  * @param stateKey Key of the state
  * @param stateIndex index of the filter, incremented only on state evolution
  * @param state x_k, the state vector with length n_state
- * @param stateCovariance state covariance matrix with dimensions n_state, n_state
  * @param rtsGain Smoother gain calculated from RTS Smoother
  * @param eventTime event time of input measurement
  */
 case class RTSOutput(
     stateKey: String,
     stateIndex: Long,
-    state: Vector,
-    stateCovariance: Matrix,
+    state: MultivariateGaussianDistribution,
     rtsGain: Matrix,
     eventTime: Option[Timestamp]) extends KeyedOutput[String]
 
@@ -124,6 +116,5 @@ case class RTSOutput(
 private[ml] case class MMAEState(
     loglikelihood: Queue[Double],
     stateIndex: Long,
-    state: Vector,
-    stateCovariance: Matrix,
+    state: MultivariateGaussianDistribution,
     eventTime: Option[Timestamp]) extends State

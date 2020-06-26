@@ -62,7 +62,7 @@ class LinearKalmanFilterSpec
 
       val filter = new LinearKalmanFilter(2, 1)
         .setMeasurementCol("measurement")
-        .setInitialCovariance(
+        .setInitialStateCovariance(
           new DenseMatrix(2, 2, Array(1000, 0, 0, 1000)))
         .setProcessModel(
           new DenseMatrix(2, 2, Array(1, 0, 1, 1)))
@@ -94,7 +94,7 @@ class LinearKalmanFilterSpec
         val stats = batchState.groupBy($"stateKey")
           .agg(
             avg($"mahalanobis").alias("mahalanobis"),
-            Summarizer.mean($"state").alias("avg"))
+            Summarizer.mean($"state.mean").alias("avg"))
           .head
 
         assert(stats.getAs[Double]("mahalanobis") < 6.0)
@@ -126,27 +126,26 @@ class LinearKalmanFilterSpec
       val (initial, resume) = zs.splitAt(n/2)
 
       val initialFilter = filter
-        .setInitialCovariance(
+        .setInitialStateCovariance(
           new DenseMatrix(2, 2, Array(100, 0, 0, 100)))
 
       val initalState = initialFilter.transform(initial.toDF("measurement"))
         .filter(s"stateIndex == ${initial.size}")
-        .select("stateKey", "state", "stateCovariance")
+        .select("stateKey", "state")
 
       val allState = initialFilter.transform(zs.toDF("measurement"))
         .filter(s"stateIndex == $n")
-        .select("stateKey", "state", "stateCovariance")
+        .select("stateKey", "state")
 
       val resumeFilter = filter
-        .setInitialStateCol("state")
-        .setInitialCovarianceCol("stateCovariance")
+        .setInitialStateDistributionCol("state")
 
       val resumeDF = resume.toDF("measurement")
         .crossJoin(initalState)
 
       val finalState = resumeFilter.transform(resumeDF)
         .filter(s"stateIndex == ${n/2}")
-        .select("stateKey", "state", "stateCovariance")
+        .select("stateKey", "state")
 
       it("should have same end state after resume") {
         assert(finalState.collect().toList == allState.collect().toList)
@@ -156,7 +155,7 @@ class LinearKalmanFilterSpec
     describe("Ordinary least squares") {
 
       val filter = new LinearKalmanFilter(3, 1)
-        .setInitialCovariance(
+        .setInitialStateCovariance(
           new DenseMatrix(3, 3, Array(10.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 10.0)))
         .setMeasurementCol("measurement")
         .setMeasurementModelCol("measurementModel")
@@ -181,7 +180,7 @@ class LinearKalmanFilterSpec
 
       val filter = new LinearKalmanFilter(3, 1)
         .setStateKeyCol("stateKey")
-        .setInitialCovariance(
+        .setInitialStateCovariance(
           new DenseMatrix(3, 3, Array(10.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 10.0)))
         .setMeasurementCol("measurement")
         .setMeasurementModelCol("measurementModel")
@@ -195,8 +194,9 @@ class LinearKalmanFilterSpec
 
 
       val latestState = filter.transform(measurements.toDS)
+        .select("state.mean", "stateIndex")
         .filter(s"stateIndex = $numSamples").head
-        .getAs[DenseVector]("state")
+        .getAs[DenseVector]("mean")
 
       it("should estimate model") {
         val target = Array(firstCoeff, secondCoeff, constCoeff)
@@ -233,7 +233,7 @@ class LinearKalmanFilterSpec
       }
 
       val filter = new LinearKalmanFilter(2, 1)
-        .setInitialCovariance(
+        .setInitialStateCovariance(
           new DenseMatrix(2, 2, Array(10.0, 0.0, 0.0, 10.0)))
         .setMeasurementCol("measurement")
         .setProcessModelCol("processModel")
@@ -250,13 +250,13 @@ class LinearKalmanFilterSpec
       it("should filter the measurements") {
         val modelState = query(measurements.toDS())
 
-        val lastState = modelState.collect
+        val lastState = modelState.select("state.mean", "stateIndex").collect
           .filter(row=>row.getAs[Long]("stateIndex") == n - 1)(0)
-          .getAs[DenseVector]("state")
+          .getAs[DenseVector]("mean")
 
         val stats = modelState.groupBy($"stateKey")
           .agg(
-            Summarizer.mean($"state").alias("avg"))
+            Summarizer.mean($"state.mean").alias("avg"))
           .head
         assert(scala.math.abs(stats.getAs[DenseVector]("avg")(0) - zs.sum/zs.length) < 1.0)
       }

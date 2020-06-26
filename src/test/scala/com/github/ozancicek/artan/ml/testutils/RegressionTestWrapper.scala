@@ -71,9 +71,9 @@ trait RegressionTestWrapper
     val query = (in: Dataset[RegressionMeasurement]) => filter.transform(in)
 
     val modelState = query(measurements.toDS)
-    val lastState = modelState.collect
+    val lastState = modelState.select("state.mean", "stateIndex").collect
       .filter(row => row.getAs[Long]("stateIndex") == numSamples)(0)
-      .getAs[DenseVector]("state")
+      .getAs[DenseVector]("mean")
 
     val coeffs = LAPACK.dgels(features, target)
     val mae = (0 until coeffs.size).foldLeft(0.0) {
@@ -98,9 +98,9 @@ trait RegressionTestWrapper
 
     val modelState = query(measurements.toDS())
 
-    val lastState = modelState.collect
+    val lastState = modelState.select("state.mean", "stateIndex").collect
       .filter(row=>row.getAs[Long]("stateIndex") == numSamples)(0)
-      .getAs[DenseVector]("state")
+      .getAs[DenseVector]("mean")
     val coeffs = new DenseVector(Array(firstCoeff, secondCoeff, constCoeff))
     val mae = (0 until coeffs.size).foldLeft(0.0) {
       case(s, i) => s + scala.math.abs(lastState(i) - coeffs(i))

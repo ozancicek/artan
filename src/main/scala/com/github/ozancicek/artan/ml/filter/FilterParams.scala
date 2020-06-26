@@ -24,7 +24,7 @@ import org.apache.spark.ml.param._
 /**
  * Param for initial state vector of a filter.
  */
-private[artan] trait HasInitialState extends Params {
+private[artan] trait HasInitialStateMean extends Params {
 
   def stateSize: Int
 
@@ -33,20 +33,20 @@ private[artan] trait HasInitialState extends Params {
    *
    * @group param
    */
-  final val initialState: Param[Vector] = new Param[Vector](
+  final val initialStateMean: Param[Vector] = new Param[Vector](
     this,
-    "initialState",
+    "initialStateMean",
     "Initial value of the state vector",
     (in: Vector) => in.size == stateSize)
 
-  setDefault(initialState, new DenseVector(Array.fill(stateSize) {0.0}))
+  setDefault(initialStateMean, new DenseVector(Array.fill(stateSize) {0.0}))
 
   /**
    * Getter for the initial value of the state vector
    *
    * @group getParam
    */
-  final def getInitialState: Vector = $(initialState)
+  final def getInitialStateMean: Vector = $(initialStateMean)
 
 }
 
@@ -54,7 +54,7 @@ private[artan] trait HasInitialState extends Params {
 /**
  * Param for initial covariance of the state
  */
-private[artan] trait HasInitialCovariance extends Params {
+private[artan] trait HasInitialStateCovariance extends Params {
 
   def stateSize: Int
 
@@ -63,20 +63,20 @@ private[artan] trait HasInitialCovariance extends Params {
    *
    * @group param
    */
-  final val initialCovariance: Param[Matrix] = new Param[Matrix](
+  final val initialStateCovariance: Param[Matrix] = new Param[Matrix](
     this,
-    "initialCovariance",
+    "initialStateCovariance",
     "Initial covariance matrix",
     (in: Matrix) => (in.numRows == stateSize) & (in.numCols == stateSize))
 
-  setDefault(initialCovariance, DenseMatrix.eye(stateSize))
+  setDefault(initialStateCovariance, DenseMatrix.eye(stateSize))
 
   /**
    * Getter for the initial covariance matrix param
    *
    * @group getParam
    */
-  final def getInitialCovariance: Matrix = $(initialCovariance)
+  final def getInitialStateCovariance: Matrix = $(initialStateCovariance)
 
 }
 
@@ -416,51 +416,74 @@ private[artan] trait HasMeasurementNoiseJacobian extends Params {
 }
 
 /**
- * Param for initial state column
+ * Param for initial state mean column
  */
-private[artan] trait HasInitialStateCol extends Params {
+private[artan] trait HasInitialStateMeanCol extends Params {
 
   /**
-   * Param for initial state vector as a dataframe column. Overrides [[initialState]] param. Can
+   * Param for initial state vector as a dataframe column. Overrides [[initialStateMean]] param. Can
    * be used for initializing separate state vector for each state.
    *
    * @group param
    */
-  final val initialStateCol: Param[String] = new Param[String](
+  final val initialStateMeanCol: Param[String] = new Param[String](
     this,
-    "initialStateCol",
-    "Column name for initial state vector")
+    "initialStateMeanCol",
+    "Column name for initial state mean vector")
 
   /**
-   * Getter for initial state vector column
+   * Getter for initial state mean vector column
    * @group getParam
    */
-  final def getInitialStateCol: String = $(initialStateCol)
+  final def getInitialStateMeanCol: String = $(initialStateMeanCol)
 }
-
-
 /**
  * Param for initial state covariance column
  */
-private[artan] trait HasInitialCovarianceCol extends Params {
+private[artan] trait HasInitialStateCovarianceCol extends Params {
 
   /**
-   * Param for initial state covariance matrix as a dataframe column. Overrides [[initialCovariance]] param. Can
+   * Param for initial state covariance matrix as a dataframe column. Overrides [[initialStateCovariance]] param. Can
    * be used for initializing separate state covariance matrix for each state.
    *
    * @group param
    */
-  final val initialCovarianceCol: Param[String] = new Param[String](
+  final val initialStateCovarianceCol: Param[String] = new Param[String](
     this,
-    "initialCovarianceCol",
-    "Column name for initial covariance matrix")
+    "initialStateCovarianceCol",
+    "Column name for initial state covariance matrix")
 
   /**
    * Getter for initial state covariance matrix column
    *
    * @group getParam
    */
-  final def getInitialCovarianceCol: String = $(initialCovarianceCol)
+  final def getInitialStateCovarianceCol: String = $(initialStateCovarianceCol)
+}
+
+
+/**
+ * Param for initial state column
+ */
+private[artan] trait HasInitialStateDistributionCol extends Params {
+
+  /**
+   * Param for initial state distribiution as a dataframe struct column. Overrides [[initialStateMeanCol]]
+   * and [[initialStateCovarianceCol]] params.
+   *
+   * @group param
+   */
+  final val initialStateDistributionCol: Param[String] = new Param[String](
+    this,
+    "initialStateCol",
+    "Column name for initial state distribution. It should be a struct column with mean and covariance fields" +
+      "mean field should be vector, and covariance field should be matrix")
+
+  /**
+   * Getter for initial state distribution column
+   * @group getParam
+   */
+  final def getInitialStateDistributionCol: String = $(initialStateDistributionCol)
 }
 
 /**

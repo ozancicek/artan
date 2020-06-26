@@ -19,6 +19,7 @@ package com.github.ozancicek.artan.ml.filter
 
 import com.github.ozancicek.artan.ml.linalg.LinalgUtils
 import com.github.ozancicek.artan.ml.state.{KalmanInput, KalmanState}
+import com.github.ozancicek.artan.ml.stats.MultivariateGaussianDistribution
 import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector}
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable
@@ -44,7 +45,7 @@ import org.apache.spark.ml.BLAS
  * State prediction:
  *  x_k = F_k * x_k-1 + B_k * u_k + w_k
  *
- * Measurement incorporation:
+ * Measurement update:
  *  z_k = H_k * x_k + v_k
  *
  * Where v_k and w_k are noise vectors drawn from zero mean, Q_k and R_k covariance distributions.
@@ -171,10 +172,10 @@ private[filter] class LinearKalmanStateCompute(
 
     // x_k = F * x_k-1
     val newMean = progressStateMean(
-      state.state.toDense, process.processModel.get.toDense)
+      state.state.mean.toDense, process.processModel.get.toDense)
 
     val pModel = getProcessModel(
-      state.state.toDense, process.processModel.get.toDense)
+      state.state.mean.toDense, process.processModel.get.toDense)
 
     // x_k += B * u
     (process.control, process.controlFunction) match {
@@ -183,19 +184,20 @@ private[filter] class LinearKalmanStateCompute(
     }
 
     // covUpdate = a * F * P_k-1
-    val covUpdate = DenseMatrix.zeros(pModel.numRows, state.stateCovariance.numCols)
+    val covUpdate = DenseMatrix.zeros(pModel.numRows, state.state.covariance.numCols)
     val fadingFactorSquare = scala.math.pow(fadingFactor, 2)
-    BLAS.gemm(fadingFactorSquare, pModel, state.stateCovariance.toDense, 1.0, covUpdate)
+    BLAS.gemm(fadingFactorSquare, pModel, state.state.covariance.toDense, 1.0, covUpdate)
 
     // P_k = covUpdate * F.T + Q
-    val newCov = getProcessNoise(state.state.toDense, process.processNoise.get.copy.toDense)
+    val newCov = getProcessNoise(state.state.mean.toDense, process.processNoise.get.copy.toDense)
     BLAS.gemm(1.0, covUpdate, pModel.transpose, 1.0, newCov)
+
+    val newDist = MultivariateGaussianDistribution(newMean, newCov)
 
     KalmanState(
       state.stateIndex + 1L,
-      newMean, newCov,
+      newDist,
       state.residual,
-      state.residualCovariance,
       state.processNoise,
       state.slidingLoglikelihood)
   }
@@ -208,20 +210,20 @@ private[filter] class LinearKalmanStateCompute(
 
     // r = z_k - H * x_k
     val residual = calculateResidual(
-      state.state.toDense,
+      state.state.mean.toDense,
       process.measurement.get.toDense,
       process.measurementModel.get.toDense)
 
     val mModel = getMeasurementModel(
-      state.state.toDense,
+      state.state.mean.toDense,
       process.measurementModel.get.toDense)
 
     val mNoise = getMeasurementNoise(
-      state.state.toDense,
+      state.state.mean.toDense,
       process.measurementNoise.get.toDense)
 
     // speed = P * H.T
-    val speed = state.stateCovariance.multiply(mModel.transpose)
+    val speed = state.state.covariance.multiply(mModel.transpose)
     // rCov = H * speed + R
     val residualCovariance = mNoise.copy
     BLAS.gemm(1.0, mModel, speed, 1.0, residualCovariance)
@@ -232,7 +234,7 @@ private[filter] class LinearKalmanStateCompute(
     BLAS.gemm(1.0, speed, inverseUpdate, 1.0, gain)
 
     // x_k += K * r
-    val estMean = state.state.copy.toDense
+    val estMean = state.state.mean.copy.toDense
     BLAS.gemv(1.0, gain, residual, 1.0, estMean)
 
     // ident = I - K * H
@@ -240,20 +242,19 @@ private[filter] class LinearKalmanStateCompute(
     BLAS.gemm(-1.0, gain, mModel, 1.0, ident)
 
     // P_k = ident * P_k * ident.T + K * R * K.T
-    val estCov = ident.multiply(state.stateCovariance.toDense).multiply(ident.transpose)
+    val estCov = ident.multiply(state.state.covariance.toDense).multiply(ident.transpose)
     val noiseUpdate = gain.multiply(mNoise.toDense)
     BLAS.gemm(1.0, noiseUpdate, gain.transpose, 1.0, estCov)
 
-    val (res, resCov) = if (storeResidual) (Some(residual), Some(residualCovariance)) else (None, None)
+    val resDist = if (storeResidual) Some(MultivariateGaussianDistribution(residual, residualCovariance)) else None
 
-    val slidingll = updateSlidingLikelihood(state.slidingLoglikelihood, likelihoodWindow, res, resCov)
+    val slidingll = updateSlidingLikelihood(state.slidingLoglikelihood, likelihoodWindow, resDist)
 
+    val estDist = MultivariateGaussianDistribution(estMean, estCov)
     KalmanState(
       state.stateIndex,
-      estMean,
-      estCov,
-      res,
-      resCov,
+      estDist,
+      resDist,
       state.processNoise,
       slidingll)
   }
