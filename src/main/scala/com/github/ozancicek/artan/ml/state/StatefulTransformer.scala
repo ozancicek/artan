@@ -25,7 +25,7 @@ import org.apache.spark.sql.functions.{col, lit, udf}
 import scala.collection.immutable.Queue
 import scala.reflect.ClassTag
 import org.apache.spark.ml.param._
-import org.apache.spark.sql.types.{StructField, StructType, TimestampType}
+import org.apache.spark.sql.types.{StructField, StructType, TimestampType, StringType}
 import java.sql.Timestamp
 
 import scala.reflect.runtime.universe.TypeTag
@@ -132,32 +132,38 @@ private[ml] abstract class StatefulTransformer[
     }
   }
 
-  protected def asDataFrame(in: Dataset[OutType]): DataFrame = {
-    val df = in.toDF
-    val withEventTime = if (isSet(eventTimeCol)) {
-      df.withColumnRenamed("eventTime", getEventTimeCol)
-    }
-    else {
-      df.drop("eventTime")
+  protected def asDataFrame(ds: Dataset[OutType]): DataFrame = {
+
+    val checkStateKey = (in: DataFrame) => {
+      if (isSet(stateKeyCol)) in.withColumnRenamed("stateKey", getStateKeyColname) else in
     }
 
-    val withWatermark = if (isSet(watermarkDuration)) {
-      withEventTime.withWatermark(getEventTimeCol, $(watermarkDuration))
+    val checkEventTime = (in: DataFrame) => {
+      if (isSet(eventTimeCol)) in.withColumnRenamed("eventTime", getEventTimeCol) else in.drop("eventTime")
     }
-    else {
-      withEventTime
+
+    val checkWatermark = (in: DataFrame) => {
+      if (isSet(watermarkDuration)) in.withWatermark(getEventTimeCol, $(watermarkDuration)) else in
     }
-    withWatermark
+
+    val checks = checkStateKey andThen checkEventTime andThen checkWatermark
+    checks(ds.toDF)
   }
 
   protected def asDataFrameTransformSchema(schema: StructType): StructType = {
-    val filtered = schema.filter(f => f.name == "eventTime")
-    if (isSet(eventTimeCol)) {
-      StructType(filtered :+ StructField(getEventTimeCol, TimestampType, nullable = true))
+
+    val checkEventTime = (in: List[StructField]) => {
+      val cur = in.filterNot(f => f.name == "eventTime")
+      if (isSet(eventTimeCol)) StructField(getEventTimeCol, TimestampType, nullable = true)::cur else cur
     }
-    else {
-      StructType(filtered)
+
+    val checkStateKey = (in: List[StructField]) => {
+      val cur = in.filterNot(f => f.name == "stateKey")
+      if (isSet(stateKeyCol)) StructField(getStateKeyColname, StringType, nullable = false)::cur else in
     }
+
+    val checks = checkEventTime andThen checkStateKey
+    StructType(checks(schema.toList))
   }
 
   protected def getUDFWithDefault[
