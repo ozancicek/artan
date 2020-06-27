@@ -22,7 +22,7 @@ from pyspark.ml.param.shared import HasLabelCol, HasFeaturesCol
 from pyspark.ml.linalg import DenseMatrix
 from pyspark.ml.common import inherit_doc
 from artan.state import StatefulTransformer
-from artan.filter.filter_params import HasInitialState, HasInitialStateCol
+from artan.filter.filter_params import HasInitialStateMean, HasInitialStateMeanCol
 
 
 class _HasForgettingFactor(Params):
@@ -89,7 +89,7 @@ class _HasRegularizationMatrixCol(Params):
 
 
 @inherit_doc
-class RecursiveLeastSquaresFilter(StatefulTransformer, HasInitialState, HasInitialStateCol,
+class RecursiveLeastSquaresFilter(StatefulTransformer, HasInitialStateMean, HasInitialStateMeanCol,
                                   _HasForgettingFactor, _HasRegularizationMatrix, _HasRegularizationMatrixCol,
                                   HasLabelCol, HasFeaturesCol):
     """
@@ -147,7 +147,7 @@ class RecursiveLeastSquaresFilter(StatefulTransformer, HasInitialState, HasIniti
         :param value: pyspark.ml.linalg.Vector with size (featuresSize)
         :return: RecursiveLeastSquaresFilter
         """
-        return self._set(initialState=value)
+        return self._set(initialStateMean=value)
 
     def setInitialEstimateCol(self, value):
         """
@@ -155,7 +155,7 @@ class RecursiveLeastSquaresFilter(StatefulTransformer, HasInitialState, HasIniti
         :param value: String
         :return: RecursiveLeastSquaresFilter
         """
-        return self._set(initialStateCol=value)
+        return self._set(initialStateMeanCol=value)
 
     def setForgettingFactor(self, value):
         """

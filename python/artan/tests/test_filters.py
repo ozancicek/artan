@@ -120,13 +120,13 @@ class LinearKalmanFilterTests(ReusedSparkTestCase):
         lkf = LinearKalmanFilter(2, 1)\
             .setMeasurementModelCol("measurementModel")\
             .setMeasurementCol("measurement")\
-            .setInitialCovariance(Matrices.dense(2, 2, (np.eye(2)*10).reshape(4, 1)))\
+            .setInitialStateCovariance(Matrices.dense(2, 2, (np.eye(2)*10).reshape(4, 1)))\
             .setProcessModel(Matrices.dense(2, 2, np.eye(2).reshape(4, 1)))\
             .setProcessNoise(Matrices.dense(2, 2, np.zeros(4)))\
             .setMeasurementNoise(Matrices.dense(1, 1, [10E-5]))
 
         model = lkf.transform(df)
-        state = model.filter("stateIndex = {}".format(n)).collect()[0].state.values
+        state = model.filter("stateIndex = {}".format(n)).collect()[0].state.mean.values
 
         # Check equivalence with least squares solution with numpy
         expected, _, _, _ = np.linalg.lstsq(features, y, rcond=None)
@@ -150,7 +150,7 @@ class LinearKalmanFilterTests(ReusedSparkTestCase):
             .setStateKeyCol("state_key")\
             .setMeasurementModelCol("measurementModel")\
             .setMeasurementCol("measurement")\
-            .setInitialCovariance(Matrices.dense(2, 2, (np.eye(2)*10).reshape(4, 1)))\
+            .setInitialStateCovariance(Matrices.dense(2, 2, (np.eye(2)*10).reshape(4, 1)))\
             .setProcessModel(Matrices.dense(2, 2, np.eye(2).reshape(4, 1)))\
             .setProcessNoise(Matrices.dense(2, 2, np.zeros(4)))\
             .setMeasurementNoise(Matrices.dense(1, 1, [1.0]))\
@@ -158,7 +158,7 @@ class LinearKalmanFilterTests(ReusedSparkTestCase):
             .setEnableMultipleModelAdaptiveEstimation()
 
         model = mmaeFilter.transform(df)
-        state = model.filter("stateIndex = {}".format(n)).collect()[0].state.values
+        state = model.filter("stateIndex = {}".format(n)).collect()[0].state.mean.values
 
         expected, _, _, _ = np.linalg.lstsq(features, y, rcond=None)
         np.testing.assert_array_almost_equal(state, expected.reshape(2), decimal=0)

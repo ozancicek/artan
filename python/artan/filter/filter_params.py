@@ -18,86 +18,107 @@
 from pyspark.ml.param import Params, Param, TypeConverters
 
 
-class HasInitialState(Params):
+class HasInitialStateMean(Params):
     """
     Mixin for initial state vector.
     """
 
-    initialState = Param(
+    initialStateMean = Param(
         Params._dummy(),
-        "initialState", "Initial state vector", typeConverter=TypeConverters.toVector)
+        "initialStateMean", "Initial state vector", typeConverter=TypeConverters.toVector)
 
     def __init__(self):
-        super(HasInitialState, self).__init__()
+        super(HasInitialStateMean, self).__init__()
 
-    def getInitialState(self):
+    def getInitialStateMean(self):
         """
         Gets the value of initial state vector or its default value.
         """
-        return self.getOrDefault(self.initialState)
+        return self.getOrDefault(self.initialStateMean)
 
 
-class HasInitialStateCol(Params):
+class HasInitialStateMeanCol(Params):
     """
     Mixin for param for initial state column.
     """
 
-    initialStateCol = Param(
+    initialStateMeanCol = Param(
         Params._dummy(),
-        "initialStateCol",
+        "initialStateMeanCol",
         "Column name for initial state vector.",
         typeConverter=TypeConverters.toString)
 
     def __init__(self):
-        super(HasInitialStateCol, self).__init__()
+        super(HasInitialStateMeanCol, self).__init__()
 
-    def getInitialStateCol(self):
+    def getInitialStateMeanCol(self):
         """
         Gets the value of initial state column or its default value.
         """
-        return self.getOrDefault(self.initialStateCol)
+        return self.getOrDefault(self.initialStateMeanCol)
 
 
-class HasInitialCovariance(Params):
+class HasInitialStateCovariance(Params):
     """
     Mixin for param initial covariance matrix.
     """
 
-    initialCovariance = Param(
+    initialStateCovariance = Param(
         Params._dummy(),
-        "initialCovariance",
+        "initialStateCovariance",
         "Initial covariance matrix",
         typeConverter=TypeConverters.toMatrix)
 
     def __init__(self):
-        super(HasInitialCovariance, self).__init__()
+        super(HasInitialStateCovariance, self).__init__()
 
-    def getInitialCovariance(self):
+    def getInitialStateCovariance(self):
         """
         Gets the value of initial covariance matrix or its default value.
         """
-        return self.getOrDefault(self.initialCovariance)
+        return self.getOrDefault(self.initialStateCovariance)
 
 
-class HasInitialCovarianceCol(Params):
+class HasInitialStateCovarianceCol(Params):
     """
     Mixin for param for initial covariance column.
     """
 
-    initialCovarianceCol = Param(
+    initialStateCovarianceCol = Param(
         Params._dummy(),
-        "initialCovarianceCol",
-        "Column name for initial covariance vector.",
+        "initialStateCovarianceCol",
+        "Column name for initial state covariance matrix.",
         typeConverter=TypeConverters.toString)
 
     def __init__(self):
-        super(HasInitialCovarianceCol, self).__init__()
+        super(HasInitialStateCovarianceCol, self).__init__()
 
-    def getInitialCovarianceCol(self):
+    def getInitialStateCovarianceCol(self):
         """
         Gets the value of initial covariance column or its default value.
         """
-        return self.getOrDefault(self.initialCovarianceCol)
+        return self.getOrDefault(self.initialStateCovarianceCol)
+
+
+class HasInitialStateDistributionCol(Params):
+    """
+    Mixin for param for initial state distribution column.
+    """
+
+    initialStateDistributionCol = Param(
+        Params._dummy(),
+        "initialStateDistributionCol",
+        "Parameter for initial state distribution as struct col",
+        typeConverter=TypeConverters.toString)
+
+    def __init__(self):
+        super(HasInitialStateDistributionCol, self).__init__()
+
+    def getInitialStateDistributionCol(self):
+        """
+        Gets the value of initial distribution column or its default value.
+        """
+        return self.getOrDefault(self.initialStateDistributionCol)
 
 
 class HasProcessModel(Params):
@@ -499,8 +520,9 @@ class HasMultipleModelAdaptiveEstimationEnabled(Params):
         return self.getOrDefault(self.multipleModelAdaptiveEstimationEnabled)
 
 
-class KalmanFilterParams(HasInitialState, HasInitialCovariance, HasInitialStateCol,
-                         HasInitialCovarianceCol, HasProcessModel, HasFadingFactor, HasMeasurementModel,
+class KalmanFilterParams(HasInitialStateMean, HasInitialStateCovariance, HasInitialStateMeanCol,
+                         HasInitialStateCovarianceCol, HasInitialStateDistributionCol,
+                         HasProcessModel, HasFadingFactor, HasMeasurementModel,
                          HasMeasurementNoise, HasProcessNoise, HasMeasurementCol,
                          HasMeasurementModelCol, HasMeasurementNoiseCol, HasProcessModelCol,
                          HasProcessNoiseCol, HasControlCol, HasControlFunctionCol,
@@ -510,7 +532,7 @@ class KalmanFilterParams(HasInitialState, HasInitialCovariance, HasInitialStateC
     """
     Mixin for kalman filter parameters
     """
-    def setInitialState(self, value):
+    def setInitialStateMean(self, value):
         """
         Set the initial state vector with size (stateSize).
 
@@ -524,18 +546,18 @@ class KalmanFilterParams(HasInitialState, HasInitialCovariance, HasInitialStateC
         :param value: pyspark.ml.linalg.Vector with size (stateSize)
         :return: KalmanFilter
         """
-        return self._set(initialState=value)
+        return self._set(initialStateMean=value)
 
-    def setInitialStateCol(self, value):
+    def setInitialStateMeanCol(self, value):
         """
         Set the column corresponding to initial state vector. Overrides setInitialState setting.
 
         :param value: String
         :return: KalmanFilter
         """
-        return self._set(initialStateCol=value)
+        return self._set(initialStateMeanCol=value)
 
-    def setInitialCovariance(self, value):
+    def setInitialStateCovariance(self, value):
         """
         Set the initial covariance matrix with dimensions (stateSize, stateSize)
 
@@ -544,16 +566,27 @@ class KalmanFilterParams(HasInitialState, HasInitialCovariance, HasInitialStateC
         :param value: pyspark.ml.linalg.Matrix with dimensions (stateSize, stateSize)
         :return: KalmanFilter
         """
-        return self._set(initialCovariance=value)
+        return self._set(initialStateCovariance=value)
 
-    def setInitialCovarianceCol(self, value):
+    def setInitialStateCovarianceCol(self, value):
         """
-        Set the column corresponding to initial covariance matrix. Overrides setInitialCovariance setting.
+        Set the column corresponding to initial covariance matrix. Overrides setInitialCovariance parameter.
 
         :param value: String
         :return: KalmanFilter
         """
-        return self._set(initialCovarianceCol=value)
+        return self._set(initialStateCovarianceCol=value)
+
+    def setInitialStateDistributionCol(self, value):
+        """
+        Set the column corresponding to initial state distribution struct. The struct should have
+        'mean' field with a VectorType and 'covariance' field with a MatrixType.
+        Overrides setInitialStateMeanCol and setInitialCovarianceCol parameters.
+
+        :param value: String
+        :return: KalmanFilter
+        """
+        return self._set(initialStateDistributionCol=value)
 
     def setFadingFactor(self, value):
         """

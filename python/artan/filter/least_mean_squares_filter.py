@@ -19,7 +19,7 @@ from pyspark.ml.param import Params, Param, TypeConverters
 from pyspark.ml.common import inherit_doc
 from pyspark.ml.param.shared import HasLabelCol, HasFeaturesCol
 from artan.state import StatefulTransformer
-from artan.filter.filter_params import HasInitialState
+from artan.filter.filter_params import HasInitialStateMean, HasInitialStateMeanCol
 
 
 class _HasLearningRate(Params):
@@ -65,7 +65,7 @@ class _HasRegularizationConstant(Params):
 
 
 @inherit_doc
-class LeastMeanSquaresFilter(StatefulTransformer, HasInitialState,
+class LeastMeanSquaresFilter(StatefulTransformer, HasInitialStateMean, HasInitialStateMeanCol,
                              _HasLearningRate, _HasRegularizationConstant,
                              HasLabelCol, HasFeaturesCol):
     """
@@ -126,7 +126,7 @@ class LeastMeanSquaresFilter(StatefulTransformer, HasInitialState,
         :param value: pyspark.ml.linalg.Vector with size (featuresSize)
         :return: RecursiveLeastSquaresFilter
         """
-        return self._set(initialState=value)
+        return self._set(initialStateMean=value)
 
     def setInitialEstimateCol(self, value):
         """
@@ -134,7 +134,7 @@ class LeastMeanSquaresFilter(StatefulTransformer, HasInitialState,
         :param value: String
         :return: RecursiveLeastSquaresFilter
         """
-        return self._set(initialStateCol=value)
+        return self._set(initialStateMeanCol=value)
 
     def setLearningRate(self, value):
         """

@@ -43,14 +43,14 @@ class LinearKalmanSmootherTests(ReusedSparkTestCase):
         lkf = LinearKalmanSmoother(2, 1)\
             .setMeasurementModelCol("measurementModel")\
             .setMeasurementCol("measurement")\
-            .setInitialCovariance(Matrices.dense(2, 2, (np.eye(2)*10).reshape(4, 1)))\
+            .setInitialStateCovariance(Matrices.dense(2, 2, (np.eye(2)*10).reshape(4, 1)))\
             .setProcessModel(Matrices.dense(2, 2, np.eye(2).reshape(4, 1)))\
             .setProcessNoise(Matrices.dense(2, 2, np.zeros(4)))\
             .setMeasurementNoise(Matrices.dense(1, 1, [10E-5]))\
             .setFixedLag(n)
 
         model = lkf.transform(df)
-        state = model.filter("stateIndex = {}".format(n)).collect()[0].state.values
+        state = model.filter("stateIndex = {}".format(n)).collect()[0].state.mean.values
 
         # Check equivalence with least squares solution with numpy
         expected, _, _, _ = np.linalg.lstsq(features, y, rcond=None)
