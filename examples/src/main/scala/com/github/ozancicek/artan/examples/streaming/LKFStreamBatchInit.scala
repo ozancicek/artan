@@ -56,7 +56,7 @@ object LKFStreamBatchInit {
     val batchFilter = new LinearKalmanFilter(2, 1)
       .setStateKeyCol("stateKey")
       .setMeasurementCol("measurement")
-      .setInitialCovariance(
+      .setInitialStateCovariance(
         new DenseMatrix(2, 2, Array(1000, 0, 0, 1000)))
       .setProcessModel(
         new DenseMatrix(2, 2, Array(1, 0, 1, 1)))
@@ -79,13 +79,12 @@ object LKFStreamBatchInit {
     // Get the latest state from the filter trained in batch mode.
     val batchState = batchFilter.transform(batchMeasurements)
       .filter(s"stateIndex = $batchMeasurementCount")
-      .select("stateKey", "state", "stateCovariance").cache()
+      .select("stateKey", "state").cache()
     batchState.show(numStates)
 
-    // Copy batch filter, except initial state and covariance is read from dataframe column
+    // Copy batch filter, except initial state is read from dataframe column
     val streamFilter = batchFilter
-      .setInitialStateCol("state")
-      .setInitialCovarianceCol("stateCovariance")
+      .setInitialStateDistributionCol("state")
 
     // Generate streaming DF, shift the value by batchMeasurementCount to remove overlap with batch train data
     val streamDF = generateMeasurements(spark.readStream.format("rate")
@@ -106,4 +105,47 @@ object LKFStreamBatchInit {
 
     query.awaitTermination()
   }
+
+  /**
+   * +--------+--------------------+
+   * |stateKey|               state|
+   * +--------+--------------------+
+   * |       0|[[19.515662167212...|
+   * |       1|[[19.468300376746...|
+   * +--------+--------------------+
+   *
+   * -------------------------------------------
+   * Batch: 0
+   * -------------------------------------------
+   * +--------+----------+-----+
+   * |stateKey|stateIndex|state|
+   * +--------+----------+-----+
+   * +--------+----------+-----+
+   *
+   * -------------------------------------------
+   * Batch: 1
+   * -------------------------------------------
+   * +--------+----------+--------------------+
+   * |stateKey|stateIndex|               state|
+   * +--------+----------+--------------------+
+   * |       0|         1|[[20.633594973582...|
+   * |       0|         2|[[21.789119165418...|
+   * |       0|         3|[[22.863165204359...|
+   * |       1|         1|[[20.455445849573...|
+   * |       1|         2|[[21.844582344505...|
+   * |       1|         3|[[22.451603629903...|
+   * +--------+----------+--------------------+
+   *
+   * -------------------------------------------
+   * Batch: 2
+   * -------------------------------------------
+   * +--------+----------+--------------------+
+   * |stateKey|stateIndex|               state|
+   * +--------+----------+--------------------+
+   * |       0|         4|[[23.906030752251...|
+   * |       0|         5|[[25.025250483006...|
+   * |       1|         4|[[23.195987426484...|
+   * |       1|         5|[[24.199653312063...|
+   * +--------+----------+--------------------+
+   */
 }

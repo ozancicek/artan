@@ -77,7 +77,7 @@ object LKFRateSourceOLS {
       .withColumn("features", featuresUDF($"x", $"y"))
 
     val filter = new LinearKalmanFilter(stateSize, measurementsSize)
-      .setInitialCovariance(
+      .setInitialStateCovariance(
         new DenseMatrix(3, 3, Array(10.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 10.0)))
       .setStateKeyCol("stateKey")
       .setMeasurementCol("label")
@@ -89,7 +89,7 @@ object LKFRateSourceOLS {
     val truncate = udf((state: DenseVector) => state.values.map(t => (math floor t * 100)/100))
 
     val query = filter.transform(features)
-      .select($"stateKey", $"stateIndex", truncate($"state").alias("modelParameters"))
+      .select($"stateKey", $"stateIndex", truncate($"state.mean").alias("modelParameters"))
       .writeStream
       .queryName("LKFRateSourceOLS")
       .outputMode("append")
@@ -98,4 +98,36 @@ object LKFRateSourceOLS {
 
     query.awaitTermination()
   }
+
+  /**
+   * -------------------------------------------
+   * Batch: 1
+   * -------------------------------------------
+   * +--------+----------+------------------+
+   * |stateKey|stateIndex|   modelParameters|
+   * +--------+----------+------------------+
+   * |       0|         1|  [0.0, 0.0, 1.65]|
+   * |       0|         2|[0.42, 0.21, 1.66]|
+   * |       0|         3|[0.49, 0.07, 1.64]|
+   * |       0|         4|[0.41, 0.27, 1.65]|
+   * |       0|         5|[0.39, 0.23, 1.66]|
+   * |       1|         1|  [0.0, 0.0, 0.66]|
+   * |       1|         2|[0.74, 0.37, 0.68]|
+   * |       1|         3| [0.36, 1.1, 0.79]|
+   * |       1|         4|[0.75, 0.17, 0.76]|
+   * |       1|         5|[0.78, 0.23, 0.74]|
+   * +--------+----------+------------------+
+   *
+   * -------------------------------------------
+   * Batch: 2
+   * -------------------------------------------
+   * +--------+----------+-------------------+
+   * |stateKey|stateIndex|    modelParameters|
+   * +--------+----------+-------------------+
+   * |       0|         6| [0.54, 0.02, 1.65]|
+   * |       0|         7|[-0.14, 1.11, 1.63]|
+   * |       1|         6| [0.35, 0.84, 0.76]|
+   * |       1|         7| [0.84, 0.05, 0.78]|
+   * +--------+----------+-------------------+
+   */
 }

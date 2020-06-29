@@ -76,7 +76,7 @@ object UKFRateSourceGLMLog {
 
     val filter = new UnscentedKalmanFilter(stateSize, measurementSize)
       .setStateKeyCol("stateKey")
-      .setInitialCovariance(
+      .setInitialStateCovariance(
         DenseMatrix.eye(2))
       .setMeasurementCol("measurement")
       .setMeasurementModelCol("measurementModel")

@@ -32,7 +32,37 @@ if __name__ == "__main__":
     To run the sample from source, build the assembly jar for artan scala project, zip the artan python package
     and run:
     
-    `spark-submit --py-files artan.zip --jars artan-examples-assembly-VERSION.jar lkf_rate_source_llt.py 1000 1000`
+    `spark-submit --py-files artan.zip --jars artan-examples-assembly-VERSION.jar lkf_rate_source_llt.py 2 2`
+    
+    -------------------------------------------
+    Batch: 1
+    -------------------------------------------
+    +--------+----------+--------------------+
+    |stateKey|stateIndex|               state|
+    +--------+----------+--------------------+
+    |       0|         1|[[1.1105719006800...|
+    |       0|         2|[[0.9326010118173...|
+    |       0|         3|[[-0.453953090869...|
+    |       0|         4|[[0.8718562651034...|
+    |       1|         1|[[0.1096601709235...|
+    |       1|         2|[[2.5433546106065...|
+    |       1|         3|[[1.4726374286853...|
+    |       1|         4|[[3.6713567406855...|
+    +--------+----------+--------------------+
+    
+    -------------------------------------------
+    Batch: 2
+    -------------------------------------------
+    +--------+----------+--------------------+
+    |stateKey|stateIndex|               state|
+    +--------+----------+--------------------+
+    |       0|         5|[[3.5766686231632...|
+    |       0|         6|[[5.9123096215436...|
+    |       0|         7|[[6.3095998035486...|
+    |       1|         5|[[2.9093989548239...|
+    |       1|         6|[[4.8433909274266...|
+    |       1|         7|[[5.1725836530117...|
+    +--------+----------+--------------------+
     """
     if len(sys.argv) != 3:
         print("Usage: lkf_rate_source_llt.py <num_states> <measurements_per_sec>", file=sys.stderr)
@@ -54,7 +84,7 @@ if __name__ == "__main__":
     lkf = LinearKalmanFilter(2, 1)\
         .setStateKeyCol("stateKey")\
         .setMeasurementCol("measurement")\
-        .setInitialCovariance(Matrices.dense(2, 2, [10000.0, 0.0, 0.0, 10000.0]))\
+        .setInitialStateCovariance(Matrices.dense(2, 2, [10000.0, 0.0, 0.0, 10000.0]))\
         .setProcessModel(Matrices.dense(2, 2, [1.0, 0.0, 1.0, 1.0]))\
         .setProcessNoise(Matrices.dense(2, 2, [0.0001, 0.0, 0.0, 0.0001]))\
         .setMeasurementNoise(Matrices.dense(1, 1, [noise_param]))\
