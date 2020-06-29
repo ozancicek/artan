@@ -22,7 +22,7 @@ from pyspark.ml.param.shared import HasLabelCol, HasFeaturesCol
 from pyspark.ml.linalg import DenseMatrix
 from pyspark.ml.common import inherit_doc
 from artan.state import StatefulTransformer
-from artan.filter.filter_params import HasInitialStateMean, HasInitialStateMeanCol
+from artan.filter.filter_params import HasInitialStateMean, HasInitialStateMeanCol, HasInitialStateDistributionCol
 
 
 class _HasForgettingFactor(Params):
@@ -91,7 +91,7 @@ class _HasRegularizationMatrixCol(Params):
 @inherit_doc
 class RecursiveLeastSquaresFilter(StatefulTransformer, HasInitialStateMean, HasInitialStateMeanCol,
                                   _HasForgettingFactor, _HasRegularizationMatrix, _HasRegularizationMatrixCol,
-                                  HasLabelCol, HasFeaturesCol):
+                                  HasLabelCol, HasFeaturesCol, HasInitialStateDistributionCol):
     """
     Recursive formulation of least squares with exponential weighting & regularization, implemented with
     a stateful spark Transformer for running parallel filters /w spark dataframes. Transforms an input dataframe
@@ -204,3 +204,14 @@ class RecursiveLeastSquaresFilter(StatefulTransformer, HasInitialStateMean, HasI
         regMat = np.eye(self._featuresSize) * value
         rows, cols = regMat.shape
         return self._set(regularizationMatrix=DenseMatrix(rows, cols, regMat.reshape(rows * cols, order="F")))
+
+    def setInitialStateDistributionCol(self, value):
+        """
+        Set the column corresponding to initial state distribution struct. The struct should have
+        'mean' field with a VectorType and 'covariance' field with a MatrixType.
+        Overrides setInitialEstimateCol and setRegularizationMatrixCol parameters.
+
+        :param value: String
+        :return: RecursiveLeastSquaresFilter
+        """
+        return self._set(initialStateDistributionCol=value)

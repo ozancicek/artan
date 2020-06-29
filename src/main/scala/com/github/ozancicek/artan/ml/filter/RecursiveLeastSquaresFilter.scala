@@ -18,6 +18,7 @@
 package com.github.ozancicek.artan.ml.filter
 
 import com.github.ozancicek.artan.ml.state.{RLSInput, RLSOutput, RLSState, StateUpdateSpec, StatefulTransformer}
+import com.github.ozancicek.artan.ml.stats.MultivariateGaussianDistribution
 import org.apache.spark.ml.linalg.SQLDataTypes
 import org.apache.spark.ml.linalg.{DenseMatrix, Matrix, Vector}
 import org.apache.spark.ml.param._
@@ -26,7 +27,7 @@ import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.BLAS
 import org.apache.spark.sql._
 import org.apache.spark.sql.Encoders
-import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.functions.{col, struct}
 import org.apache.spark.sql.types._
 
 
@@ -53,7 +54,7 @@ class RecursiveLeastSquaresFilter(
     val featuresSize: Int,
     override val uid: String)
   extends StatefulTransformer[String, RLSInput, RLSState, RLSOutput, RecursiveLeastSquaresFilter]
-  with HasLabelCol with HasFeaturesCol with HasForgettingFactor
+  with HasLabelCol with HasFeaturesCol with HasForgettingFactor with HasInitialStateDistributionCol
   with HasInitialStateMean with HasRegularizationMatrix with HasInitialStateMeanCol with HasRegularizationMatrixCol {
 
   protected implicit val stateKeyEncoder = Encoders.STRING
@@ -135,6 +136,12 @@ class RecursiveLeastSquaresFilter(
    */
   def setRegularizationMatrixCol(value: String): this.type = set(regularizationMatrixCol, value)
 
+  /**
+   * Set the column corresponding to initial state distribution from a struct column.
+   * @group setParam
+   */
+  def setInitialStateDistributionCol(value: String): this.type = set(initialStateDistributionCol, value)
+
   private def getFactoredIdentity(value: Double): DenseMatrix = {
     new DenseMatrix(stateSize, stateSize, DenseMatrix.eye(stateSize).values.map(_ * value))
   }
@@ -159,11 +166,19 @@ class RecursiveLeastSquaresFilter(
   private[artan] def filter(dataset: Dataset[_]): Dataset[RLSOutput] = {
     transformSchema(dataset.schema)
 
+    val initialStateExpr = if (isSet(initialStateDistributionCol)) {
+      col(getInitialStateDistributionCol)
+    }
+    else {
+      struct("mean", "covariance")
+    }
+
     val rlsUpdateDS = dataset
       .withColumn("label", col($(labelCol)))
       .withColumn("features", col($(featuresCol)))
-      .withColumn("initialState", getUDFWithDefault(initialStateMean, initialStateMeanCol))
-      .withColumn("initialCovariance", getUDFWithDefault(regularizationMatrix, regularizationMatrixCol))
+      .withColumn("mean", getUDFWithDefault(initialStateMean, initialStateMeanCol))
+      .withColumn("covariance", getUDFWithDefault(regularizationMatrix, regularizationMatrixCol))
+      .withColumn("initialState", initialStateExpr)
 
     transformWithState(rlsUpdateDS)
   }
@@ -189,7 +204,6 @@ private[filter] class RecursiveLeastSquaresUpdateSpec(
       key,
       state.stateIndex,
       state.state,
-      state.covariance,
       row.eventTime))
   }
 
@@ -202,27 +216,27 @@ private[filter] class RecursiveLeastSquaresUpdateSpec(
     val label = row.label
 
     val currentState = state
-      .getOrElse(RLSState(0L, row.initialState, row.initialCovariance))
+      .getOrElse(RLSState(0L, row.initialState))
 
-    val model = currentState.covariance.transpose.multiply(features)
+    val model = currentState.state.covariance.transpose.multiply(features)
 
-    val gain = currentState.covariance.multiply(features)
+    val gain = currentState.state.covariance.multiply(features)
     BLAS.scal(1.0/(forgettingFactor + BLAS.dot(model, features)), gain)
-    val residual = label -  BLAS.dot(features, currentState.state)
+    val residual = label -  BLAS.dot(features, currentState.state.mean)
 
-    val estMean = currentState.state.copy
+    val estMean = currentState.state.mean.copy
     BLAS.axpy(residual, gain, estMean)
     val gainUpdate = DenseMatrix.zeros(gain.size, features.size)
     BLAS.dger(1.0, gain, features.toDense, gainUpdate)
 
-    val currentCov = currentState.covariance.toDense
+    val currentCov = currentState.state.covariance.toDense
     val covUpdate = currentCov.copy
     BLAS.gemm(-1.0, gainUpdate, currentCov, 1.0, covUpdate)
 
     val estCov = DenseMatrix.zeros(covUpdate.numRows, covUpdate.numCols)
     BLAS.axpy(1.0/forgettingFactor, covUpdate, estCov)
 
-    val newState = RLSState(currentState.stateIndex + 1L, estMean, estCov)
+    val newState = RLSState(currentState.stateIndex + 1L, MultivariateGaussianDistribution(estMean, estCov))
     Some(newState)
   }
 }

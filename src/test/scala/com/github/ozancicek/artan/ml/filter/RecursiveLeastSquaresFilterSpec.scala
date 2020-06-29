@@ -62,9 +62,9 @@ class RecursiveLeastSquaresFilterSpec
       it("should have same solution with lapack dgels routine") {
         val modelState = query(measurements.toDS)
 
-        val lastState = modelState.collect
+        val lastState = modelState.select($"state.mean", $"stateIndex").collect
           .filter(row=>row.getAs[Long]("stateIndex") == n)(0)
-          .getAs[DenseVector]("state")
+          .getAs[DenseVector]("mean")
 
         // find least squares solution with dgels
         val features = new DenseMatrix(n, 3, xs ++ ys ++ Array.fill(n) {1.0})

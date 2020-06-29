@@ -17,22 +17,22 @@
 
 package com.github.ozancicek.artan.ml.state
 
-import org.apache.spark.ml.linalg.{Vector, Matrix}
+import org.apache.spark.ml.linalg.Vector
 import java.sql.Timestamp
+
+import com.github.ozancicek.artan.ml.stats.MultivariateGaussianDistribution
 
 /**
  * Case class representing the output state of an RLS filter.
  * @param stateKey Key of the filter.
  * @param stateIndex Index of the filter state.
- * @param state The state vector.
- * @param covariance Covariance of the state.
+ * @param state The output state distribution.
  * @param eventTime event time of input
  */
 case class RLSOutput(
     stateKey: String,
     stateIndex: Long,
-    state: Vector,
-    covariance: Matrix,
+    state: MultivariateGaussianDistribution,
     eventTime: Option[Timestamp]) extends KeyedOutput[String]
 
 
@@ -42,16 +42,14 @@ case class RLSOutput(
  * @param label Label corresponding to the features
  * @param features Features vector
  * @param eventTime event time of input
- * @param initialState initial state vector
- * @param initialCovariance initial covariance matrix
+ * @param initialState initial state distribution
  */
 private[ml] case class RLSInput(
     stateKey: String,
     label: Double,
     features: Vector,
     eventTime: Option[Timestamp],
-    initialState: Vector,
-    initialCovariance: Matrix) extends KeyedInput[String]
+    initialState: MultivariateGaussianDistribution) extends KeyedInput[String]
 
 
 /**
@@ -59,6 +57,5 @@ private[ml] case class RLSInput(
  */
 private[ml] case class RLSState(
     stateIndex: Long,
-    state: Vector,
-    covariance: Matrix) extends State
+    state: MultivariateGaussianDistribution) extends State
 
