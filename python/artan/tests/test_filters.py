@@ -35,7 +35,7 @@ class RLSTests(ReusedSparkTestCase):
         rls = RecursiveLeastSquaresFilter(2)
 
         model = rls.transform(df).filter("stateIndex=4").collect()
-        state = model[0].state.values
+        state = model[0].state.mean.values
 
         expected = np.array([5.31071176e-09, 1.53846148e-01])
         np.testing.assert_array_almost_equal(state, expected)
@@ -62,7 +62,7 @@ class RLSTests(ReusedSparkTestCase):
             .setRegularizationMatrixFactor(10E6)
 
         model = rls.transform(df)
-        state = model.filter("stateIndex = {}".format(n)).collect()[0].state.values
+        state = model.filter("stateIndex = {}".format(n)).collect()[0].state.mean.values
 
         # Check equivalence with least squares solution with numpy
         expected, _, _, _ = np.linalg.lstsq(features, y, rcond=None)
