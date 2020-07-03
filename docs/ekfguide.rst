@@ -93,7 +93,7 @@ for defining the features matrix, and the nonlinear update is done with the defi
 
         val filter = new ExtendedKalmanFilter(stateSize, measurementSize)
           .setStateKeyCol("stateKey")
-          .setInitialCovariance(
+          .setInitialStateCovariance(
             new DenseMatrix(2, 2, Array(10.0, 0.0, 0.0, 10.0)))
           .setMeasurementCol("measurement")
           .setMeasurementModelCol("measurementModel")

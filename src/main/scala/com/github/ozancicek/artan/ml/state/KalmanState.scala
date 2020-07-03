@@ -78,6 +78,7 @@ private[ml] case class KalmanInput(
 case class KalmanOutput(
     stateKey: String,
     stateIndex: Long,
+    stepIndex: Long,
     state: MultivariateGaussianDistribution,
     residual: Option[MultivariateGaussianDistribution],
     eventTime: Option[Timestamp],
@@ -108,6 +109,7 @@ private[ml] case class KalmanState(
 case class RTSOutput(
     stateKey: String,
     stateIndex: Long,
+    stepIndex: Long,
     state: MultivariateGaussianDistribution,
     rtsGain: Matrix,
     eventTime: Option[Timestamp]) extends KeyedOutput[String]

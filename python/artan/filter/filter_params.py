@@ -462,6 +462,26 @@ class HasCalculateSlidingLikelihood(Params):
         return self.getOrDefault(self.calculateSlidingLikelihood)
 
 
+class HasMultiStepPredict(Params):
+    """
+    Mixin for multi step predict
+    """
+    multiStepPredict = Param(
+        Params._dummy(),
+        "multiStepPredict",
+        "Number of predict steps after a predict&update cycle",
+        typeConverter=TypeConverters.toInt)
+
+    def __init__(self):
+        super(HasMultiStepPredict, self).__init__()
+
+    def getMultiStepPredict(self):
+        """
+        Gets the value of multi step predict
+        """
+        return self.getOrDefault(self.multiStepPredict)
+
+
 class HasSlidingLikelihoodWindow(Params):
     """
     Mixin param for sliding likelihood window duration
@@ -528,7 +548,7 @@ class KalmanFilterParams(HasInitialStateMean, HasInitialStateCovariance, HasInit
                          HasProcessNoiseCol, HasControlCol, HasControlFunctionCol,
                          HasCalculateMahalanobis, HasCalculateLoglikelihood,
                          HasOutputSystemMatrices, HasCalculateSlidingLikelihood,
-                         HasSlidingLikelihoodWindow):
+                         HasSlidingLikelihoodWindow, HasMultiStepPredict):
     """
     Mixin for kalman filter parameters
     """
@@ -794,3 +814,16 @@ class KalmanFilterParams(HasInitialStateMean, HasInitialStateCovariance, HasInit
         """
         return self._set(slidingLikelihoodWindow=value) \
             .setCalculateSlidingLikelihood()
+
+    def setMultiStepPredict(self, value):
+        """
+        Sets the param for running multiple prediction steps after measurement updates in Kalman filter.
+        By default, a single prediction step is followed by a single measurement update step.
+        If this parameter is set to a number n>0, then n-predict steps will be undertaken after measurement
+        update steps.
+
+        Default is 0
+        :param value: Integer
+        :return: KalmanFilter
+        """
+        return self._set(multiStepPredict=value)

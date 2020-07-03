@@ -175,7 +175,8 @@ class UnscentedKalmanFilter(
     getMeasurementFunctionOpt,
     outputResiduals,
     getAdaptiveNoiseParamSet,
-    getSlidingLikelihoodWindow
+    getSlidingLikelihoodWindow,
+    getMultiStepPredict
   )
 }
 
@@ -189,7 +190,8 @@ private[filter] class UnscentedKalmanStateSpec(
     val measurementFunction: Option[(Vector, Matrix) => Vector],
     val storeResidual: Boolean,
     val adaptiveNoiseParamSet: AdaptiveNoiseParamSet,
-    val likelihoodWindow: Int)
+    val likelihoodWindow: Int,
+    val multiStepPredict: Int)
   extends KalmanStateUpdateSpec[UnscentedKalmanStateCompute] {
 
   val kalmanCompute = new UnscentedKalmanStateCompute(

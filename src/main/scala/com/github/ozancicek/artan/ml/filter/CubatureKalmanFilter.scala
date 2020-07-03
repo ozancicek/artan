@@ -106,7 +106,8 @@ class CubatureKalmanFilter(
     getProcessFunctionOpt,
     getMeasurementFunctionOpt,
     outputResiduals,
-    getSlidingLikelihoodWindow
+    getSlidingLikelihoodWindow,
+    getMultiStepPredict
   )
 }
 
@@ -119,7 +120,8 @@ private[filter] class CubatureKalmanStateSpec(
     val processFunction: Option[(Vector, Matrix) => Vector],
     val measurementFunction: Option[(Vector, Matrix) => Vector],
     val storeResidual: Boolean,
-    val likelihoodWindow: Int)
+    val likelihoodWindow: Int,
+    val multiStepPredict: Int)
   extends KalmanStateUpdateSpec[CubatureKalmanStateCompute] {
 
   val kalmanCompute = new CubatureKalmanStateCompute(

@@ -824,3 +824,32 @@ private[artan] trait HasOutputSystemMatrices extends Params {
    */
   final def getOutputSystemMatrices: Boolean = $(outputSystemMatrices)
 }
+
+
+/**
+ * Param for multi step predict
+ */
+private[artan] trait HasMultiStepPredict extends Params {
+
+  /**
+   * Param for running multiple prediction steps after measurement updates in Kalman filter. By default, a single
+   * prediction step is followed by a single measurement update step. If this parameter is set to a number n>0,
+   * then n-predict steps will be undertaken after measurement update steps.
+   *
+   * Default is 0
+   * @group param
+   */
+  final val multiStepPredict: IntParam = new IntParam(
+    this,
+    "multiStepPredict",
+    "Number of predict steps after a predict&update cycle",
+    ParamValidators.gtEq(0))
+
+  setDefault(multiStepPredict, 0)
+
+  /**
+   * Getter for multi step predict param
+   * @group getParam
+   */
+  final def getMultiStepPredict: Int = $(multiStepPredict)
+}

@@ -41,7 +41,7 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
   with HasProcessNoise with HasMeasurementNoise
   with HasInitialStateMean with HasInitialStateCovariance with HasFadingFactor
   with HasInitialStateMeanCol with HasInitialStateCovarianceCol with HasInitialStateDistributionCol
-  with HasOutputSystemMatrices {
+  with HasOutputSystemMatrices with HasMultiStepPredict {
 
   /**
    * Set the initial state vector with size (stateSize).
@@ -210,6 +210,14 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
    * @group setParam
    */
   def setOutputSystemMatrices: ImplType = set(outputSystemMatrices, true).asInstanceOf[ImplType]
+
+  /**
+   * Number of predict steps after a single predict&update cycle
+   *
+   * Default is 0
+   * @group setParam
+   */
+  def setMultiStepPredict(value: Int):ImplType = set(multiStepPredict, value).asInstanceOf[ImplType]
 
   protected def getMeasurementExpr: Column = col($(measurementCol)).cast(SQLDataTypes.VectorType)
 
@@ -523,6 +531,8 @@ private[filter] trait KalmanStateUpdateSpec[+Compute <: KalmanStateCompute]
 
   def likelihoodWindow: Int
 
+  def multiStepPredict: Int
+
   def getOutputProcessModel(row: KalmanInput, state: KalmanState): Option[Matrix] = row.processModel
 
   def getOutputProcessNoise(row: KalmanInput, state: KalmanState): Option[Matrix] = row.processNoise
@@ -536,17 +546,24 @@ private[filter] trait KalmanStateUpdateSpec[+Compute <: KalmanStateCompute]
 
     val ll = if (state.slidingLoglikelihood.isEmpty) None else Some(scala.math.exp(state.slidingLoglikelihood.sum))
 
-    List(
+    val asOutput = (in: KalmanState, stepIndex: Int) => {
       KalmanOutput(
-      key,
-      state.stateIndex,
-      state.state,
-      state.residual,
-      row.eventTime,
-      getOutputProcessModel(row, state),
-      getOutputProcessNoise(row, state),
-      getOutputMeasurementModel(row, state),
-      ll))
+        key,
+        in.stateIndex,
+        stepIndex,
+        in.state,
+        in.residual,
+        row.eventTime,
+        getOutputProcessModel(row, in),
+        getOutputProcessNoise(row, in),
+        getOutputMeasurementModel(row, in),
+        ll)
+    }
+    (0 until multiStepPredict).foldLeft(List(asOutput(state, 0)), state) { case ((outputs, currentState), i) =>
+      val nextState = kalmanCompute.predict(currentState, row)
+      val nextOutput = asOutput(nextState, i + 1)
+      (nextOutput::outputs, nextState)
+    }._1.reverse
   }
 
   def updateGroupState(

@@ -59,7 +59,7 @@ class LinearKalmanFilterSpec
         val newTs = new Timestamp(startTime.getTime + t.toLong * timeDeltaSecs * 1000)
         LocalLinearMeasurement(new DenseVector(Array(z)), newTs)
       }
-
+      val predictSteps = 10
       val filter = new LinearKalmanFilter(2, 1)
         .setMeasurementCol("measurement")
         .setInitialStateCovariance(
@@ -75,6 +75,7 @@ class LinearKalmanFilterSpec
         .setCalculateMahalanobis
         .setEventTimeCol("eventTime")
         .setCalculateLoglikelihood
+        .setMultiStepPredict(predictSteps)
 
       val query = (in: Dataset[LocalLinearMeasurement]) => filter.transform(in)
 
@@ -89,8 +90,8 @@ class LinearKalmanFilterSpec
         assert(ts == sortedTs)
       }
 
-      it("should obtain the trend") {
-        val batchState = query(Random.shuffle(measurements).toDS)
+      it("should obtain the trend in single step forecast") {
+        val batchState = query(Random.shuffle(measurements).toDS).filter("stepIndex==0")
         val stats = batchState.groupBy($"stateKey")
           .agg(
             avg($"mahalanobis").alias("mahalanobis"),
@@ -99,6 +100,16 @@ class LinearKalmanFilterSpec
 
         assert(stats.getAs[Double]("mahalanobis") < 6.0)
         assert(scala.math.abs(stats.getAs[DenseVector]("avg")(0) - n / 2) < 1.0)
+        assert(scala.math.abs(stats.getAs[DenseVector]("avg")(1) - 1.0) < 1.0)
+      }
+
+      it("should obtain the trend in multi step forecast") {
+        val batchState = query(measurements.toDS).filter(s"stepIndex==$predictSteps")
+        val stats = batchState.groupBy($"stateKey")
+          .agg(
+            Summarizer.mean($"state.mean").alias("avg"))
+          .head
+        assert(scala.math.abs(stats.getAs[DenseVector]("avg")(0) - (n + 2.0*predictSteps)/ 2.0) < 5.0)
         assert(scala.math.abs(stats.getAs[DenseVector]("avg")(1) - 1.0) < 1.0)
       }
 

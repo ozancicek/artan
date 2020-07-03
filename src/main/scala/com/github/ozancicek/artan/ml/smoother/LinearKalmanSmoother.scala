@@ -118,13 +118,14 @@ private[smoother] class LKFSmootherStateSpec(val lag: Int)
    * @param in Filtered output at current time step
    * @return RTSOutput, smoothed output at current time step
    */
-  private def updateRTSOutput(head: Option[RTSOutput], in: KalmanOutput): RTSOutput = {
+  private def updateRTSOutput(head: Option[RTSOutput], in: KalmanOutput, stepIndex: Long): RTSOutput = {
     head match {
       case None => {
         // Initial time step logic
         RTSOutput(
           in.stateKey,
           in.stateIndex,
+          stepIndex,
           in.state,
           DenseMatrix.zeros(in.state.mean.size, in.state.mean.size),
           in.eventTime)
@@ -153,6 +154,7 @@ private[smoother] class LKFSmootherStateSpec(val lag: Int)
         RTSOutput(
           in.stateKey,
           in.stateIndex,
+          stepIndex,
           MultivariateGaussianDistribution(newMean, newCov),
           gain,
           in.eventTime
@@ -169,12 +171,12 @@ private[smoother] class LKFSmootherStateSpec(val lag: Int)
       // Start processing from the head of the queue
       val (head, tail) = state.reverse.dequeue
       // Generate the initial smoothed output
-      val headOutput = updateRTSOutput(None, head)
+      val headOutput = updateRTSOutput(None, head, 0L)
 
       // Rest of the output is generated with fold logic, as output at current time step depends on the output
       // at previous time step.
-      tail.foldLeft(List(headOutput)) {
-        case(x::xs, in) => updateRTSOutput(Some(x), in)::x::xs
+      tail.zipWithIndex.foldLeft(List(headOutput)) {
+        case(x::xs, (currentState, ind)) => updateRTSOutput(Some(x), currentState, ind + 1)::x::xs
         case(Nil, _) => List.empty[RTSOutput]
       }
     }

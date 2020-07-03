@@ -83,7 +83,8 @@ class LinearKalmanFilter(
   protected def stateUpdateSpec: LinearKalmanStateSpec = new LinearKalmanStateSpec(
     getFadingFactor,
     outputResiduals,
-    getSlidingLikelihoodWindow
+    getSlidingLikelihoodWindow,
+    getMultiStepPredict
   )
 }
 
@@ -96,7 +97,8 @@ class LinearKalmanFilter(
 private[filter] class LinearKalmanStateSpec(
     val fadingFactor: Double,
     val storeResidual: Boolean,
-    val likelihoodWindow: Int)
+    val likelihoodWindow: Int,
+    val multiStepPredict: Int)
   extends KalmanStateUpdateSpec[LinearKalmanStateCompute] {
 
   val kalmanCompute = new LinearKalmanStateCompute(fadingFactor)

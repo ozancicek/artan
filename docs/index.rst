@@ -16,11 +16,11 @@ using ``--packages`` argument. This will place all required jars and python file
 paths.
 
 
-        spark-shell \\-\\-packages com.github.ozancicek:artan_2.11:|artan_version|
+        spark-shell \\-\\-packages com.github.ozancicek:artan_2.12:|artan_version|
 
-        pyspark \\-\\-packages com.github.ozancicek:artan_2.11:|artan_version|
+        pyspark \\-\\-packages com.github.ozancicek:artan_2.12:|artan_version|
 
-        spark-submit \\-\\-packages com.github.ozancicek:artan_2.11:|artan_version|
+        spark-submit \\-\\-packages com.github.ozancicek:artan_2.12:|artan_version|
 
 
 For Scala, the dependencies can be retrieved from Maven Central.
@@ -38,9 +38,9 @@ To submit pyspark jobs, ``--packages`` argument to pyspark or spark-submit comma
 order to download necessary jars from maven central.
 
 
-        pyspark \\-\\-packages com.github.ozancicek:artan_2.11:|artan_version|
+        pyspark \\-\\-packages com.github.ozancicek:artan_2.12:|artan_version|
 
-        spark-submit \\-\\-packages com.github.ozancicek:artan_2.11:|artan_version|
+        spark-submit \\-\\-packages com.github.ozancicek:artan_2.12:|artan_version|
 
 Guides
 ******
