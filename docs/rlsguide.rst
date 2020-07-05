@@ -25,8 +25,6 @@ Import RLS filter & spark, start spark session.
 
         import spark.implicits._
 
-Define model parameters, #models and udf's to generate training data.
-
 Training multiple models is achieved by mapping samples to models. Each label and featuers can be associated with a
 different model by creating a 'key' column and specifying it with `setStateKeyCol`. Not specifying any
 key column will result in training a single model.
@@ -39,7 +37,7 @@ generating label & features vectors.
 
         val numStates = 100
 
-        // OLS problem, states to be estimated are a, b and c
+        // Simple linear model, states to be estimated are a, b and c
         // z = a*x + b*y + c + w, where w ~ N(0, 1)
 
         val a = 0.5
@@ -67,11 +65,9 @@ generating label & features vectors.
           .withColumn("features", featuresUDF($"x", $"y"))
 
 
-Initialize the filter & run the query with console sink.
-
-Trained model parameters are located at `state`
-column as a vector. Along with the state column, `stateKey` and `stateIndex` column can be used for indentifying
-different models and their incremented index.
+The estimated state distribution will be outputted in `state` struct column. The model parameters can be found at
+`state.mean` field as a vector. Along with the state column, `stateKey` and `stateIndex` column can be used for
+identifying different models and their incremented index.
 
     .. code-block:: scala
 
@@ -144,18 +140,16 @@ Import RLS filter & spark, start spark session.
         spark = SparkSession.builder.appName("RLSExample").getOrCreate()
 
 
-Define model parameters, #models and expressions to generate training data.
-
-Each feature and label can be associated with a
-different model by creating a key column & specifying it with `setStateKeyCol`. Not specifying any key column will result
-in training a single model. Training data is generated using streaming rate source. Streaming rate source generates
+Each feature and label can be associated with a different model by creating a key column and specifying
+it with `setStateKeyCol`. Not specifying any key column will result in training a single model.
+Training data is generated using streaming rate source. Streaming rate source generates
 consecutive numbers with timestamps. These consecutive numbers are binned for different models and then used for
 generating label & features vectors.
 
     .. code-block:: python
 
         num_states = 10
-        # OLS problem, states to be estimated are a, b and c
+        # Simple linear model, parameters to be estimated are a, b and c
         # z = a*x + b*y + c + w, where w ~ N(0, 1)
         a = 0.5
         b = 0.2
@@ -179,11 +173,10 @@ generating label & features vectors.
 
 
 
-Initialize the filter & run the query with console sink.
 
-Trained model parameters are located at `state`
-column as a vector. Along with the state column, `stateKey` and `stateIndex` column can be used for indentifying
-different models and their incremented index.
+The estimated state distribution will be outputted in `state` struct column. The model parameters can be found at
+`state.mean` field as a vector. Along with the state column, `stateKey` and `stateIndex` column can be used for
+identifying different models and their incremented index.
 
     .. code-block:: python
 
