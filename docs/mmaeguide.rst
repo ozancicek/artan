@@ -63,7 +63,7 @@ the same window. This window can be set from ``setMultipleModelMeasurementWindow
     .. code-block:: scala
 
         val filter = new LinearKalmanFilter(stateSize, measurementsSize)
-          .setInitialCovariance(
+          .setInitialStateCovariance(
             new DenseMatrix(3, 3, Array(10.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 10.0)))
           .setStateKeyCol("stateKey")
           .setMeasurementCol("label")
@@ -94,7 +94,7 @@ Generate the data & run the query with console sink.
         val truncate = udf((state: DenseVector) => state.values.map(t => (math floor t * 100)/100))
 
         val query = filter.transform(features)
-          .select( $"stateIndex", truncate($"state").alias("modelParameters"), $"timestamp")
+          .select( $"stateIndex", truncate($"state.mean").alias("modelParameters"), $"timestamp")
           .writeStream
           .queryName("MMAERateSourceOLS")
           .outputMode("append")

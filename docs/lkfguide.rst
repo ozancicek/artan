@@ -95,7 +95,7 @@ can be same for all measurements/filters, so their values are set directly with 
     .. code-block:: scala
 
         val filter = new LinearKalmanFilter(stateSize, measurementSize)
-          .setInitialCovariance(
+          .setInitialStateCovariance(
             new DenseMatrix(3, 3, Array(10.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 10.0)))
           .setStateKeyCol("stateKey")
           .setMeasurementCol("label")
@@ -105,9 +105,9 @@ can be same for all measurements/filters, so their values are set directly with 
           .setMeasurementNoise(DenseMatrix.eye(measurementSize))
 
         val truncate = udf((state: DenseVector) => state.values.map(t => (math floor t * 100)/100))
-
+        // The output 'state' column is a struct with mean and variance
         val query = filter.transform(features)
-          .select($"stateKey", $"stateIndex", truncate($"state").alias("modelParameters"))
+          .select($"stateKey", $"stateIndex", truncate($"state.mean").alias("modelParameters"))
           .writeStream
           .queryName("LKFRateSourceOLS")
           .outputMode("append")
@@ -230,7 +230,7 @@ can be same for all measurements/filters, so their values are set directly with 
         truncate_udf = F.udf(lambda x: "[%.2f, %.2f, %.2f]" % (x[0], x[1], x[2]), StringType())
 
         query = lkf.transform(features)\
-            .select("stateKey", "stateIndex", truncate_udf("state").alias("modelParameters"))\
+            .select("stateKey", "stateIndex", truncate_udf("state.mean").alias("modelParameters"))\
             .writeStream\
             .queryName("LKFRateSourceOLS")\
             .outputMode("append")\

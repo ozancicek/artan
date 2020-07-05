@@ -42,7 +42,7 @@ order to download necessary jars from maven central.
 
         spark-submit \\-\\-packages com.github.ozancicek:artan_2.12:|artan_version|
 
-Guides
+Tutorials
 ******
 
     .. toctree::
