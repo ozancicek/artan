@@ -46,8 +46,6 @@ Import Kalman filter and start spark session.
         val numStates = 10
 
 
-Define the model parameters and udf's to generate training data.
-
 Since the aim is to estimate the model parameters, the state of the filter is model parameters.
 Labels will be represented with measurements vector with size 1. Features will be represented with a
 1x3 measurement model matrix, which will map the state to measurements with a dot product.
@@ -82,13 +80,12 @@ Labels will be represented with measurements vector with size 1. Features will b
           .withColumn("label", labelUDF($"x", $"y", randn() * noiseParam))
           .withColumn("features", featuresUDF($"x", $"y"))
 
-Initialize the filter & run the query with console sink.
 
 All of the filter parameters can be set either as an input dataframe column, or directly the value itself with
 `ml.linalg.Vector` or `ml.linalg.Matrix`. Specifying parameters from dataframe columns will allow you to have
 varying values across measurements/filters.
 
-Int this example, measurement and measurement model should be varying across
+In this example, measurement and measurement model should be varying across
 measurements, so they're set from dataframe columns. Process model, process noise, measurement noise and initial covariance
 can be same for all measurements/filters, so their values are set directly with matrices.
 
@@ -177,7 +174,6 @@ Import Kalman Filter and start spark session.
         measurements_per_sec = 10
 
 
-Define model parameters, #models and udf's to generate training data.
 
 Since the aim is to estimate the model parameters, the state of the filter is model parameters.
 Labels will be represented with measurements vector with size 1. Features will be represented with a
@@ -206,7 +202,6 @@ Labels will be represented with measurements vector with size 1. Features will b
             .withColumn("label", label_udf("x", "y", "w"))\
             .withColumn("features", features_udf("x", "y"))
 
-Initialize the filter & run the query with console sink.
 
 All of the filter parameters can be set either as an input dataframe column, or directly the value itself with
 `ml.linalg.Vector` or `ml.linalg.Matrix`. Specifying parameters from dataframe columns will allow you to have

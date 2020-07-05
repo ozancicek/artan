@@ -42,7 +42,6 @@ Import EKF and start spark session.
         val numStates = 10
 
 
-Define the model parameters and udf's to generate training data.
 
 For EKF, it is necessary define the nonlinear function and its jacobian if there is any. Only the measurement function
 is nonlinear in this example, so it's enough to define the function mapping the state to measurement and

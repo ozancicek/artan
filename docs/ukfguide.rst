@@ -21,8 +21,6 @@ Import UKF and start spark session.
         val numStates = 2
 
 
-Define the model parameters and udf's to generate training data.
-
 For UKF, we only need to define the nonlinear transformation. Similar with EKF, the signature of this function
 should be ``(Vector, Matrix) => Vector``.
 

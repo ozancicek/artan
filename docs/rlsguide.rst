@@ -1,9 +1,9 @@
 Online Linear Regression with Recursive Least Squares filter
 ============================================================
 
-As its name suggests, Recursive Least Squares (RLS) is a recursive solution to the least squares problem. RLS
-does not require the complete data for training, it can perform sequential updates to the model from a
-sequence of observations which is useful for streaming applications.
+Recursive Least Squares (RLS) filter solves the least squares problem without requiring the complete data for training,
+it can perform sequential updates to the model from a sequence of observations which is useful for streaming
+applications.
 
 Scala
 -----
