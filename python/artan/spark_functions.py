@@ -80,7 +80,6 @@ def matrixToArray(matrixCol):
     return _function_factory([matrixCol], _spark_functions().matrixToArray())
 
 
-
 def zerosVector(sizeCol):
     """
     Creates vector of zeros column
@@ -171,6 +170,39 @@ def diagMatrix(diagVectorCol):
     :return: Matrix column
     """
     return _function_factory([diagVectorCol], _spark_functions().diagMatrix())
+
+
+def multiplyMatrix(leftCol, rightCol):
+    """
+    Matrix multiplication
+
+    :param leftCol: Matrix column
+    :param rightCol: Matrix column
+    :return: Matrix column for the result of matrix multiplication
+    """
+    return _function_factory([leftCol, rightCol], _spark_functions().multiplyMatrix())
+
+
+def multiplyMatrixVector(matCol, vecCol):
+    """
+    Multiply matrix with a vector
+
+    :param matCol: Matrix column
+    :param vecCol: Vector column
+    :return: Vector column for the result of matrix multiplication
+    """
+    return _function_factory([matCol, vecCol], _spark_functions().multiplyMatrixVector())
+
+
+def projectMatrix(matCol, projectionCol):
+    """
+    Project matrix operation, i.e A * B * A.T where A is the projection matrix
+
+    :param matCol: Matrix column
+    :param projectionCol: Projection matrix column
+    :return: Matrix column for the result
+    """
+    return _function_factory([matCol, projectionCol], _spark_functions().projectMatrix())
 
 
 def randnMultiGaussian(meanArray, covMatrix, seed=0):

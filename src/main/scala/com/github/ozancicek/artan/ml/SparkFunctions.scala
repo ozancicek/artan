@@ -163,6 +163,51 @@ object SparkFunctions {
    */
   def diagMatrix: UserDefinedFunction = udf { diag: Vector => Matrices.diag(diag)}
 
+
+  /**
+   * UDF for multiplying matrix with another matrix
+   *
+   * @return
+   */
+  def multiplyMatrix: UserDefinedFunction = udf { (matLeft: Matrix, matRight: Matrix) =>
+    (Option(matLeft), Option(matRight)) match {
+      case (Some(_), Some(_))=> {
+        Some(matLeft.multiply(matRight.toDense))
+      }
+      case _ => None
+    }
+  }
+
+  /**
+   * UDF for multiplying matrix with a vector
+   *
+   * @return
+   */
+  def multiplyMatrixVector: UserDefinedFunction = udf { (mat: Matrix, vec: Vector) =>
+    (Option(mat), Option(vec)) match {
+      case (Some(_), Some(_))=> {
+        Some(mat.multiply(vec))
+      }
+      case _ => None
+    }
+  }
+
+
+  /**
+   * UDF for projecting a matrix with another matrix, i.e ABA.T
+   *
+   * @return UserDefinedFunction
+   */
+  def projectMatrix: UserDefinedFunction = udf { (mat: Matrix, projection: Matrix) =>
+    (Option(mat), Option(projection)) match {
+      case (Some(_), Some(_))=> {
+        val denseProjection = projection.toDense
+        Some(denseProjection.multiply(mat.toDense).multiply(denseProjection.transpose))
+      }
+      case _ => None
+    }
+  }
+
   /**
    * UDF for outer product of two vectors, a*x*y.T
    *

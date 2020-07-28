@@ -18,7 +18,8 @@
 
 from artan.testing.sql_utils import ReusedSparkTestCase
 from artan.spark_functions import (
-    arrayToVector, vectorToArray, onesVector, zerosVector, arrayToMatrix, matrixToArray
+    arrayToVector, vectorToArray, onesVector, zerosVector, arrayToMatrix, matrixToArray,
+    multiplyMatrix, multiplyMatrixVector, projectMatrix
 )
 from pyspark.ml.linalg import Vectors, Matrices
 import pyspark.sql.functions as F
@@ -63,3 +64,28 @@ class SparkFunctionTests(ReusedSparkTestCase):
             .withColumn("arr", matrixToArray("mat")) \
             .select("arr").head().arr
         np.testing.assert_array_almost_equal(np.array(arr.values), mat.toArray().reshape(4, order="F"))
+
+    def test_matrix_multiply(self):
+        mat1 = Matrices.dense(2, 2, [1.0, 2.0, 3.0, 4.0])
+        mat2 = Matrices.dense(2, 2, [4.0, 5.0, 6.0, 7.0])
+        result = self.spark.createDataFrame([(mat1, mat2)], ["mat1", "mat2"])\
+            .withColumn("result", multiplyMatrix("mat1", "mat2"))\
+            .select("result").head().result
+        np.testing.assert_array_almost_equal(result.toArray(), np.dot(mat1.toArray(), mat2.toArray()))
+
+    def test_matrix_vector_multiply(self):
+        mat = Matrices.dense(2, 2, [1.0, 2.0, 3.0, 4.0])
+        vec = Vectors.dense(1.0, 2.0)
+        result = self.spark.createDataFrame([(mat, vec)], ["mat", "vec"]) \
+            .withColumn("result", multiplyMatrixVector("mat", "vec")) \
+            .select("result").head().result
+        np.testing.assert_array_almost_equal(result.toArray(), np.dot(mat.toArray(), vec.toArray()))
+
+    def test_matrix_projection(self):
+        mat = Matrices.dense(2, 2, [1.0, 2.0, 3.0, 4.0])
+        proj = Matrices.dense(1, 2, [4.0, 5.0])
+        result = self.spark.createDataFrame([(mat, proj)], ["mat", "proj"]) \
+            .withColumn("result", projectMatrix("mat", "proj")) \
+            .select("result").head().result
+        expected = np.dot(np.dot(proj.toArray(), mat.toArray()), proj.toArray().transpose())
+        np.testing.assert_array_almost_equal(result.toArray(), expected)
