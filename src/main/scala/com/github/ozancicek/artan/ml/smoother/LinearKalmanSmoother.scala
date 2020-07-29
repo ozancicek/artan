@@ -18,7 +18,7 @@
 package com.github.ozancicek.artan.ml.smoother
 
 import com.github.ozancicek.artan.ml.filter.{KalmanUpdateParams, LinearKalmanFilter}
-import com.github.ozancicek.artan.ml.linalg.LinalgUtils
+import com.github.ozancicek.artan.ml.linalg.{LinalgOptions, LinalgUtils}
 import com.github.ozancicek.artan.ml.state.{KalmanOutput, RTSOutput, StateUpdateSpec, StatefulTransformer}
 import com.github.ozancicek.artan.ml.stats.MultivariateGaussianDistribution
 import org.apache.spark.ml.BLAS
@@ -78,7 +78,7 @@ class LinearKalmanSmoother(
 
   def getFixedLag: Int = $(fixedLag)
 
-  protected def stateUpdateSpec: LKFSmootherStateSpec = new LKFSmootherStateSpec(getFixedLag)
+  protected def stateUpdateSpec: LKFSmootherStateSpec = new LKFSmootherStateSpec(getFixedLag, getLinalgOptions)
 
   def transformSchema(schema: StructType): StructType = {
     asDataFrameTransformSchema(outEncoder.schema)
@@ -106,7 +106,7 @@ class LinearKalmanSmoother(
  *
  * @param lag fixed size lag.
  */
-private[smoother] class LKFSmootherStateSpec(val lag: Int)
+private[smoother] class LKFSmootherStateSpec(val lag: Int, val ops: LinalgOptions)
   extends StateUpdateSpec[String, KalmanOutput, Queue[KalmanOutput], RTSOutput]{
 
   /**
@@ -138,7 +138,7 @@ private[smoother] class LKFSmootherStateSpec(val lag: Int)
 
         val nextCov = in.processNoise.get.toDense
         BLAS.gemm(1.0, covUpdate, model.transpose, 1.0, nextCov)
-        val gain = in.state.covariance.multiply(model.transpose).multiply(LinalgUtils.pinv(nextCov))
+        val gain = in.state.covariance.multiply(model.transpose).multiply(LinalgUtils.pinv(nextCov)(ops))
 
         val residual = prev.state.mean.copy
         BLAS.axpy(-1.0, nextState, residual)

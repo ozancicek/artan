@@ -17,7 +17,7 @@
 
 package com.github.ozancicek.artan.ml.filter
 
-import com.github.ozancicek.artan.ml.linalg.LinalgUtils
+import com.github.ozancicek.artan.ml.linalg.{LinalgOptions, LinalgUtils}
 import com.github.ozancicek.artan.ml.state.{KalmanInput, KalmanState}
 import com.github.ozancicek.artan.ml.stats.MultivariateGaussianDistribution
 import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector, Matrix, Vector}
@@ -102,7 +102,7 @@ class CubatureKalmanFilter(
 
   protected def stateUpdateSpec: CubatureKalmanStateSpec = new CubatureKalmanStateSpec(
     getFadingFactor,
-    new CubaturePoints(stateSize),
+    new CubaturePoints(stateSize, getLinalgOptions),
     getProcessFunctionOpt,
     getMeasurementFunctionOpt,
     outputResiduals,
@@ -128,7 +128,8 @@ private[filter] class CubatureKalmanStateSpec(
     fadingFactor,
     cubature,
     processFunction,
-    measurementFunction)
+    measurementFunction,
+    cubature.ops)
 }
 
 /**
@@ -138,7 +139,8 @@ private[filter] class CubatureKalmanStateCompute(
     fadingFactor: Double,
     cubature: CubaturePoints,
     processFunc: Option[(Vector, Matrix) => Vector],
-    measurementFunc: Option[(Vector, Matrix) => Vector]) extends KalmanStateCompute {
+    measurementFunc: Option[(Vector, Matrix) => Vector],
+    ops: LinalgOptions) extends KalmanStateCompute {
 
   def predict(
     state: KalmanState,
@@ -209,7 +211,7 @@ private[filter] class CubatureKalmanStateCompute(
 
     val crossCov = estimateCrossCovariance(stateCubaturePoints, stateMean, measurementCubaturePoints, estimateMean)
 
-    val gain = crossCov.multiply(LinalgUtils.pinv(estimateCov))
+    val gain = crossCov.multiply(LinalgUtils.pinv(estimateCov)(ops))
 
     val residual = process.measurement.get.copy.toDense
     BLAS.axpy(-1.0, estimateMean, residual)
@@ -233,7 +235,7 @@ private[filter] class CubatureKalmanStateCompute(
 /**
  * Class for sampling cubature points
  */
-private[filter] class CubaturePoints(val stateSize: Int) extends Serializable {
+private[filter] class CubaturePoints(val stateSize: Int, val ops: LinalgOptions) extends Serializable {
 
   def rotateRight[A](seq: Seq[A], i: Int): Seq[A] = {
     val size = seq.size
@@ -254,7 +256,7 @@ private[filter] class CubaturePoints(val stateSize: Int) extends Serializable {
   }
 
   def cubaturePoints(distribution: MultivariateGaussianDistribution): List[DenseVector] = {
-    val sqrtCov = LinalgUtils.sqrt(distribution.covariance.toDense)
+    val sqrtCov = LinalgUtils.sqrt(distribution.covariance.toDense)(ops)
     cubatureVectors.map { cubVec =>
       val point = distribution.mean.toDense.copy
       BLAS.gemv(1.0, sqrtCov, cubVec, 1.0, point)

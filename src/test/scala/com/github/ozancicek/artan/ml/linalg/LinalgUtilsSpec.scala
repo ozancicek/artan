@@ -35,14 +35,14 @@ class LinalgUtilsSpec extends FunSpec with Matchers with SparkSessionTestWrapper
 
     it("should calculate pinv") {
       val testMat = new DenseMatrix(2, 2, Array(4.0, 2.0, 2.0, 4.0))
-      val inverseTest = LinalgUtils.pinv(testMat)
+      val inverseTest = LinalgUtils.pinv(testMat)(LinalgOptions(svdMethod = "dgesvd"))
       val expectedEye = inverseTest.multiply(testMat)
       assert(sumAbsoluteError(expectedEye, DenseMatrix.eye(2)) < 10E-8)
     }
 
     it("should calculate sqrt") {
       val testMat = new DenseMatrix(2, 2, Array(4.0, 2.0, 2.0, 4.0))
-      val sqrtTest = LinalgUtils.sqrt(testMat)
+      val sqrtTest = LinalgUtils.sqrt(testMat)(LinalgOptions(svdMethod = "dgesdd"))
       val expectedTestMat = sqrtTest.multiply(sqrtTest)
       assert(sumAbsoluteError(expectedTestMat, testMat) < 10E-8)
     }

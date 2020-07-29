@@ -25,8 +25,10 @@ import org.apache.spark.sql.functions.{col, lit, udf}
 import scala.collection.immutable.Queue
 import scala.reflect.ClassTag
 import org.apache.spark.ml.param._
-import org.apache.spark.sql.types.{StructField, StructType, TimestampType, StringType}
+import org.apache.spark.sql.types.{StringType, StructField, StructType, TimestampType}
 import java.sql.Timestamp
+
+import com.github.ozancicek.artan.ml.linalg.LinalgOptions
 
 import scala.reflect.runtime.universe.TypeTag
 
@@ -176,6 +178,11 @@ private[ml] abstract class StatefulTransformer[
       val col = udf(() => defaultVal)
       col()
     }
+  }
+
+  protected def getLinalgOptions: LinalgOptions = {
+    val conf = SparkSession.builder().getOrCreate().sparkContext.getConf
+    LinalgOptions.fromSparkConf(conf)
   }
 
   protected def transformWithState(

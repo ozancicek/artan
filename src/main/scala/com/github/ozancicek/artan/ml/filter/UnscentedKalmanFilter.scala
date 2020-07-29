@@ -17,7 +17,7 @@
 
 package com.github.ozancicek.artan.ml.filter
 
-import com.github.ozancicek.artan.ml.linalg.LinalgUtils
+import com.github.ozancicek.artan.ml.linalg.{LinalgOptions, LinalgUtils}
 import com.github.ozancicek.artan.ml.state.{KalmanInput, KalmanState}
 import com.github.ozancicek.artan.ml.stats.MultivariateGaussianDistribution
 import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector, Matrix, Vector}
@@ -170,7 +170,7 @@ class UnscentedKalmanFilter(
 
   protected def stateUpdateSpec: UnscentedKalmanStateSpec = new UnscentedKalmanStateSpec(
     getFadingFactor,
-    getSigmaPoints,
+    getSigmaPoints(getLinalgOptions),
     getProcessFunctionOpt,
     getMeasurementFunctionOpt,
     outputResiduals,
@@ -311,7 +311,7 @@ private[filter] class UnscentedKalmanStateCompute(
       }
     }
 
-    val gain = crossCov.multiply(LinalgUtils.pinv(estimateCov))
+    val gain = crossCov.multiply(LinalgUtils.pinv(estimateCov)(sigma.ops))
     val residual = process.measurement.get.copy.toDense
     BLAS.axpy(-1.0, estimateMean, residual)
     val newMean = state.state.mean.toDense.copy
@@ -349,6 +349,8 @@ private[filter] trait SigmaPoints extends Serializable {
   val lbound: Option[Vector]
 
   val ubound: Option[Vector]
+
+  val ops: LinalgOptions
 
   protected def applyBounds(in: DenseVector): DenseVector = {
     val arr = in.values
@@ -397,7 +399,8 @@ private[filter] class JulierSigmaPoints(
     val stateSize: Int,
     val kappa: Double,
     val lbound: Option[Vector],
-    val ubound: Option[Vector]) extends SigmaPoints {
+    val ubound: Option[Vector],
+    val ops: LinalgOptions) extends SigmaPoints {
 
   private val initConst = 0.5/(stateSize + kappa)
 
@@ -414,7 +417,7 @@ private[filter] class JulierSigmaPoints(
     val cov = dist.covariance.toDense
     val covUpdate = DenseMatrix.zeros(cov.numRows, cov.numCols)
     BLAS.axpy(kappa + stateSize, cov, covUpdate)
-    val sqrt = LinalgUtils.sqrt(covUpdate)
+    val sqrt = LinalgUtils.sqrt(covUpdate)(ops)
 
     val (pos, neg) = sqrt.rowIter.foldLeft((List(mean), List[DenseVector]())) {
       case (coeffs, right) => {
@@ -437,7 +440,8 @@ private[filter] class MerweSigmaPoints(
     val beta: Double,
     val kappa: Double,
     val lbound: Option[Vector],
-    val ubound: Option[Vector]) extends SigmaPoints {
+    val ubound: Option[Vector],
+    val ops: LinalgOptions) extends SigmaPoints {
 
   private val lambda = pow(alpha, 2) * (stateSize + kappa) - stateSize
 
@@ -458,7 +462,7 @@ private[filter] class MerweSigmaPoints(
   def sigmaPoints(dist: MultivariateGaussianDistribution): List[DenseVector] = {
     val covUpdate = DenseMatrix.zeros(dist.covariance.numRows, dist.covariance.numCols)
     BLAS.axpy(lambda + stateSize, dist.covariance.toDense, covUpdate)
-    val sqrt = LinalgUtils.sqrt(covUpdate)
+    val sqrt = LinalgUtils.sqrt(covUpdate)(ops)
 
     val (pos, neg) = sqrt.rowIter.foldLeft((List(dist.mean.toDense), List[DenseVector]())) {
       case (coeffs, right) => {
@@ -783,12 +787,12 @@ private[filter] trait SigmaPointsParams extends HasMerweAlpha with HasMerweBeta 
    *
    * @group getParam
    */
-  final def getSigmaPoints: SigmaPoints = {
+  final def getSigmaPoints(ops: LinalgOptions): SigmaPoints = {
     $(sigmaPoints) match {
       case "merwe" => new MerweSigmaPoints(
-        stateSize, $(merweAlpha), $(merweBeta), $(merweKappa), getSigmaPointLowerBound, getSigmaPointUpperBound)
+        stateSize, $(merweAlpha), $(merweBeta), $(merweKappa), getSigmaPointLowerBound, getSigmaPointUpperBound, ops)
       case "julier" => new JulierSigmaPoints(
-        stateSize, $(julierKappa), getSigmaPointLowerBound, getSigmaPointUpperBound)
+        stateSize, $(julierKappa), getSigmaPointLowerBound, getSigmaPointUpperBound, ops)
       case _ => throw new Exception("Unsupported sigma point algorithm")
     }
   }

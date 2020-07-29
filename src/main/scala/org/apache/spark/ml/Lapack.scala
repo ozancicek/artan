@@ -118,7 +118,8 @@ object LAPACK {
     a: DenseMatrix,
     u: DenseMatrix,
     s: DenseVector,
-    v: DenseMatrix): Unit = {
+    v: DenseMatrix,
+    raiseException: Boolean): Unit = {
     val mode = "A"
     val m = a.numRows
     val n = a.numCols
@@ -153,8 +154,59 @@ object LAPACK {
       iwork,
       info
     )
-    if (info.`val` > 0) {
-      throw new Exception("Not converged")
+    if ((info.`val` > 0) && raiseException) {
+      throw new Exception(
+        "SVD failed. Changing to more stable but slower svd implementation dgesvd might help." +
+        "set spark.artan.ml.linalg.svdMethod config to 'dgesvd' or disable exceptions by settting" +
+        "spark.artan.ml.linalg.raiseExceptions to false and live with the consequences!"
+      )
+    }
+    else if (info.`val` < 0) {
+      throw new Exception("Invalid arguments")
+    }
+  }
+
+  /* a = u * s * v**T */
+  def dgesvd(
+    a: DenseMatrix,
+    u: DenseMatrix,
+    s: DenseVector,
+    v: DenseMatrix,
+    raiseException: Boolean): Unit = {
+    val modeU = "A"
+    val modeV = "A"
+    val m = a.numRows
+    val n = a.numCols
+    val lda = if (!a.isTransposed) m else n
+    val ldu = if (!u.isTransposed) u.numRows else u.numCols
+    val ldv = if (!v.isTransposed) v.numRows else v.numCols
+    // MAX(3*MIN(M,N) + MAX(M,N),5*MIN(M,N))
+    val workSize = scala.math.max(3L * scala.math.min(m, n) + scala.math.max(m, n), 5L * scala.math.min(m, n))
+    if (workSize >= Int.MaxValue) {
+      throw new RuntimeException("Too large dimensions")
+    }
+    val work = new Array[Double](workSize.toInt)
+    val info = new intW(0)
+    lapack.dgesvd(
+      modeU,
+      modeV,
+      a.numRows,
+      a.numCols,
+      a.values,
+      lda,
+      s.values,
+      u.values,
+      ldu,
+      v.values,
+      ldv,
+      work,
+      work.length,
+      info
+    )
+    if ((info.`val` > 0) && raiseException) {
+      throw new Exception(
+        "SVD failed. You can try disabling exceptions by settting spark.artan.ml.linalg.raiseExceptions to false"
+      )
     }
     else if (info.`val` < 0) {
       throw new Exception("Invalid arguments")

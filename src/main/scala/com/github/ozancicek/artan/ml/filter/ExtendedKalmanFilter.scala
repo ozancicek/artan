@@ -17,6 +17,7 @@
 
 package com.github.ozancicek.artan.ml.filter
 
+import com.github.ozancicek.artan.ml.linalg.LinalgOptions
 import com.github.ozancicek.artan.ml.state.{KalmanInput, KalmanState}
 import org.apache.spark.ml.linalg._
 import org.apache.spark.ml.param.ParamMap
@@ -155,7 +156,8 @@ class ExtendedKalmanFilter(
     getMeasurementNoiseJacobianOpt,
     outputResiduals,
     getSlidingLikelihoodWindow,
-    getMultiStepPredict
+    getMultiStepPredict,
+    getLinalgOptions
   )
 }
 
@@ -172,7 +174,8 @@ private[filter] class ExtendedKalmanStateSpec(
     val measurementNoiseJacobian: Option[(Vector, Matrix) => Matrix],
     val storeResidual: Boolean,
     val likelihoodWindow: Int,
-    val multiStepPredict: Int)
+    val multiStepPredict: Int,
+    val ops: LinalgOptions)
   extends KalmanStateUpdateSpec[ExtendedKalmanStateCompute] {
 
   override def getOutputProcessModel(
@@ -200,7 +203,8 @@ private[filter] class ExtendedKalmanStateSpec(
     processNoiseJacobian,
     measurementFunction,
     measurementStateJacobian,
-    measurementNoiseJacobian)
+    measurementNoiseJacobian,
+    ops)
 }
 
 /**
@@ -214,8 +218,9 @@ private[filter] class ExtendedKalmanStateCompute(
     processNoiseJac: Option[(Vector, Matrix) => Matrix],
     measurementFunc: Option[(Vector, Matrix) => Vector],
     measurementStateJac: Option[(Vector, Matrix) => Matrix],
-    measurementNoiseJac: Option[(Vector, Matrix) => Matrix])
-  extends LinearKalmanStateCompute(fadingFactor) {
+    measurementNoiseJac: Option[(Vector, Matrix) => Matrix],
+    ops: LinalgOptions)
+  extends LinearKalmanStateCompute(fadingFactor, ops) {
 
   override def progressStateMean(
     stateMean: DenseVector,

@@ -17,7 +17,7 @@
 
 package com.github.ozancicek.artan.ml.filter
 
-import com.github.ozancicek.artan.ml.linalg.LinalgUtils
+import com.github.ozancicek.artan.ml.linalg.{LinalgOptions, LinalgUtils}
 import com.github.ozancicek.artan.ml.state.{KalmanInput, KalmanState}
 import com.github.ozancicek.artan.ml.stats.MultivariateGaussianDistribution
 import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector}
@@ -84,7 +84,8 @@ class LinearKalmanFilter(
     getFadingFactor,
     outputResiduals,
     getSlidingLikelihoodWindow,
-    getMultiStepPredict
+    getMultiStepPredict,
+    getLinalgOptions
   )
 }
 
@@ -98,10 +99,11 @@ private[filter] class LinearKalmanStateSpec(
     val fadingFactor: Double,
     val storeResidual: Boolean,
     val likelihoodWindow: Int,
-    val multiStepPredict: Int)
+    val multiStepPredict: Int,
+    val ops: LinalgOptions)
   extends KalmanStateUpdateSpec[LinearKalmanStateCompute] {
 
-  val kalmanCompute = new LinearKalmanStateCompute(fadingFactor)
+  val kalmanCompute = new LinearKalmanStateCompute(fadingFactor, ops)
 }
 
 /**
@@ -131,7 +133,8 @@ private[filter] class LinearKalmanStateSpec(
  * @param fadingFactor Factor weighting for recent measurements, >= 1.0
  */
 private[filter] class LinearKalmanStateCompute(
-    val fadingFactor: Double) extends KalmanStateCompute {
+    val fadingFactor: Double,
+    val ops: LinalgOptions) extends KalmanStateCompute {
 
   /* Apply the process model & predict the next state. */
   protected def progressStateMean(
@@ -231,7 +234,7 @@ private[filter] class LinearKalmanStateCompute(
     BLAS.gemm(1.0, mModel, speed, 1.0, residualCovariance)
 
     // K = speed * inv(speed)
-    val inverseUpdate = LinalgUtils.pinv(residualCovariance)
+    val inverseUpdate = LinalgUtils.pinv(residualCovariance)(ops)
     val gain = DenseMatrix.zeros(speed.numRows, inverseUpdate.numCols)
     BLAS.gemm(1.0, speed, inverseUpdate, 1.0, gain)
 

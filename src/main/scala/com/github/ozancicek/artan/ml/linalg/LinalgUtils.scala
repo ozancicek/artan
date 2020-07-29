@@ -24,7 +24,24 @@ import org.apache.spark.sql.expressions.UserDefinedAggregateFunction
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types._
 import org.apache.spark.ml.linalg.SQLDataTypes
+import org.apache.spark.SparkConf
 import scala.math.{sqrt => scalarSqrt}
+
+
+private[artan] case class LinalgOptions(svdMethod: String = "dgesdd", raiseExceptions: Boolean = true)
+
+
+private[artan] object LinalgOptions {
+
+  def fromSparkConf(conf: SparkConf): LinalgOptions = {
+    val svdMethod = conf.get("spark.artan.ml.linalg.svdMethod", "dgesdd")
+    if (!Set("dgesdd", "dgesvd").contains(svdMethod)) {
+      throw new Exception(s"svdMethod must be either dgesdd or dgesvd, provided: $svdMethod")
+    }
+    val raiseExceptions = conf.getBoolean("spark.ml.linalg.raiseExceptions", true)
+    LinalgOptions(svdMethod, raiseExceptions)
+  }
+}
 
 
 private[ml] object LinalgUtils {
@@ -178,14 +195,19 @@ private[ml] object LinalgUtils {
     new SparseMatrix(n, n, colPtrs.toArray, rowIndices.toArray, values)
   }
 
-  private def svdDiagOp(mat: DenseMatrix, diagOp: (Double) => Double): DenseMatrix = {
+  private def svdDiagOp(mat: DenseMatrix, diagOp: (Double) => Double)(implicit ops: LinalgOptions): DenseMatrix = {
     val m = mat.numRows
     val n = mat.numCols
     val nSingular = if (m < n) m else n
     val s = new DenseVector(new Array[Double](nSingular))
     val u = DenseMatrix.zeros(m, m)
     val v = DenseMatrix.zeros(n, n)
-    LAPACK.dgesdd(mat.copy, u, s, v)
+
+    if (ops.svdMethod == "dgesvd") {
+      LAPACK.dgesvd(mat.copy, u, s, v, ops.raiseExceptions)
+    } else {
+      LAPACK.dgesdd(mat.copy, u, s, v, ops.raiseExceptions)
+    }
 
     val si = s.values.map(diagOp)
 
@@ -204,8 +226,11 @@ private[ml] object LinalgUtils {
     result.transpose
   }
 
-  def pinv(mat: DenseMatrix): DenseMatrix = svdDiagOp(mat, (v: Double) => if (v == 0.0) 0.0f else 1 / v)
-  def sqrt(mat: DenseMatrix): DenseMatrix = svdDiagOp(mat, scalarSqrt)
+  def pinv(mat: DenseMatrix)(implicit ops: LinalgOptions): DenseMatrix = {
+    svdDiagOp(mat, (v: Double) => if (v == 0.0) 0.0f else 1 / v)
+  }
+
+  def sqrt(mat: DenseMatrix)(implicit ops: LinalgOptions): DenseMatrix = svdDiagOp(mat, scalarSqrt)
 
   def squaredMahalanobis(
     point: DenseVector,

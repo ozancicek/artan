@@ -17,7 +17,7 @@
 
 package com.github.ozancicek.artan.ml.filter
 
-import com.github.ozancicek.artan.ml.linalg.LinalgUtils
+import com.github.ozancicek.artan.ml.linalg.{LinalgOptions, LinalgUtils}
 import com.github.ozancicek.artan.ml.state.{KalmanInput, KalmanOutput, KalmanState, StateUpdateSpec, StatefulTransformer}
 import com.github.ozancicek.artan.ml.stats.{MultivariateGaussian, MultivariateGaussianDistribution}
 import org.apache.spark.ml.linalg.SQLDataTypes
@@ -26,7 +26,7 @@ import org.apache.spark.ml.param._
 import org.apache.spark.ml.BLAS
 import org.apache.spark.sql._
 import org.apache.spark.sql.Encoders
-import org.apache.spark.sql.functions.{col, lit, sum, udf, window, struct}
+import org.apache.spark.sql.functions.{col, lit, struct, sum, udf, window}
 import org.apache.spark.sql.types._
 
 import scala.collection.immutable.Queue
