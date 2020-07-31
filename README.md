@@ -1,7 +1,7 @@
 # Artan
 [![Build Status](https://travis-ci.com/ozancicek/artan.svg?branch=master)](https://travis-ci.com/ozancicek/artan)
 [![codecov](https://codecov.io/gh/ozancicek/artan/branch/master/graph/badge.svg)](https://codecov.io/gh/ozancicek/artan)
-[![Maven Central](https://img.shields.io/maven-central/v/com.github.ozancicek/artan_2.11)](https://mvnrepository.com/artifact/com.github.ozancicek/artan)
+[![Maven Central](https://img.shields.io/maven-central/v/com.github.ozancicek/artan_2.12)](https://mvnrepository.com/artifact/com.github.ozancicek/artan)
 [![PyPI](https://img.shields.io/pypi/v/artan)](https://pypi.org/project/artan/)
 [![Documentation Status](https://readthedocs.org/projects/artan/badge/?version=latest)](https://artan.readthedocs.io/en/latest/?badge=latest)
 
