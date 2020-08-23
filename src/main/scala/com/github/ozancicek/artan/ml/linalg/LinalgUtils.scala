@@ -19,12 +19,12 @@ package com.github.ozancicek.artan.ml.linalg
 
 import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector, Matrix, SparseMatrix, Vector}
 import org.apache.spark.ml.{BLAS, LAPACK}
-import org.apache.spark.sql.expressions.MutableAggregationBuffer
-import org.apache.spark.sql.expressions.UserDefinedAggregateFunction
-import org.apache.spark.sql.Row
-import org.apache.spark.sql.types._
-import org.apache.spark.ml.linalg.SQLDataTypes
+import org.apache.spark.sql.Encoder
+import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
+import org.apache.spark.sql.expressions.{Aggregator, UserDefinedFunction}
+import org.apache.spark.sql.functions.udaf
 import org.apache.spark.SparkConf
+
 import scala.math.{sqrt => scalarSqrt}
 
 
@@ -46,136 +46,99 @@ private[artan] object LinalgOptions {
 
 private[ml] object LinalgUtils {
 
-  private class VectorAxpy(size: Int) extends UserDefinedAggregateFunction {
+  case class VectorAxpyInput(a: Double, x: Vector)
 
-    override def inputSchema: StructType = StructType(
-      StructField("alpha", DoubleType) :: StructField("vec", SQLDataTypes.VectorType) :: Nil)
+  class VectorAxpy(size: Int) extends Aggregator[VectorAxpyInput, Vector, Vector] with Serializable {
 
-    override def bufferSchema: StructType = StructType(
-      StructField("buffer", SQLDataTypes.VectorType) :: Nil
-    )
+    private def zeroVector = new DenseVector(Array.fill(size) {0.0})
 
-    override def dataType: DataType = SQLDataTypes.VectorType
+    override def zero: Vector = zeroVector
 
-    override def deterministic: Boolean = true
-
-    override def initialize(buffer: MutableAggregationBuffer): Unit = {
-      buffer(0) = new DenseVector(Array.fill(size) {0.0})
+    override def reduce(b: Vector, a: VectorAxpyInput): Vector = {
+      val y = b.copy
+      BLAS.axpy(a.a, a.x, y)
+      y
     }
 
-    override def update(buffer: MutableAggregationBuffer, input: Row): Unit = {
-      input match { case Row(alpha: Double, vec: Vector) =>
-        val result = buffer.getAs[DenseVector](0)
-        BLAS.axpy(alpha, vec.toDense, result)
-        buffer(0) = result
-      }
+    override def merge(b1: Vector, b2: Vector): Vector = {
+      val y = b2.copy
+      BLAS.axpy(1.0, b1, y)
+      y
     }
 
-    override def merge(buffer1: MutableAggregationBuffer, buffer2: Row): Unit = {
-      val result = buffer1.getAs[DenseVector](0)
-      BLAS.axpy(1.0, buffer2.getAs[DenseVector](0), result)
-      buffer1(0) = result
-    }
+    override def finish(reduction: Vector): Vector = reduction
 
-    override def evaluate(buffer: Row): Any = {
-      buffer.getAs[DenseVector](0)
-    }
-  }
+    override def bufferEncoder: Encoder[Vector] = implicitly(ExpressionEncoder[Vector]())
 
-  private class MatrixAxpy(numRows: Int, numCols: Int) extends UserDefinedAggregateFunction {
-
-    override def inputSchema: StructType = StructType(
-      StructField("alpha", DoubleType) ::
-      StructField("mat", SQLDataTypes.MatrixType) :: Nil)
-
-    override def bufferSchema: StructType = StructType(
-      StructField("buffer", SQLDataTypes.MatrixType) :: Nil
-    )
-
-    override def dataType: DataType = SQLDataTypes.MatrixType
-
-    override def deterministic: Boolean = true
-
-    override def initialize(buffer: MutableAggregationBuffer): Unit = {
-      buffer(0) = DenseMatrix.zeros(numRows, numCols)
-    }
-
-    override def update(buffer: MutableAggregationBuffer, input: Row): Unit = {
-      input match { case Row(alpha: Double, mat: Matrix) =>
-        val result = buffer.getAs[DenseMatrix](0)
-        BLAS.axpy(alpha, mat.toDense, result)
-        buffer(0) = result
-      }
-    }
-
-    override def merge(buffer1: MutableAggregationBuffer, buffer2: Row): Unit = {
-      val result = buffer1.getAs[DenseMatrix](0)
-      BLAS.axpy(1.0, buffer2.getAs[DenseMatrix](0), result)
-      buffer1(0) = result
-    }
-
-    override def evaluate(buffer: Row): Any = {
-      buffer.getAs[DenseMatrix](0)
-    }
-  }
-
-  private class LatestStateLikelihood extends UserDefinedAggregateFunction {
-
-    override def inputSchema: StructType = StructType(
-      StructField("loglikelihood", DoubleType) ::
-      StructField("stateIndex", LongType) ::
-      StructField("state", SQLDataTypes.VectorType) ::
-      StructField("stateCovariance", SQLDataTypes.MatrixType) :: Nil)
-
-    private def resultSchema =  StructType(
-      StructField("sumLoglikelihood", DoubleType) ::
-      StructField("stateIndex", LongType) ::
-      StructField("state", SQLDataTypes.VectorType) ::
-      StructField("stateCovariance", SQLDataTypes.MatrixType) :: Nil)
-
-    override def bufferSchema: StructType = resultSchema
-
-    override def dataType: DataType = resultSchema
-
-    override def deterministic: Boolean = true
-
-    override def initialize(buffer: MutableAggregationBuffer): Unit = {
-      buffer(0) = 0.0
-      buffer(1) = Long.MinValue
-    }
-
-    private def updateBuffer(buffer: MutableAggregationBuffer, input: Row): Unit = {
-      input match { case Row(loglikelihood: Double, stateIndex: Long, state: Vector, stateCovariance: Matrix) =>
-        val sum = buffer.getAs[Double](0)
-        buffer(0) = sum + loglikelihood
-        val currentIndex = buffer.getAs[Long](1)
-        if (stateIndex >= currentIndex) {
-          buffer(1) = stateIndex
-          buffer(2) = state
-          buffer(3) = stateCovariance
-        }
-      }
-    }
-
-    override def update(buffer: MutableAggregationBuffer, input: Row): Unit = updateBuffer(buffer, input)
-
-    override def merge(buffer1: MutableAggregationBuffer, buffer2: Row): Unit = updateBuffer(buffer1, buffer2)
-
-    override def evaluate(buffer: Row): Any = buffer
+    override def outputEncoder: Encoder[Vector] = implicitly(ExpressionEncoder[Vector]())
 
   }
 
-  def axpyMatrixAggregate(numRows: Int, numCols: Int): UserDefinedAggregateFunction = new MatrixAxpy(numRows, numCols)
 
-  def axpyVectorAggregate(size: Int): UserDefinedAggregateFunction = new VectorAxpy(size)
+  case class MatrixAxpyInput(a: Double, x: Matrix)
 
-  def latestStateLikelihood: UserDefinedAggregateFunction = new LatestStateLikelihood
+  private class MatrixAxpy(numRows: Int, numCols: Int) extends Aggregator[MatrixAxpyInput, Matrix, Matrix] {
+
+    private def zeroMatrix = DenseMatrix.zeros(numRows, numCols)
+
+    override def zero: Matrix = zeroMatrix
+
+    override def reduce(b: Matrix, a: MatrixAxpyInput): Matrix = {
+      val y = b.toDense.copy
+      BLAS.axpy(a.a, a.x.toDense, y)
+      y
+    }
+
+    override def merge(b1: Matrix, b2: Matrix): Matrix = {
+      val y = b1.toDense.copy
+      BLAS.axpy(1.0, b2.toDense, y)
+      y
+    }
+
+    override def finish(reduction: Matrix): Matrix = reduction
+
+    override def bufferEncoder: Encoder[Matrix] = implicitly(ExpressionEncoder[Matrix]())
+
+    override def outputEncoder: Encoder[Matrix] = implicitly(ExpressionEncoder[Matrix]())
+
+  }
+
+  case class StateLikelihood(loglikelihood: Double, stateIndex: Long, state: Option[Vector], covariance: Option[Matrix])
+
+  private class LatestStateLikelihood extends Aggregator[StateLikelihood, StateLikelihood, StateLikelihood] {
+
+    override def zero: StateLikelihood = StateLikelihood(0.0, Long.MinValue, None, None)
+
+    override def reduce(b: StateLikelihood, a: StateLikelihood): StateLikelihood = {
+      val llSum = b.loglikelihood + a.loglikelihood
+      if (a.stateIndex >= b.stateIndex) {
+        StateLikelihood(llSum, a.stateIndex, a.state, a.covariance)
+      } else {
+        StateLikelihood(llSum, b.stateIndex, b.state, b.covariance)
+      }
+    }
+
+    override def merge(b1: StateLikelihood, b2: StateLikelihood): StateLikelihood = reduce(b1, b2)
+
+    override def finish(reduction: StateLikelihood): StateLikelihood = reduction
+
+    override def bufferEncoder: Encoder[StateLikelihood] = implicitly(ExpressionEncoder[StateLikelihood]())
+
+    override def outputEncoder: Encoder[StateLikelihood] = implicitly(ExpressionEncoder[StateLikelihood]())
+
+  }
+
+  def axpyMatrixAggregate(numRows: Int, numCols: Int): UserDefinedFunction = udaf(new MatrixAxpy(numRows, numCols))
+
+  def axpyVectorAggregate(size: Int): UserDefinedFunction  = udaf(new VectorAxpy(size))
+
+  def latestStateLikelihood: UserDefinedFunction = udaf(new LatestStateLikelihood)
 
   def upperTriangle(a: DenseMatrix): Unit = {
     for {
       i <- 0 until a.numCols
       j <- 0 until a.numRows
-      if(j > i)
+      if j > i
     } { a.values(j + i * a.numCols) = 0.0 }
   }
 
@@ -195,7 +158,7 @@ private[ml] object LinalgUtils {
     new SparseMatrix(n, n, colPtrs.toArray, rowIndices.toArray, values)
   }
 
-  private def svdDiagOp(mat: DenseMatrix, diagOp: (Double) => Double)(implicit ops: LinalgOptions): DenseMatrix = {
+  private def svdDiagOp(mat: DenseMatrix, diagOp: Double => Double)(implicit ops: LinalgOptions): DenseMatrix = {
     val m = mat.numRows
     val n = mat.numCols
     val nSingular = if (m < n) m else n

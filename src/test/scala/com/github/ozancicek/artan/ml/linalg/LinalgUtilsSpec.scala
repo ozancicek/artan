@@ -74,7 +74,7 @@ class LinalgUtilsSpec extends FunSpec with Matchers with SparkSessionTestWrapper
       val aggFunc = LinalgUtils.latestStateLikelihood
       val head = df.groupBy(lit(1))
         .agg(aggFunc($"loglikelihood", $"stateIndex", $"state", $"stateCovariance").alias("s"))
-        .select("s.sumLoglikelihood", "s.stateIndex", "s.state", "s.stateCovariance")
+        .select("s.Loglikelihood", "s.stateIndex", "s.state", "s.covariance")
         .head
 
       val sumll = head.getAs[Double](0)
