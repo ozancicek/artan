@@ -398,12 +398,12 @@ private[filter] abstract class KalmanTransformer[
   }
 
   private def checkSystemMatrices(df: DataFrame): DataFrame = {
-    if (getOutputSystemMatrices) df else df.drop("processModel", "processNoise", "measurementModel")
+    if (getOutputSystemMatrices) df else df.drop("processModel", "processNoise", "measurement", "measurementModel")
   }
 
   private def checkSystemMatricesSchema(fields: List[StructField]): List[StructField] = {
     if (getOutputSystemMatrices) fields else fields
-      .filterNot(f => Set("processModel", "processNoise", "measurementModel").contains(f.name))
+      .filterNot(f => Set("processModel", "processNoise", "measurement", "measurementModel").contains(f.name))
   }
 
   // Output residuals if any of mahalanobis or likelihood calculations are requested
@@ -556,6 +556,7 @@ private[filter] trait KalmanStateUpdateSpec[+Compute <: KalmanStateCompute]
         row.eventTime,
         getOutputProcessModel(row, in),
         getOutputProcessNoise(row, in),
+        row.measurement,
         getOutputMeasurementModel(row, in),
         ll)
     }

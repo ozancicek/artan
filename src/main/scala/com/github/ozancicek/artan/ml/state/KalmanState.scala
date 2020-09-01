@@ -84,6 +84,7 @@ case class KalmanOutput(
     eventTime: Option[Timestamp],
     processModel: Option[Matrix],
     processNoise: Option[Matrix],
+    measurement: Option[Vector],
     measurementModel: Option[Matrix],
     slidingLikelihood: Option[Double]) extends KeyedOutput[String]
 

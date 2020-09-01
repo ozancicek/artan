@@ -35,11 +35,11 @@ Artan requires Scala 2.12, Spark 3.0+ and Python 3,6+
 This project has been published to the Maven Central Repository. When submitting jobs on your cluster, you can use
 `spark-submit` with `--packages` parameter to download all required dependencies including python packages.
 
-    spark-submit --packages='com.github.ozancicek:artan_2.12:0.4.1'
+    spark-submit --packages='com.github.ozancicek:artan_2.12:0.4.2'
 
 For SBT:
 
-    libraryDependencies += "com.github.ozancicek" %% "artan" % "0.4.1"
+    libraryDependencies += "com.github.ozancicek" %% "artan" % "0.4.2"
 
 For python:
 

@@ -21,7 +21,7 @@ project = 'artan'
 author = 'Ozan Cicekci'
 
 # The full version, including alpha/beta/rc tags
-release = '0.4.1'
+release = '0.4.2'
 rst_epilog = f"""
 .. |artan_version| replace:: {release}
 """
