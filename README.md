@@ -45,7 +45,7 @@ For python:
 
     pip install artan
 
-Note that pip will only install the python dependencies. To submit pyspark jobs, `--packages='com.github.ozancicek:artan_2.12:0.4.1'` argument should be specified in order to download necessary jars.
+Note that pip will only install the python dependencies. To submit pyspark jobs, `--packages='com.github.ozancicek:artan_2.12:0.4.2'` argument should be specified in order to download necessary jars.
 
 
 ## Docs and Examples
