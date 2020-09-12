@@ -22,9 +22,27 @@ import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.udf
 
 
-private[mixture] trait HasInitialWeights extends Params {
+private[mixture] trait HasMixtureCount extends Params {
+  /**
+   * Number of mixture components
+   */
+  final val mixtureCount: IntParam = new IntParam(
+    this,
+    "mixtureCount",
+    "Number of mixture components, must be > 0",
+    (in: Int) => in > 0
+  )
 
-  def mixtureCount: Int
+  /**
+   * Getter for mixtureCount parameter
+   *
+   * @group getParam
+   */
+  final def getMixtureCount: Int = $(mixtureCount)
+
+}
+
+private[mixture] trait HasInitialWeights extends Params {
 
   /**
    * Initial weight of the mixtures
@@ -35,8 +53,6 @@ private[mixture] trait HasInitialWeights extends Params {
     this,
     "initialWeights",
     "Initial weights of the mixtures. The weights should sum up to 1.0.")
-
-  setDefault(initialWeights, Array.fill(mixtureCount) {1.0/mixtureCount})
 
   /**
    * Getter for initialWeights parameter

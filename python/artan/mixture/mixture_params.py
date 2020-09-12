@@ -317,10 +317,31 @@ class HasBatchTrainTol(Params):
         return self.getOrDefault(self.batchTrainTol)
 
 
+class HasMixtureCount(Params):
+    """
+    Mixin for number of components in the mixture
+    """
+    mixtureCount = Param(
+        Params._dummy(),
+        "mixtureCount",
+        "Number of finite mixture components, must ge > 0",
+        TypeConverters.toInt
+    )
+
+    def __init__(self):
+        super(HasMixtureCount, self).__init__()
+
+    def getMixtureCount(self):
+        """
+        Gets the value of mixtureCount or its default value
+        """
+        return self.getOrDefault(self.mixtureCount)
+
+
 class MixtureParams(HasSampleCol, HasStepSize, HasStepSizeCol, HasInitialWeights, HasInitialWeightsCol,
                     HasMinibatchSize, HasUpdateHoldout, HasDecayRate, HasInitialMixtureModelCol,
                     HasMinibatchSizeCol, HasUpdateHoldoutCol, HasBatchTrainEnabled, HasBatchTrainMaxIter,
-                    HasBatchTrainTol):
+                    HasBatchTrainTol, HasMixtureCount):
 
     def setSampleCol(self, value):
         """

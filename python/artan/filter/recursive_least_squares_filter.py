@@ -21,8 +21,12 @@ from pyspark.ml.param import Params, Param, TypeConverters
 from pyspark.ml.param.shared import HasLabelCol, HasFeaturesCol
 from pyspark.ml.linalg import DenseMatrix
 from pyspark.ml.common import inherit_doc
+from pyspark.ml.util import JavaMLWritable
+from artan.utils import ArtanJavaMLReadable
 from artan.state import StatefulTransformer
-from artan.filter.filter_params import HasInitialStateMean, HasInitialStateMeanCol, HasInitialStateDistributionCol
+from artan.filter.filter_params import (
+    HasInitialStateMean, HasInitialStateMeanCol, HasInitialStateDistributionCol,
+    HasStateSize)
 
 
 class _HasForgettingFactor(Params):
@@ -91,7 +95,8 @@ class _HasRegularizationMatrixCol(Params):
 @inherit_doc
 class RecursiveLeastSquaresFilter(StatefulTransformer, HasInitialStateMean, HasInitialStateMeanCol,
                                   _HasForgettingFactor, _HasRegularizationMatrix, _HasRegularizationMatrixCol,
-                                  HasLabelCol, HasFeaturesCol, HasInitialStateDistributionCol):
+                                  HasLabelCol, HasFeaturesCol, HasInitialStateDistributionCol,
+                                  HasStateSize, ArtanJavaMLReadable, JavaMLWritable):
     """
     Recursive formulation of least squares with exponential weighting & regularization, implemented with
     a stateful spark Transformer for running parallel filters /w spark dataframes. Transforms an input dataframe
@@ -112,11 +117,10 @@ class RecursiveLeastSquaresFilter(StatefulTransformer, HasInitialStateMean, HasI
         values increase the weight of weighted SSE term.
     - :math:`d_k`, :math:`u_k`: label and features vector at time step k.
     """
-    def __init__(self, featuresSize):
+    def __init__(self):
         super(RecursiveLeastSquaresFilter, self).__init__()
         self._java_obj = self._new_java_obj("com.github.ozancicek.artan.ml.filter.RecursiveLeastSquaresFilter",
-                                            featuresSize, self.uid)
-        self._featuresSize = featuresSize
+                                            self.uid)
 
     def setLabelCol(self, value):
         """
@@ -126,6 +130,15 @@ class RecursiveLeastSquaresFilter(StatefulTransformer, HasInitialStateMean, HasI
         :return: RecursiveLeastSquaresFilter
         """
         return self._set(labelCol=value)
+
+    def setFeatureSize(self, value):
+        """
+        Set size of the features vector.
+
+        :param value: Integer
+        :return: RecursiveLeastSquaresFilter
+        """
+        return self._set(stateSize=value)
 
     def setFeaturesCol(self, value):
         """
@@ -196,12 +209,12 @@ class RecursiveLeastSquaresFilter(StatefulTransformer, HasInitialStateMean, HasI
     def setRegularizationMatrixFactor(self, value):
         """
         Sets the regularization matrix with a float factor, which results in setting the regularization matrix as
-        factor * identity
+        factor * identity. Required to set feature size parameter first.
 
         :param value: Float
         :return: RecursiveLeastSquaresFilter
         """
-        regMat = np.eye(self._featuresSize) * value
+        regMat = np.eye(self.getStateSize()) * value
         rows, cols = regMat.shape
         return self._set(regularizationMatrix=DenseMatrix(rows, cols, regMat.reshape(rows * cols, order="F")))
 
@@ -215,3 +228,15 @@ class RecursiveLeastSquaresFilter(StatefulTransformer, HasInitialStateMean, HasI
         :return: RecursiveLeastSquaresFilter
         """
         return self._set(initialStateDistributionCol=value)
+
+    @staticmethod
+    def _from_java(java_stage):
+        """
+        Given a Java object, create and return a Python wrapper of it.
+        Used for ML persistence.
+        """
+        py_stage = RecursiveLeastSquaresFilter()
+        py_stage._java_obj = java_stage
+        py_stage._resetUid(java_stage.uid())
+        py_stage._transfer_params_from_java()
+        return py_stage

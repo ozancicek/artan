@@ -17,7 +17,7 @@
 
 package com.github.ozancicek.artan.ml.filter
 
-import com.github.ozancicek.artan.ml.testutils.RegressionTestWrapper
+import com.github.ozancicek.artan.ml.testutils.{RegressionTestWrapper, DefaultReadWriteTest}
 import org.apache.spark.ml.linalg._
 import org.apache.spark.ml.stat.Summarizer
 import org.apache.spark.sql.Dataset
@@ -33,9 +33,9 @@ case class EKFMAMeasurement(measurement: DenseVector, measurementModel: DenseMat
 class ExtendedKalmanFilterSpec
   extends FunSpec
   with Matchers
-  with RegressionTestWrapper {
+  with RegressionTestWrapper
+  with DefaultReadWriteTest {
 
-  import spark.implicits._
 
   describe("Extended kalman filter tests") {
     describe("GLM with gaussian noise and log link") {
@@ -54,10 +54,12 @@ class ExtendedKalmanFilterSpec
           model(0, 1) * res,
           res
         )
-        new DenseMatrix(1, 3, jacs.toArray)
+        new DenseMatrix(1, 3, jacs)
       }
 
-      val filter = new ExtendedKalmanFilter(3, 1)
+      val filter = new ExtendedKalmanFilter()
+        .setInitialStateMean(
+          new DenseVector(Array(0.0, 0.0, 0.0)))
         .setInitialStateCovariance(
           new DenseMatrix(3, 3, Array(10.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 10.0)))
         .setMeasurementCol("measurement")
@@ -68,6 +70,7 @@ class ExtendedKalmanFilterSpec
         .setMeasurementFunction(measurementFunc)
         .setMeasurementStateJacobian(measurementJac)
 
+
       it("should estimate model parameters") {
         testLogRegressionEquivalent(filter, 10E-4)
       }
@@ -75,7 +78,13 @@ class ExtendedKalmanFilterSpec
       it("should have same result for batch & stream mode") {
         testLogRegressionBatchStreamEquivalent(filter, "EKFLogSolution")
       }
+
+      it("should not fail read/write") {
+        testDefaultReadWrite(filter)
+      }
+
     }
+    import spark.implicits._
 
     describe("ma model") {
       // ma(1) model
@@ -106,7 +115,11 @@ class ExtendedKalmanFilterSpec
         new DenseMatrix(2, 1, Array(1.0, 0.8))
       }
 
-      val filter = new ExtendedKalmanFilter(2, 1)
+      val filter = new ExtendedKalmanFilter()
+        .setInitialStateMean(
+          new DenseVector(Array(0.0, 0.0)))
+        .setInitialStateCovariance(
+          new DenseMatrix(2, 2, Array(1.0, 0.0, 0.0, 1.0)))
         .setMeasurementCol("measurement")
         .setMeasurementModelCol("measurementModel")
         .setProcessModelCol("processModel")
@@ -119,6 +132,7 @@ class ExtendedKalmanFilterSpec
       val query = (in: Dataset[EKFMAMeasurement]) => filter.transform(in)
 
       it("should filter ma state") {
+
         val modelState = query(measurements.toDS())
 
         val covExtract = udf((in: Matrix) => in(0, 0))
@@ -140,6 +154,10 @@ class ExtendedKalmanFilterSpec
 
       it("should have same result for batch & stream mode") {
         testAppendQueryAgainstBatch(measurements, query, "EKFMAmodel")
+      }
+
+      it("should not fail read/write") {
+        testDefaultReadWrite(filter)
       }
     }
   }

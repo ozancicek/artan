@@ -36,7 +36,13 @@ import scala.reflect.runtime.universe.TypeTag
 private[mixture] trait MixtureParams[TransformerType]
   extends HasInitialWeights with HasInitialWeightsCol with HasStepSizeCol with HasStepSize with HasSampleCol
   with HasUpdateHoldout with HasMinibatchSize with HasMinibatchSizeCol with HasDecayRate with HasInitialMixtureModelCol
-  with HasBatchTrainMaxIter with HasBatchTrainTol with HasUpdateHoldoutCol with HasBatchTrainEnabled {
+  with HasBatchTrainMaxIter with HasBatchTrainTol with HasUpdateHoldoutCol with HasBatchTrainEnabled
+  with HasMixtureCount {
+
+  /**
+   * Sets the number of mixture components in the finite mixture model
+   */
+  def setMixtureCount(value: Int): TransformerType = set(mixtureCount, value).asInstanceOf[TransformerType]
 
   /**
    * Sets the initial weights of the mixtures. The weights should sum up to 1.0.

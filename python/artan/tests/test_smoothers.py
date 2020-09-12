@@ -20,10 +20,28 @@ from artan.smoother import LinearKalmanSmoother
 from pyspark.ml.linalg import Vectors, Matrices
 import numpy as np
 
+import os
+import tempfile
+
 
 class LinearKalmanSmootherTests(ReusedSparkTestCase):
 
     np.random.seed(0)
+
+    def test_persistance(self):
+        smoother = LinearKalmanSmoother()\
+            .setStateSize(2)\
+            .setInitialStateMean(Vectors.dense([0.0, 0.0]))\
+            .setInitialStateCovarianceCol("testCol")
+
+        path = tempfile.mkdtemp()
+        model_path = os.path.join(path, "smoother")
+        smoother.save(model_path)
+
+        loaded = LinearKalmanSmoother.load(model_path)
+        assert(loaded.getInitialStateMean() == smoother.getInitialStateMean())
+        assert(loaded.getStateSize() == smoother.getStateSize())
+        assert(loaded.getInitialStateCovarianceCol() == smoother.getInitialStateCovarianceCol())
 
     def test_ols_equivalence(self):
         # Simple ols problem
@@ -40,7 +58,8 @@ class LinearKalmanSmootherTests(ReusedSparkTestCase):
         df = self.spark.createDataFrame(
             [(Vectors.dense(y[i]), Matrices.dense(1, 2, features[i])) for i in range(n)],
             ["measurement", "measurementModel"])
-        lkf = LinearKalmanSmoother(2, 1)\
+        lkf = LinearKalmanSmoother()\
+            .setInitialStateMean(Vectors.dense(0.0, 0.0))\
             .setMeasurementModelCol("measurementModel")\
             .setMeasurementCol("measurement")\
             .setInitialStateCovariance(Matrices.dense(2, 2, (np.eye(2)*10).reshape(4, 1)))\

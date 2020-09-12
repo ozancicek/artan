@@ -17,16 +17,129 @@
 
 package com.github.ozancicek.artan.ml.filter
 
-import org.apache.spark.ml.linalg.{DenseVector, DenseMatrix, Vector, Matrix}
+import org.apache.spark.ml.linalg.{Vector, Matrix}
 import org.apache.spark.ml.param._
+import org.apache.spark.ml.util.Identifiable
+import org.json4s._
+import org.json4s.jackson.JsonMethods._
 
+import java.io._
+import java.util.Base64
+
+
+/**
+ * Simple trait for serializing functions with base64
+ * @tparam T Type of the function
+ */
+private[artan] trait FunctionSerDe[T] extends Serializable {
+
+  def base64Encode(f: T): String = {
+    val bo = new ByteArrayOutputStream()
+    new ObjectOutputStream(bo).writeObject(f)
+    Base64.getEncoder.encodeToString(bo.toByteArray)
+  }
+
+  def base64Decode(s: String): T = {
+    val ba = new ByteArrayInputStream(Base64.getDecoder.decode(s))
+    new ObjectInputStream(ba).readObject().asInstanceOf[T]
+  }
+}
+
+/**
+ * Parameter for function type VMV ((Vector, Matrix) => Vector)
+ */
+private[artan] class VMVFunctionParam(parent: String, name: String, doc: String)
+  extends Param[(Vector, Matrix) => Vector](parent, name, doc) with FunctionSerDe[(Vector, Matrix) => Vector]{
+
+  def this(parent: Identifiable, name: String, doc: String) = this(parent.uid, name, doc)
+
+  /** Creates a param pair with the given value (for Java). */
+  override def w(value: (Vector, Matrix) => Vector): ParamPair[(Vector, Matrix) => Vector] = super.w(value)
+
+  override def jsonEncode(value: (Vector, Matrix) => Vector): String = {
+    compact(render(JString(base64Encode(value))))
+  }
+
+
+  override def jsonDecode(json: String): (Vector, Matrix) => Vector = {
+    val JString(s) = parse(json)
+    base64Decode(s)
+  }
+}
+
+
+/**
+ * Parameter for function type VMM ((Vector, Matrix) => Matrix)
+ */
+private[artan] class VMMFunctionParam(parent: String, name: String, doc: String)
+  extends Param[(Vector, Matrix) => Matrix](parent, name, doc) with FunctionSerDe[(Vector, Matrix) => Matrix]{
+
+  def this(parent: Identifiable, name: String, doc: String) = this(parent.uid, name, doc)
+
+  /** Creates a param pair with the given value (for Java). */
+  override def w(value: (Vector, Matrix) => Matrix): ParamPair[(Vector, Matrix) => Matrix] = super.w(value)
+
+  override def jsonEncode(value: (Vector, Matrix) => Matrix): String = {
+    compact(render(JString(base64Encode(value))))
+  }
+
+  override def jsonDecode(json: String): (Vector, Matrix) => Matrix = {
+    val JString(s) = parse(json)
+    base64Decode(s)
+  }
+}
+
+
+private[artan] trait HasStateSize extends Params {
+
+  /**
+   * Param for size of the state
+   *
+   * @group param
+   */
+
+  final val stateSize: IntParam = new IntParam(
+    this,
+    "stateSize",
+    "Size of the state"
+  )
+
+  /**
+   * Getter for state size
+   *
+   * @group getParam
+   */
+  final def getStateSize: Int = $(stateSize)
+}
+
+
+private[artan] trait HasMeasurementSize extends Params {
+
+  /**
+   * Param for size of the measurement
+   *
+   * @group param
+   */
+
+  final val measurementSize: IntParam = new IntParam(
+    this,
+    "measurementSize",
+    "Size of the measurement"
+  )
+
+  /**
+   * Getter for measurement size
+   *
+   * @group getParam
+   */
+  final def getMeasurementSize: Int = $(measurementSize)
+}
 
 /**
  * Param for initial state vector of a filter.
  */
 private[artan] trait HasInitialStateMean extends Params {
 
-  def stateSize: Int
 
   /**
    * Param for initial value of the state vector
@@ -36,10 +149,7 @@ private[artan] trait HasInitialStateMean extends Params {
   final val initialStateMean: Param[Vector] = new Param[Vector](
     this,
     "initialStateMean",
-    "Initial value of the state vector",
-    (in: Vector) => in.size == stateSize)
-
-  setDefault(initialStateMean, new DenseVector(Array.fill(stateSize) {0.0}))
+    "Initial value of the state vector")
 
   /**
    * Getter for the initial value of the state vector
@@ -56,8 +166,6 @@ private[artan] trait HasInitialStateMean extends Params {
  */
 private[artan] trait HasInitialStateCovariance extends Params {
 
-  def stateSize: Int
-
   /**
    * Param for the initial covariance matrix
    *
@@ -66,10 +174,7 @@ private[artan] trait HasInitialStateCovariance extends Params {
   final val initialStateCovariance: Param[Matrix] = new Param[Matrix](
     this,
     "initialStateCovariance",
-    "Initial covariance matrix",
-    (in: Matrix) => (in.numRows == stateSize) & (in.numCols == stateSize))
-
-  setDefault(initialStateCovariance, DenseMatrix.eye(stateSize))
+    "Initial covariance matrix")
 
   /**
    * Getter for the initial covariance matrix param
@@ -86,8 +191,6 @@ private[artan] trait HasInitialStateCovariance extends Params {
  */
 private[artan] trait HasProcessModel extends Params {
 
-  def stateSize: Int
-
   /**
    * Param for the process model matrix, transitions the state to the next state with dot product.
    *
@@ -96,10 +199,7 @@ private[artan] trait HasProcessModel extends Params {
   final val processModel: Param[Matrix] = new Param[Matrix](
     this,
     "processModel",
-    "Process model matrix, transitions the state to the next state with dot produc",
-    (in: Matrix) => (in.numRows == stateSize) & (in.numCols == stateSize))
-
-  setDefault(processModel, DenseMatrix.eye(stateSize))
+    "Process model matrix, transitions the state to the next state with dot product")
 
   /**
    * Getter for the process model matrix param
@@ -148,8 +248,6 @@ private[artan] trait HasFadingFactor extends Params {
  */
 private[artan] trait HasMeasurementModel extends Params {
 
-  def stateSize: Int
-  def measurementSize: Int
 
   /**
    * Param for measurement model matrix. Its dot-product with state should produce the measurement vector.
@@ -159,15 +257,8 @@ private[artan] trait HasMeasurementModel extends Params {
   final val measurementModel: Param[Matrix] = new Param[Matrix](
     this,
     "measurementModel",
-    "Measurement matrix. Its dot-product with state should produce the measurement vector.",
-    (in: Matrix) => (in.numRows == measurementSize) & (in.numCols == stateSize))
+    "Measurement matrix. Its dot-product with state should produce the measurement vector.")
 
-  setDefault(
-    measurementModel,
-    new DenseMatrix(
-      measurementSize,
-      stateSize,
-      1.0 +: Array.fill(stateSize * measurementSize - 1) {0.0}))
 
   /**
    * Getter for measurement model matrix param
@@ -183,8 +274,6 @@ private[artan] trait HasMeasurementModel extends Params {
  */
 private[artan] trait HasProcessNoise extends Params {
 
-  def stateSize: Int
-
   /**
    * Param for process noise covariance matrix, should be a square matrix with dimensions stateSize x stateSize.
    *
@@ -196,8 +285,6 @@ private[artan] trait HasProcessNoise extends Params {
     this,
     "processNoise",
     "Process noise covariance matrix, should be a square matrix with dimensions stateSize x stateSize")
-
-  setDefault(processNoise, DenseMatrix.eye(stateSize))
 
   /**
    * Getter for process noise covariance matrix param
@@ -213,8 +300,6 @@ private[artan] trait HasProcessNoise extends Params {
  */
 private[artan] trait HasMeasurementNoise extends Params {
 
-  def measurementSize: Int
-
   /**
    * Param for measurement noise covariance matrix, should be a square matrix with dimensions
    * measurementSize x measurementSize.
@@ -226,7 +311,6 @@ private[artan] trait HasMeasurementNoise extends Params {
     "measurementNoise",
     "Measurement noise matrix")
 
-  setDefault(measurementNoise, DenseMatrix.eye(measurementSize))
 
   /**
    * Getter for measurement noise matrix param.
@@ -248,7 +332,7 @@ private[artan] trait HasProcessFunction extends Params {
    *
    * @group param
    */
-  final val processFunction: Param[(Vector, Matrix) => Vector] = new Param[(Vector, Matrix) => Vector](
+  final val processFunction: VMVFunctionParam = new VMVFunctionParam(
     this,
     "processFunction",
     "Process function for nonlinear state transition. Input args to the function are state vector" +
@@ -275,7 +359,7 @@ private[artan] trait HasProcessStateJacobian extends Params {
    *
    * @group param
    */
-  final val processStateJacobian: Param[(Vector, Matrix) => Matrix] = new Param[(Vector, Matrix) => Matrix](
+  final val processStateJacobian: VMMFunctionParam= new VMMFunctionParam(
     this,
     "processStateJacobian",
     "Process state jacobian function. Input args to the function are state vector" +
@@ -308,7 +392,7 @@ private[artan] trait HasProcessNoiseJacobian extends Params {
    *
    * @group param
    */
-  final val processNoiseJacobian: Param[(Vector, Matrix) => Matrix] = new Param[(Vector, Matrix) => Matrix](
+  final val processNoiseJacobian: VMMFunctionParam = new VMMFunctionParam(
     this,
     "processNoiseJacobian",
     "Process noise jacobian function. Input args to the function are the current state and process noise," +
@@ -337,7 +421,7 @@ private[artan] trait HasMeasurementFunction extends Params {
    * state and measurement model matrix. It should output the measurement corresponding to the state
    * @group param
    */
-  final val measurementFunction: Param[(Vector, Matrix) => Vector] = new Param[(Vector, Matrix) => Vector](
+  final val measurementFunction: VMVFunctionParam = new VMVFunctionParam(
     this,
     "measurementFunction",
     "Measurement function for nonlinear measurement equations. Input args to the function are current" +
@@ -363,7 +447,7 @@ private[artan] trait HasMeasurementStateJacobian extends Params {
    *
    * @group param
    */
-  final val measurementStateJacobian: Param[(Vector, Matrix) => Matrix] = new Param[(Vector, Matrix) => Matrix](
+  final val measurementStateJacobian: VMMFunctionParam = new VMMFunctionParam(
     this,
     "measurementStateJacobian",
     "Measurement state jacobian function. Input args to the function are current state and measurement model" +
@@ -396,7 +480,7 @@ private[artan] trait HasMeasurementNoiseJacobian extends Params {
    *
    * @group param
    */
-  final val measurementNoiseJacobian: Param[(Vector, Matrix) => Matrix] = new Param[(Vector, Matrix) => Matrix](
+  final val measurementNoiseJacobian: VMMFunctionParam = new VMMFunctionParam(
     this,
     "measurementNoiseJacobian",
     "Measurement noise jacobian function. Input args to the function are the current state and" +

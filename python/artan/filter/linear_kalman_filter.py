@@ -14,15 +14,17 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
+from pyspark.ml.util import JavaMLWritable
 
 from artan.state import StatefulTransformer
+from artan.utils import ArtanJavaMLReadable
 from artan.filter.filter_params import (
     KalmanFilterParams, HasMultipleModelAdaptiveEstimationEnabled,
     HasMultipleModelMeasurementWindowDuration)
 
 
 class LinearKalmanFilter(StatefulTransformer, KalmanFilterParams, HasMultipleModelAdaptiveEstimationEnabled,
-                         HasMultipleModelMeasurementWindowDuration):
+                         HasMultipleModelMeasurementWindowDuration, ArtanJavaMLReadable, JavaMLWritable):
     """
     Linear Kalman Filter, implemented with a stateful spark Transformer for running parallel filters /w spark
     dataframes. Transforms an input dataframe of noisy measurements to dataframe of state estimates using stateful
@@ -54,10 +56,9 @@ class LinearKalmanFilter(StatefulTransformer, KalmanFilterParams, HasMultipleMod
     be specified with a dataframe column which will allow you to have different value across measurements/filters,
     or you can specify a constant value across all measurements/filters.
     """
-    def __init__(self, stateSize, measurementSize):
+    def __init__(self):
         super(LinearKalmanFilter, self).__init__()
-        self._java_obj = self._new_java_obj("com.github.ozancicek.artan.ml.filter.LinearKalmanFilter",
-                                            stateSize, measurementSize, self.uid)
+        self._java_obj = self._new_java_obj("com.github.ozancicek.artan.ml.filter.LinearKalmanFilter", self.uid)
 
 
     def setMultipleModelMeasurementWindowDuration(self, value):
@@ -77,3 +78,15 @@ class LinearKalmanFilter(StatefulTransformer, KalmanFilterParams, HasMultipleMod
         :return: LinearKalmanFilter
         """
         return self._set(multipleModelAdaptiveEstimationEnabled=True)
+
+    @staticmethod
+    def _from_java(java_stage):
+        """
+        Given a Java object, create and return a Python wrapper of it.
+        Used for ML persistence.
+        """
+        py_stage = LinearKalmanFilter()
+        py_stage._java_obj = java_stage
+        py_stage._resetUid(java_stage.uid())
+        py_stage._transfer_params_from_java()
+        return py_stage

@@ -24,6 +24,7 @@ import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.types._
+import org.apache.spark.ml.util.{DefaultParamsWritable, DefaultParamsReadable}
 
 
 /**
@@ -32,9 +33,8 @@ import org.apache.spark.sql.types._
  * Outputs an estimate for each input sample in a single pass, by replacing the E-step in EM with a stochastic
  * E-step.
  *
- * @param mixtureCount number of mixture components
  */
-class PoissonMixture(val mixtureCount: Int, override val uid: String)
+class PoissonMixture(override val uid: String)
   extends FiniteMixture[
     Long,
     PoissonDistribution,
@@ -43,9 +43,9 @@ class PoissonMixture(val mixtureCount: Int, override val uid: String)
     PoissonMixtureState,
     PoissonMixtureOutput,
     PoissonMixture]
-    with HasInitialRates with HasInitialRatesCol {
+    with HasInitialRates with HasInitialRatesCol with DefaultParamsWritable {
 
-  def this(mixtureCount: Int) = this(mixtureCount, Identifiable.randomUID("PoissonMixture"))
+  def this() = this(Identifiable.randomUID("PoissonMixture"))
 
   protected val defaultStateKey: String = "em.PoissonMixture.defaultStateKey"
 
@@ -53,7 +53,7 @@ class PoissonMixture(val mixtureCount: Int, override val uid: String)
    * Creates a copy of this instance with the same UID and some extra params.
    */
   override def copy(extra: ParamMap): PoissonMixture =  {
-    val that = new PoissonMixture(mixtureCount)
+    val that = new PoissonMixture()
     copyValues(that, extra)
   }
 
@@ -102,7 +102,6 @@ class PoissonMixture(val mixtureCount: Int, override val uid: String)
 
 private[mixture] trait HasInitialRates extends Params {
 
-  def mixtureCount: Int
 
   /**
    * Initial poisson rates of the mixtures.
@@ -113,7 +112,6 @@ private[mixture] trait HasInitialRates extends Params {
     this,
     "initialRates",
     "Initial poisson rates of the mixtures. The length of the array should be equal to [[mixtureCount]]")
-  setDefault(initialRates, Array.tabulate(mixtureCount)(_ + 1.0))
 
   /**
    * Getter for initial poisson rates parameter
@@ -143,4 +141,12 @@ private[mixture] trait HasInitialRatesCol extends Params {
    * @group getParam
    */
   final def getInitialRatesCol: String = $(initialRatesCol)
+}
+
+/**
+ * Companion object of PoissonMixture for read/write
+ */
+object PoissonMixture extends DefaultParamsReadable[PoissonMixture] {
+
+  override def load(path: String): PoissonMixture = super.load(path)
 }

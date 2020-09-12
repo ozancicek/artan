@@ -23,13 +23,14 @@ import org.apache.spark.ml.linalg._
 import org.apache.spark.ml.LAPACK
 import org.apache.spark.sql.Dataset
 import org.scalatest.{FunSpec, Matchers}
+import com.github.ozancicek.artan.ml.testutils.DefaultReadWriteTest
 
 case class RLSMeasurement(label: Double, features: DenseVector)
 
 class RecursiveLeastSquaresFilterSpec
   extends FunSpec
   with Matchers
-  with StructuredStreamingTestWrapper {
+  with StructuredStreamingTestWrapper with DefaultReadWriteTest {
 
   import spark.implicits._
   implicit val basis: RandBasis = RandBasis.withSeed(0)
@@ -54,7 +55,9 @@ class RecursiveLeastSquaresFilterSpec
       }.toSeq
 
       // set large regularization factor to behave like ols
-      val filter = new RecursiveLeastSquaresFilter(3)
+      val filter = new RecursiveLeastSquaresFilter()
+        .setFeatureSize(3)
+        .setInitialEstimate(new DenseVector(Array(0.0, 0.0, 0.0)))
         .setRegularizationMatrixFactor(10E5)
 
       val query = (in: Dataset[RLSMeasurement]) => filter.transform(in)
@@ -83,6 +86,10 @@ class RecursiveLeastSquaresFilterSpec
 
       it("should have same result for batch & stream mode") {
         testAppendQueryAgainstBatch(measurements, query, "RLSModel")
+      }
+
+      it("should not fail read/write") {
+        testDefaultReadWrite(filter)
       }
     }
   }

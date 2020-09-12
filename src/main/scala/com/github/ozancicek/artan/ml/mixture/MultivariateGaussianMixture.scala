@@ -25,6 +25,7 @@ import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.types._
+import org.apache.spark.ml.util.{DefaultParamsWritable, DefaultParamsReadable}
 
 /**
  * Online multivariate gaussian mixture estimation with a stateful transformer, based on Cappe(2011) Online
@@ -33,10 +34,8 @@ import org.apache.spark.sql.types._
  * Outputs an estimate for each input sample in a single pass, by replacing the E-step in EM with a stochastic
  * E-step.
  *
- * @param mixtureCount number of mixture components
  */
 class MultivariateGaussianMixture(
-    val mixtureCount: Int,
     override val uid: String)
   extends FiniteMixture[
     Vector,
@@ -47,9 +46,9 @@ class MultivariateGaussianMixture(
     GaussianMixtureOutput,
     MultivariateGaussianMixture]
   with HasInitialMeans with HasInitialMeansCol
-  with HasInitialCovariances with HasInitialCovariancesCol {
+  with HasInitialCovariances with HasInitialCovariancesCol with DefaultParamsWritable {
 
-  def this(mixtureCount: Int) = this(mixtureCount, Identifiable.randomUID("MultivariateGaussianMixture"))
+  def this() = this(Identifiable.randomUID("MultivariateGaussianMixture"))
 
   protected val defaultStateKey: String = "em.MultivariateGaussianMixture.defaultStateKey"
 
@@ -57,7 +56,7 @@ class MultivariateGaussianMixture(
    * Creates a copy of this instance with the same UID and some extra params.
    */
   override def copy(extra: ParamMap): MultivariateGaussianMixture =  {
-    val that = new MultivariateGaussianMixture(mixtureCount)
+    val that = new MultivariateGaussianMixture()
     copyValues(that, extra)
   }
 
@@ -153,7 +152,6 @@ class MultivariateGaussianMixture(
 
 private[mixture] trait HasInitialMeans extends Params {
 
-  def mixtureCount: Int
   /**
    * Initial means of the mixtures
    *
@@ -163,8 +161,7 @@ private[mixture] trait HasInitialMeans extends Params {
     this,
     "initialMeans",
     "Initial mean vectors of the mixtures as a nested array of doubles. The dimensions of the array should" +
-      "be mixtureCount x sampleLength.",
-    (in: Array[Array[Double]]) => in.length == mixtureCount)
+      "be mixtureCount x sampleLength.")
 
   /**
    * Getter for initial means
@@ -199,8 +196,6 @@ private[mixture] trait HasInitialMeansCol extends Params {
 
 private[mixture] trait HasInitialCovariances extends Params {
 
-  def mixtureCount: Int
-
   /**
    * Initial covariances nested array, column major and mixtureCount x sampleSize**2
    *
@@ -210,8 +205,7 @@ private[mixture] trait HasInitialCovariances extends Params {
     this,
     "initialCovariances",
     "initial covariance matrices of the mixtures as a nested array of doubles. The dimensions of the nested" +
-      "array should be mixtureCount x sampleSize**2.",
-    (in: Array[Array[Double]]) => in.length == mixtureCount)
+      "array should be mixtureCount x sampleSize**2.")
 
   /**
    * Getter for initial covariances parameter
@@ -241,4 +235,13 @@ private[mixture] trait HasInitialCovariancesCol extends Params {
    * @group getParam
    */
   final def getInitialCovariancesCol: String = $(initialCovariancesCol)
+}
+
+
+/**
+ * Companion object of MultivariateGaussianMixture for read/write
+ */
+object MultivariateGaussianMixture extends DefaultParamsReadable[MultivariateGaussianMixture] {
+
+  override def load(path: String): MultivariateGaussianMixture = super.load(path)
 }

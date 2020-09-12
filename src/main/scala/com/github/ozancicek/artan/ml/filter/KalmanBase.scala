@@ -17,7 +17,7 @@
 
 package com.github.ozancicek.artan.ml.filter
 
-import com.github.ozancicek.artan.ml.linalg.{LinalgOptions, LinalgUtils}
+import com.github.ozancicek.artan.ml.linalg.LinalgUtils
 import com.github.ozancicek.artan.ml.state.{KalmanInput, KalmanOutput, KalmanState, StateUpdateSpec, StatefulTransformer}
 import com.github.ozancicek.artan.ml.stats.{MultivariateGaussian, MultivariateGaussianDistribution}
 import org.apache.spark.ml.linalg.SQLDataTypes
@@ -41,7 +41,7 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
   with HasProcessNoise with HasMeasurementNoise
   with HasInitialStateMean with HasInitialStateCovariance with HasFadingFactor
   with HasInitialStateMeanCol with HasInitialStateCovarianceCol with HasInitialStateDistributionCol
-  with HasOutputSystemMatrices with HasMultiStepPredict {
+  with HasOutputSystemMatrices with HasMultiStepPredict with HasStateSize with HasMeasurementSize {
 
   /**
    * Set the initial state vector with size (stateSize).
@@ -217,7 +217,21 @@ private[artan] trait KalmanUpdateParams[ImplType] extends HasMeasurementCol
    * Default is 0
    * @group setParam
    */
-  def setMultiStepPredict(value: Int):ImplType = set(multiStepPredict, value).asInstanceOf[ImplType]
+  def setMultiStepPredict(value: Int): ImplType = set(multiStepPredict, value).asInstanceOf[ImplType]
+
+  /**
+   * Set state size, required a priori for MMAE.
+   *
+   * @group setParam
+   */
+  def setStateSize(value: Int): ImplType = set(stateSize, value).asInstanceOf[ImplType]
+
+  /**
+   * Set measurement size, required a priori for MMAE.
+   *
+   * @group setParam
+   */
+  def setMeasurementSize(value: Int): ImplType = set(measurementSize, value).asInstanceOf[ImplType]
 
   protected def getMeasurementExpr: Column = col($(measurementCol)).cast(SQLDataTypes.VectorType)
 
@@ -281,9 +295,6 @@ private[filter] abstract class KalmanTransformer[
 
   protected implicit val stateKeyEncoder = Encoders.STRING
 
-  def stateSize: Int
-
-  def measurementSize: Int
   /**
    * Optionally calculate loglikelihood of each measurement & add it to output dataframe. Loglikelihood is calculated
    * from residual vector & residual covariance matrix.
@@ -468,8 +479,8 @@ private[filter] abstract class KalmanTransformer[
       require(getCalculateSlidingLikelihood)
 
       val normExpr = lit(1.0)/sum("slidingLikelihood")
-      val aggVecFunc = LinalgUtils.axpyVectorAggregate(stateSize)
-      val aggMatFunc = LinalgUtils.axpyMatrixAggregate(stateSize, stateSize)
+      val aggVecFunc = LinalgUtils.axpyVectorAggregate(getStateSize)
+      val aggMatFunc = LinalgUtils.axpyMatrixAggregate(getStateSize, getStateSize)
 
       val aggStateExpr = scalVector(normExpr, aggVecFunc(col("slidingLikelihood"), col("state.mean")))
       val aggCovExpr = scalMatrix(normExpr, aggMatFunc(col("slidingLikelihood"), col("state.covariance")))

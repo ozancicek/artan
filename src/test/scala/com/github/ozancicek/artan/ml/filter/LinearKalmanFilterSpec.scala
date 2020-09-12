@@ -23,8 +23,7 @@ import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.functions._
 import org.scalatest.{FunSpec, Matchers}
 import java.sql.Timestamp
-
-import com.github.ozancicek.artan.ml.testutils.RegressionTestWrapper
+import com.github.ozancicek.artan.ml.testutils.{RegressionTestWrapper, DefaultReadWriteTest}
 
 import scala.util.Random
 
@@ -40,7 +39,7 @@ case class DynamicLinearModel(measurement: DenseVector, processModel: DenseMatri
 class LinearKalmanFilterSpec
   extends FunSpec
   with Matchers
-  with RegressionTestWrapper {
+  with RegressionTestWrapper with DefaultReadWriteTest {
 
   import spark.implicits._
   Random.setSeed(0)
@@ -60,8 +59,10 @@ class LinearKalmanFilterSpec
         LocalLinearMeasurement(new DenseVector(Array(z)), newTs)
       }
       val predictSteps = 10
-      val filter = new LinearKalmanFilter(2, 1)
+      val filter = new LinearKalmanFilter()
         .setMeasurementCol("measurement")
+        .setInitialStateMean(
+          new DenseVector(Array(0.0, 0.0)))
         .setInitialStateCovariance(
           new DenseMatrix(2, 2, Array(1000, 0, 0, 1000)))
         .setProcessModel(
@@ -81,6 +82,10 @@ class LinearKalmanFilterSpec
 
       it("should have same result for batch & stream mode") {
         testAppendQueryAgainstBatch(measurements, query, "localLinearTrend")
+      }
+
+      it("should not fail read/write") {
+        testDefaultReadWrite(filter)
       }
 
       it("should sort by event time") {
@@ -122,8 +127,12 @@ class LinearKalmanFilterSpec
       val ts = (0 until n).map(_.toDouble).toArray
       val zs = ts.map(t => Measurement(new DenseVector(Array(t + dist.draw())))).toSeq
 
-      val filter = new LinearKalmanFilter(2, 1)
+      val filter = new LinearKalmanFilter()
         .setMeasurementCol("measurement")
+        .setInitialStateMean(
+          new DenseVector(Array(0.0, 0.0)))
+        .setInitialStateCovariance(
+          DenseMatrix.eye(2))
         .setProcessModel(
           new DenseMatrix(2, 2, Array(1, 0, 1, 1)))
         .setProcessNoise(
@@ -165,7 +174,9 @@ class LinearKalmanFilterSpec
 
     describe("Ordinary least squares") {
 
-      val filter = new LinearKalmanFilter(3, 1)
+      val filter = new LinearKalmanFilter()
+        .setInitialStateMean(
+          new DenseVector(Array(0.0, 0.0, 0.0)))
         .setInitialStateCovariance(
           new DenseMatrix(3, 3, Array(10.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 10.0)))
         .setMeasurementCol("measurement")
@@ -189,8 +200,12 @@ class LinearKalmanFilterSpec
       val states = ('a' to 'z').map(_.toString)
       val measurements = states.flatMap(generateMeasurements(m => m, _)._1)
 
-      val filter = new LinearKalmanFilter(3, 1)
+      val filter = new LinearKalmanFilter()
         .setStateKeyCol("stateKey")
+        .setInitialStateMean(
+          new DenseVector(Array(0.0, 0.0, 0.0)))
+        .setStateSize(3)
+        .setMeasurementSize(1)
         .setInitialStateCovariance(
           new DenseMatrix(3, 3, Array(10.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 10.0)))
         .setMeasurementCol("measurement")
@@ -243,7 +258,8 @@ class LinearKalmanFilterSpec
         DynamicLinearModel(measurement, processModel)
       }
 
-      val filter = new LinearKalmanFilter(2, 1)
+      val filter = new LinearKalmanFilter()
+        .setInitialStateMean(new DenseVector(Array(0.0, 0.0)))
         .setInitialStateCovariance(
           new DenseMatrix(2, 2, Array(10.0, 0.0, 0.0, 10.0)))
         .setMeasurementCol("measurement")

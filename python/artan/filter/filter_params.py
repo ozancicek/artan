@@ -18,6 +18,50 @@
 from pyspark.ml.param import Params, Param, TypeConverters
 
 
+class HasStateSize(Params):
+    """
+    Mixin for state vector size
+    """
+
+    stateSize = Param(
+        Params._dummy(),
+        "stateSize",
+        "Size of the state vector",
+        typeConverter=TypeConverters.toInt
+    )
+
+    def __init__(self):
+        super(HasStateSize, self).__init__()
+
+    def getStateSize(self):
+        """
+        Gets the measurement vector size
+        """
+        return self.getOrDefault(self.stateSize)
+
+
+class HasMeasurementSize(Params):
+    """
+    Mixin for measurement vector size
+    """
+
+    measurementSize = Param(
+        Params._dummy(),
+        "measurementSize",
+        "Size of the measurement vector",
+        typeConverter=TypeConverters.toInt
+    )
+
+    def __init__(self):
+        super(HasMeasurementSize, self).__init__()
+
+    def getMeasurementSize(self):
+        """
+        Gets the measurement vector size
+        """
+        return self.getOrDefault(self.measurementSize)
+
+
 class HasInitialStateMean(Params):
     """
     Mixin for initial state vector.
@@ -548,10 +592,30 @@ class KalmanFilterParams(HasInitialStateMean, HasInitialStateCovariance, HasInit
                          HasProcessNoiseCol, HasControlCol, HasControlFunctionCol,
                          HasCalculateMahalanobis, HasCalculateLoglikelihood,
                          HasOutputSystemMatrices, HasCalculateSlidingLikelihood,
-                         HasSlidingLikelihoodWindow, HasMultiStepPredict):
+                         HasSlidingLikelihoodWindow, HasMultiStepPredict,
+                         HasStateSize, HasMeasurementSize):
     """
     Mixin for kalman filter parameters
     """
+
+    def setStateSize(self, value):
+        """
+        Sets the state size vector. Only required a-priori for MMAE mode.
+
+        :param value: Integer
+        :return:  KalmanFilter
+        """
+        return self._set(stateSize=value)
+
+    def setMeasurementSize(self, value):
+        """
+        Sets the measurement size vector. Only required apriori for MMAE mode.
+
+        :param value: Integer
+        :return:  KalmanFilter
+        """
+        return self._set(measurementSize=value)
+
     def setInitialStateMean(self, value):
         """
         Set the initial state vector with size (stateSize).

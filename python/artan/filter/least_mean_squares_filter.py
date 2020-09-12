@@ -18,6 +18,8 @@
 from pyspark.ml.param import Params, Param, TypeConverters
 from pyspark.ml.common import inherit_doc
 from pyspark.ml.param.shared import HasLabelCol, HasFeaturesCol
+from pyspark.ml.util import JavaMLWritable
+from artan.utils import ArtanJavaMLReadable
 from artan.state import StatefulTransformer
 from artan.filter.filter_params import HasInitialStateMean, HasInitialStateMeanCol
 
@@ -67,7 +69,7 @@ class _HasRegularizationConstant(Params):
 @inherit_doc
 class LeastMeanSquaresFilter(StatefulTransformer, HasInitialStateMean, HasInitialStateMeanCol,
                              _HasLearningRate, _HasRegularizationConstant,
-                             HasLabelCol, HasFeaturesCol):
+                             HasLabelCol, HasFeaturesCol, ArtanJavaMLReadable, JavaMLWritable):
     """
     Normalized Least Mean Squares filter, implemented with a stateful spark Transformer for running parallel
     filters /w spark dataframes. Transforms an input dataframe of observations to a dataframe of model parameters
@@ -91,11 +93,10 @@ class LeastMeanSquaresFilter(StatefulTransformer, HasInitialStateMean, HasInitia
     - :math:`m`: Learning rate
     - :math:`c`: Regularization constant
     """
-    def __init__(self, featuresSize):
+    def __init__(self):
         super(LeastMeanSquaresFilter, self).__init__()
         self._java_obj = self._new_java_obj("com.github.ozancicek.artan.ml.filter.LeastMeanSquaresFilter",
-                                            featuresSize, self.uid)
-        self._featuresSize = featuresSize
+                                            self.uid)
 
     def setLabelCol(self, value):
         """
@@ -158,3 +159,15 @@ class LeastMeanSquaresFilter(StatefulTransformer, HasInitialStateMean, HasInitia
         :return: RecursiveLeastSquaresFilter
         """
         return self._set(regularizationConstant=value)
+
+    @staticmethod
+    def _from_java(java_stage):
+        """
+        Given a Java object, create and return a Python wrapper of it.
+        Used for ML persistence.
+        """
+        py_stage = LeastMeanSquaresFilter()
+        py_stage._java_obj = java_stage
+        py_stage._resetUid(java_stage.uid())
+        py_stage._transfer_params_from_java()
+        return py_stage

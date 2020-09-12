@@ -24,6 +24,7 @@ import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.types._
+import org.apache.spark.ml.util.{DefaultParamsWritable, DefaultParamsReadable}
 
 
 /**
@@ -33,10 +34,8 @@ import org.apache.spark.sql.types._
  * Outputs an estimate for each input sample in a single pass, by replacing the E-step in EM with a stochastic
  * E-step.
  *
- * @param mixtureCount number of mixture components
  */
 class BernoulliMixture(
-    val mixtureCount: Int,
     override val uid: String)
   extends FiniteMixture[
     Boolean,
@@ -46,9 +45,9 @@ class BernoulliMixture(
     BernoulliMixtureState,
     BernoulliMixtureOutput,
     BernoulliMixture]
-  with HasInitialProbabilities with HasInitialProbabilitiesCol {
+  with HasInitialProbabilities with HasInitialProbabilitiesCol with DefaultParamsWritable {
 
-  def this(mixtureCount: Int) = this(mixtureCount, Identifiable.randomUID("BernoulliMixture"))
+  def this() = this(Identifiable.randomUID("BernoulliMixture"))
 
   protected val defaultStateKey: String = "em.BernoulliMixture.defaultStateKey"
 
@@ -56,7 +55,7 @@ class BernoulliMixture(
    * Creates a copy of this instance with the same UID and some extra params.
    */
   override def copy(extra: ParamMap): BernoulliMixture =  {
-    val that = new BernoulliMixture(mixtureCount)
+    val that = new BernoulliMixture()
     copyValues(that, extra)
   }
 
@@ -110,15 +109,6 @@ class BernoulliMixture(
 
 private[mixture] trait HasInitialProbabilities extends Params {
 
-  def mixtureCount: Int
-
-  private def getDefault = {
-    val start = 1.0/(mixtureCount + 2)
-    val interval = 1.0/(mixtureCount + 1)
-
-    (start until (1.0 - interval) by interval).toArray
-  }
-
   /**
    * Initial probabilities of the mixtures.
    *
@@ -128,10 +118,8 @@ private[mixture] trait HasInitialProbabilities extends Params {
     this,
     "initialProbabilities",
     "Initial bernoulli probabilities of the mixtures. The length of the array should be equal to mixture" +
-      "count, each element in the array should be between 0 and 1. Default is equally spaced probabilities between" +
-      "0 and 1")
+      "count, each element in the array should be between 0 and 1.")
 
-  setDefault(initialProbabilities, getDefault)
 
   /**
    * Getter for initial probabilities column
@@ -161,4 +149,13 @@ private[mixture] trait HasInitialProbabilitiesCol extends Params {
    * @group getParam
    */
   final def getInitialProbabilitiesCol: String = $(initialProbabilitiesCol)
+}
+
+
+/**
+ * Companion object of BernoulliMixture for read/write
+ */
+object BernoulliMixture extends DefaultParamsReadable[BernoulliMixture] {
+
+  override def load(path: String): BernoulliMixture = super.load(path)
 }

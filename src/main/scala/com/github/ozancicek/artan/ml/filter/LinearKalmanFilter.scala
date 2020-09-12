@@ -24,6 +24,7 @@ import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector}
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.BLAS
+import org.apache.spark.ml.util.{DefaultParamsWritable, DefaultParamsReadable}
 
 
 /**
@@ -55,20 +56,13 @@ import org.apache.spark.ml.BLAS
  * be specified with a dataframe column which will allow you to have different value across measurements/filters,
  * or you can specify a constant value across all measurements/filters.
  *
- * @param stateSize size of the state vector
- * @param measurementSize size of the measurement vector
  */
 class LinearKalmanFilter(
-    val stateSize: Int,
-    val measurementSize: Int,
     override val uid: String)
-  extends KalmanTransformer[LinearKalmanStateCompute, LinearKalmanStateSpec, LinearKalmanFilter] {
+  extends KalmanTransformer[LinearKalmanStateCompute, LinearKalmanStateSpec, LinearKalmanFilter]
+    with DefaultParamsWritable {
 
-  def this(
-    stateSize: Int,
-    measurementSize: Int) = {
-    this(stateSize, measurementSize, Identifiable.randomUID("linearKalmanFilter"))
-  }
+  def this() = this(Identifiable.randomUID("linearKalmanFilter"))
 
   protected val defaultStateKey: String = "filter.linearKalmanFilter.defaultStateKey"
 
@@ -76,7 +70,7 @@ class LinearKalmanFilter(
    * Creates a copy of this instance with the same UID and some extra params.
    */
   override def copy(extra: ParamMap): LinearKalmanFilter =  {
-    val that = new LinearKalmanFilter(stateSize, measurementSize)
+    val that = new LinearKalmanFilter()
     copyValues(that, extra)
   }
 
@@ -263,4 +257,12 @@ private[filter] class LinearKalmanStateCompute(
       state.processNoise,
       slidingll)
   }
+}
+
+/**
+ * Companion object of LinearKalmanFilter for read/write
+ */
+object LinearKalmanFilter extends DefaultParamsReadable[LinearKalmanFilter] {
+
+  override def load(path: String): LinearKalmanFilter = super.load(path)
 }

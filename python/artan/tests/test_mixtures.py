@@ -24,6 +24,8 @@ from artan.mixture import (
 from pyspark.ml.linalg import Vectors
 import pyspark.sql.functions as F
 import numpy as np
+import os
+import tempfile
 
 
 def _mae(left, right):
@@ -59,7 +61,8 @@ class MultivariateGaussianMixtureTests(ReusedSparkTestCase):
         samples_df = self.spark.createDataFrame(samples, ["sample"])
 
         eye = [1.0, 0.0, 0.0, 1.0]
-        gmm = MultivariateGaussianMixture(3) \
+        gmm = MultivariateGaussianMixture() \
+            .setInitialWeights([0.33, 0.33, 0.33])\
             .setInitialMeans([[9.0, 9.0], [1.0, 1.0], [5.0, 5.0]]) \
             .setInitialCovariances([eye, eye, eye]) \
             .setStepSize(0.01) \
@@ -88,7 +91,8 @@ class MultivariateGaussianMixtureTests(ReusedSparkTestCase):
         samples_df = self.spark.createDataFrame(samples, ["sample"])
 
         eye = [1.0, 0.0, 0.0, 1.0]
-        gmm = MultivariateGaussianMixture(3)\
+        gmm = MultivariateGaussianMixture() \
+            .setInitialWeights([0.33, 0.33, 0.33]) \
             .setInitialMeans([[9.0, 9.0], [1.0, 1.0], [5.0, 5.0]])\
             .setInitialCovariances([eye, eye, eye])\
             .setStepSize(0.7)\
@@ -136,7 +140,8 @@ class PoissonMixtureTests(ReusedSparkTestCase):
 
         samples_df = self.spark.createDataFrame(samples, ["sample"])
 
-        pmm = PoissonMixture(3) \
+        pmm = PoissonMixture() \
+            .setInitialWeights([0.33, 0.33, 0.33]) \
             .setInitialRates([1.0, 7.0, 10.0]) \
             .setMinibatchSize(mb_size)\
             .setDecayRate(0.85)
@@ -159,7 +164,8 @@ class PoissonMixtureTests(ReusedSparkTestCase):
 
         samples_df = self.spark.createDataFrame(samples, ["sample"])
 
-        pmm = PoissonMixture(3) \
+        pmm = PoissonMixture() \
+            .setInitialWeights([0.33, 0.33, 0.33]) \
             .setInitialRates([1.0, 7.0, 10.0]) \
             .setEnableBatchTrain()\
             .setBatchTrainMaxIter(5)\
@@ -175,6 +181,19 @@ class PoissonMixtureTests(ReusedSparkTestCase):
         for i, dist in enumerate(mixture_model.distributions):
             mae_rate = _mae(dist.rate, self.rates[i])
             assert(mae_rate < 2)
+
+    def test_persistance(self):
+        pmm = PoissonMixture() \
+            .setInitialWeights([0.33, 0.33, 0.33]) \
+            .setInitialRates([1.0, 7.0, 10.0])
+
+        path = tempfile.mkdtemp()
+        model_path = os.path.join(path, "pmm")
+        pmm.save(model_path)
+
+        loaded = PoissonMixture.load(model_path)
+        assert(loaded.getInitialWeights() == pmm.getInitialWeights())
+        assert(loaded.getInitialRates() == pmm.getInitialRates())
 
 
 class BernoulliMixtureTests(ReusedSparkTestCase):
@@ -205,7 +224,8 @@ class BernoulliMixtureTests(ReusedSparkTestCase):
         samples_df = self.spark.createDataFrame(samples, ["sample"])\
             .withColumn("sample", F.col("sample").cast("Boolean"))
 
-        bmm = BernoulliMixture(2) \
+        bmm = BernoulliMixture() \
+            .setInitialWeights([0.5, 0.5])\
             .setInitialProbabilities([0.4, 0.8]) \
             .setStepSize(0.1) \
             .setMinibatchSize(mb_size)
@@ -220,3 +240,16 @@ class BernoulliMixtureTests(ReusedSparkTestCase):
         for i, dist in enumerate(mixture_model.distributions):
             mae_mean = _mae(dist.probability, self.probabilities[i])
             assert(mae_mean < 0.2)
+
+    def test_persistance(self):
+        bmm = BernoulliMixture() \
+            .setInitialWeights([0.5, 0.5]) \
+            .setInitialProbabilities([0.4, 0.8])
+
+        path = tempfile.mkdtemp()
+        model_path = os.path.join(path, "bmm")
+        bmm.save(model_path)
+
+        loaded = BernoulliMixture.load(model_path)
+        assert(loaded.getInitialWeights() == bmm.getInitialWeights())
+        assert(loaded.getInitialProbabilities() == bmm.getInitialProbabilities())

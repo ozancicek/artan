@@ -17,7 +17,9 @@
 
 from artan.state import StatefulTransformer
 from artan.mixture.mixture_params import MixtureParams
+from artan.utils import ArtanJavaMLReadable
 from pyspark.ml.param import Params, Param, TypeConverters
+from pyspark.ml.util import JavaMLWritable
 
 
 class _HasInitialMeans(Params):
@@ -98,7 +100,8 @@ class _HasInitialCovariancesCol(Params):
 
 
 class MultivariateGaussianMixture(StatefulTransformer, MixtureParams, _HasInitialMeans, _HasInitialMeansCol,
-                                  _HasInitialCovariances, _HasInitialCovariancesCol):
+                                  _HasInitialCovariances, _HasInitialCovariancesCol,
+                                  ArtanJavaMLReadable, JavaMLWritable):
     """
     Online gaussian mixture estimator with a stateful transformer, based on Cappe (2011) Online
     Expectation-Maximisation paper.
@@ -107,10 +110,10 @@ class MultivariateGaussianMixture(StatefulTransformer, MixtureParams, _HasInitia
     averaged stochastic E-step.
     """
 
-    def __init__(self, mixtureCount):
+    def __init__(self):
         super(MultivariateGaussianMixture, self).__init__()
         self._java_obj = self._new_java_obj(
-            "com.github.ozancicek.artan.ml.mixture.MultivariateGaussianMixture", mixtureCount, self.uid)
+            "com.github.ozancicek.artan.ml.mixture.MultivariateGaussianMixture", self.uid)
 
     def setInitialMeans(self, value):
         """
@@ -150,3 +153,15 @@ class MultivariateGaussianMixture(StatefulTransformer, MixtureParams, _HasInitia
         :return: MultivariateGaussianMixture
         """
         return self._set(initialCovariancesCol=value)
+
+    @staticmethod
+    def _from_java(java_stage):
+        """
+        Given a Java object, create and return a Python wrapper of it.
+        Used for ML persistence.
+        """
+        py_stage = MultivariateGaussianMixture()
+        py_stage._java_obj = java_stage
+        py_stage._resetUid(java_stage.uid())
+        py_stage._transfer_params_from_java()
+        return py_stage

@@ -28,6 +28,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.Encoders
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
+import org.apache.spark.ml.util.{DefaultParamsWritable, DefaultParamsReadable}
 
 
 /**
@@ -48,23 +49,16 @@ import org.apache.spark.sql.types._
  *  m: Learning rate
  *  c: Regularization constant
  *
- * @param featuresSize Size of the features vector
  */
 class LeastMeanSquaresFilter(
-    val featuresSize: Int,
     override val uid: String)
   extends StatefulTransformer[String, LMSInput, LMSState, LMSOutput, LeastMeanSquaresFilter]
   with HasLabelCol with HasFeaturesCol with HasInitialStateMean with HasLearningRate with HasRegularizationConstant
-  with HasInitialStateMeanCol {
+  with HasInitialStateMeanCol with DefaultParamsWritable {
 
   protected implicit val stateKeyEncoder = Encoders.STRING
 
-  /**
-   * Define state size equal to features vector size
-   */
-  def stateSize: Int = featuresSize
-
-  def this(stateSize: Int) = this(stateSize, Identifiable.randomUID("leastMeanSquaresFilter"))
+  def this() = this(Identifiable.randomUID("leastMeanSquaresFilter"))
 
   protected val defaultStateKey: String = "filter.leastMeanSquaresFilter.defaultStateKey"
 
@@ -72,7 +66,7 @@ class LeastMeanSquaresFilter(
    * Creates a copy of this instance with the same UID and some extra params.
    */
   override def copy(extra: ParamMap): LeastMeanSquaresFilter =  {
-    val that = new LeastMeanSquaresFilter(featuresSize)
+    val that = new LeastMeanSquaresFilter()
     copyValues(that, extra)
   }
 
@@ -219,4 +213,12 @@ private[filter] trait HasRegularizationConstant extends Params {
   setDefault(regularizationConstant, 1.0)
 
   final def getRegularizationConstant: Double = $(regularizationConstant)
+}
+
+/**
+ * Companion object of LMSFilter for read/write
+ */
+object LeastMeanSquaresFilter extends DefaultParamsReadable[LeastMeanSquaresFilter] {
+
+  override def load(path: String): LeastMeanSquaresFilter = super.load(path)
 }

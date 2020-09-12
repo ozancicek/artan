@@ -19,6 +19,8 @@ from artan.testing.sql_utils import ReusedSparkTestCase
 from artan.filter import RecursiveLeastSquaresFilter, LinearKalmanFilter, LeastMeanSquaresFilter
 from pyspark.ml.linalg import Vectors, Matrices
 import numpy as np
+import os
+import tempfile
 
 
 class RLSTests(ReusedSparkTestCase):
@@ -32,7 +34,10 @@ class RLSTests(ReusedSparkTestCase):
              (1.0, Vectors.dense(2.0, 1.0)),
              (0.0, Vectors.dense(3.0, 3.0)), ], ["label", "features"])
 
-        rls = RecursiveLeastSquaresFilter(2)
+        rls = RecursiveLeastSquaresFilter()\
+            .setInitialEstimate(Vectors.dense(0.0, 0.0)) \
+            .setFeatureSize(2) \
+            .setRegularizationMatrixFactor(10E6)
 
         model = rls.transform(df).filter("stateIndex=4").collect()
         state = model[0].state.mean.values
@@ -57,7 +62,8 @@ class RLSTests(ReusedSparkTestCase):
             [(float(y[i]), Vectors.dense(features[i])) for i in range(n)], ["label", "features"])
 
         # set high regularization matrix factor to get close to OLS solution
-        rls = RecursiveLeastSquaresFilter(2)\
+        rls = RecursiveLeastSquaresFilter()\
+            .setFeatureSize(2)\
             .setInitialEstimate(Vectors.dense([1.0, 1.0]))\
             .setRegularizationMatrixFactor(10E6)
 
@@ -67,6 +73,19 @@ class RLSTests(ReusedSparkTestCase):
         # Check equivalence with least squares solution with numpy
         expected, _, _, _ = np.linalg.lstsq(features, y, rcond=None)
         np.testing.assert_array_almost_equal(state, expected)
+
+    def test_persistance(self):
+        filter = RecursiveLeastSquaresFilter() \
+            .setFeatureSize(3)\
+            .setInitialEstimate(Vectors.dense([10.0, 0.0, 0.0]))
+
+        path = tempfile.mkdtemp()
+        model_path = os.path.join(path, "rls")
+        filter.save(model_path)
+
+        loaded = RecursiveLeastSquaresFilter.load(model_path)
+        assert(loaded.getStateSize() == filter.getStateSize())
+        assert(loaded.getInitialStateMean() == filter.getInitialStateMean())
 
 
 class LMSTests(ReusedSparkTestCase):
@@ -85,7 +104,7 @@ class LMSTests(ReusedSparkTestCase):
         df = self.spark.createDataFrame(
             [(float(y[i]), Vectors.dense(features[i])) for i in range(n)], ["l", "f"])
 
-        lms = LeastMeanSquaresFilter(1)\
+        lms = LeastMeanSquaresFilter()\
             .setInitialEstimate(Vectors.dense([10.0]))\
             .setRegularizationConstant(1.0)\
             .setLearningRate(1.0)\
@@ -97,10 +116,38 @@ class LMSTests(ReusedSparkTestCase):
 
         np.testing.assert_array_almost_equal(state, np.array([0.2]), 2)
 
+    def test_persistance(self):
+        filter = LeastMeanSquaresFilter() \
+            .setFeaturesCol("some") \
+            .setInitialEstimate(Vectors.dense([10.0])) \
+
+        path = tempfile.mkdtemp()
+        model_path = os.path.join(path, "lms")
+        filter.save(model_path)
+
+        loaded = LeastMeanSquaresFilter.load(model_path)
+        assert(loaded.getFeaturesCol() == filter.getFeaturesCol())
+        assert(loaded.getInitialStateMean() == filter.getInitialStateMean())
+
 
 class LinearKalmanFilterTests(ReusedSparkTestCase):
 
     np.random.seed(0)
+
+    def test_persistance(self):
+        filter = LinearKalmanFilter() \
+            .setStateSize(2) \
+            .setInitialStateMean(Vectors.dense([0.0, 0.0])) \
+            .setInitialStateCovariance(Matrices.dense(2, 2, [1.0, 0.0, 0.0, 0.0]))\
+
+        path = tempfile.mkdtemp()
+        model_path = os.path.join(path, "lkf")
+        filter.save(model_path)
+
+        loaded = LinearKalmanFilter.load(model_path)
+        assert(loaded.getInitialStateMean() == filter.getInitialStateMean())
+        assert(loaded.getInitialStateCovariance() == filter.getInitialStateCovariance())
+        assert(loaded.getStateSize() == filter.getStateSize())
 
     def test_ols_equivalence(self):
         # Simple ols problem
@@ -117,7 +164,8 @@ class LinearKalmanFilterTests(ReusedSparkTestCase):
         df = self.spark.createDataFrame(
             [(Vectors.dense(y[i]), Matrices.dense(1, 2, features[i])) for i in range(n)],
             ["measurement", "measurementModel"])
-        lkf = LinearKalmanFilter(2, 1)\
+        lkf = LinearKalmanFilter()\
+            .setInitialStateMean(Vectors.dense(0.0, 0.0))\
             .setMeasurementModelCol("measurementModel")\
             .setMeasurementCol("measurement")\
             .setInitialStateCovariance(Matrices.dense(2, 2, (np.eye(2)*10).reshape(4, 1)))\
@@ -146,7 +194,9 @@ class LinearKalmanFilterTests(ReusedSparkTestCase):
             [(state_keys[i], Vectors.dense(y[i]), Matrices.dense(1, 2, features[i])) for i in range(n*2)],
             ["state_key","measurement", "measurementModel"])
 
-        mmaeFilter = LinearKalmanFilter(2, 1)\
+        mmaeFilter = LinearKalmanFilter() \
+            .setStateSize(2) \
+            .setInitialStateMean(Vectors.dense(0.0, 0.0)) \
             .setStateKeyCol("state_key")\
             .setMeasurementModelCol("measurementModel")\
             .setMeasurementCol("measurement")\

@@ -19,7 +19,7 @@ package com.github.ozancicek.artan.ml.mixture
 
 import breeze.stats.distributions.RandBasis
 import com.github.ozancicek.artan.ml.stats.PoissonMixtureDistribution
-import com.github.ozancicek.artan.ml.testutils.StructuredStreamingTestWrapper
+import com.github.ozancicek.artan.ml.testutils.{StructuredStreamingTestWrapper, DefaultReadWriteTest}
 import org.apache.spark.sql.functions.max
 import org.scalatest.{FunSpec, Matchers}
 
@@ -30,7 +30,8 @@ case class PoissonSeq(sample: Long)
 class PoissonMixtureSpec
   extends FunSpec
     with Matchers
-    with StructuredStreamingTestWrapper {
+    with StructuredStreamingTestWrapper
+    with DefaultReadWriteTest {
 
   import spark.implicits._
   implicit val basis: RandBasis = RandBasis.withSeed(0)
@@ -52,7 +53,9 @@ class PoissonMixtureSpec
 
       val counts = generatePoissonSequence(inputRates, size).map(PoissonSeq(_))
 
-      val em = new PoissonMixture(3)
+      val em = new PoissonMixture()
+        .setInitialWeights(Array(0.33, 0.33, 0.33))
+        .setMixtureCount(3)
         .setInitialRates(Array(1.0, 7.0, 10.0))
         .setStepSize(0.1)
         .setMinibatchSize(5)
@@ -83,6 +86,10 @@ class PoissonMixtureSpec
         val rateThreshold = 1.0
         assert(maeCoeffs < coeffThreshold)
         assert(maeRates < rateThreshold)
+      }
+
+      it("should not fail read/write") {
+        testDefaultReadWrite(em)
       }
     }
   }

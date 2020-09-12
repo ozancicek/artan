@@ -23,13 +23,14 @@ import org.apache.spark.ml.linalg._
 import org.apache.spark.ml.LAPACK
 import org.apache.spark.sql.Dataset
 import org.scalatest.{FunSpec, Matchers}
+import com.github.ozancicek.artan.ml.testutils.DefaultReadWriteTest
 
 case class LMSOLSMeasurement(label: Double, features: DenseVector)
 
 class LeastMeanSquaresFilterSpec
   extends FunSpec
   with Matchers
-  with StructuredStreamingTestWrapper {
+  with StructuredStreamingTestWrapper with DefaultReadWriteTest {
 
   import spark.implicits._
   implicit val basis: RandBasis = RandBasis.withSeed(0)
@@ -51,7 +52,8 @@ class LeastMeanSquaresFilterSpec
       }
       val measurements = zs.map { case (x, y, z) => LMSOLSMeasurement(z, new DenseVector(Array(x, y, 1)))}.toSeq
 
-      val filter = new LeastMeanSquaresFilter(3)
+      val filter = new LeastMeanSquaresFilter()
+        .setInitialEstimate(new DenseVector(Array(0.0, 0.0, 0.0)))
 
       val query = (in: Dataset[LMSOLSMeasurement]) => filter.transform(in)
 
@@ -77,6 +79,10 @@ class LeastMeanSquaresFilterSpec
 
       it("should have same result for batch & stream mode") {
         testAppendQueryAgainstBatch(measurements, query, "LMSOLSModel")
+      }
+
+      it("should not fail read/write") {
+        testDefaultReadWrite(filter)
       }
     }
   }

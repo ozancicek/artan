@@ -29,6 +29,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.Encoders
 import org.apache.spark.sql.functions.{col, struct}
 import org.apache.spark.sql.types._
+import org.apache.spark.ml.util.{DefaultParamsWritable, DefaultParamsReadable}
 
 
 /**
@@ -48,23 +49,17 @@ import org.apache.spark.sql.types._
  *    increases the weight of weighted SSE term.
  *  - d_k, u_k: label and features vector at time step k.
  *
- * @param featuresSize Size of the features vector
  */
 class RecursiveLeastSquaresFilter(
-    val featuresSize: Int,
     override val uid: String)
   extends StatefulTransformer[String, RLSInput, RLSState, RLSOutput, RecursiveLeastSquaresFilter]
   with HasLabelCol with HasFeaturesCol with HasForgettingFactor with HasInitialStateDistributionCol
-  with HasInitialStateMean with HasRegularizationMatrix with HasInitialStateMeanCol with HasRegularizationMatrixCol {
+  with HasInitialStateMean with HasRegularizationMatrix with HasInitialStateMeanCol with HasRegularizationMatrixCol
+  with HasStateSize with DefaultParamsWritable {
 
   protected implicit val stateKeyEncoder = Encoders.STRING
 
-  /**
-   * Define state size equal to features vector size
-   */
-  def stateSize: Int = featuresSize
-
-  def this(featuresSize: Int) = this(featuresSize, Identifiable.randomUID("recursiveLeastSquaresFilter"))
+  def this() = this(Identifiable.randomUID("recursiveLeastSquaresFilter"))
 
   protected val defaultStateKey: String = "filter.recursiveLeastSquaresFilter.defaultStateKey"
 
@@ -72,7 +67,7 @@ class RecursiveLeastSquaresFilter(
    * Creates a copy of this instance with the same UID and some extra params.
    */
   override def copy(extra: ParamMap): RecursiveLeastSquaresFilter =  {
-    val that = new RecursiveLeastSquaresFilter(featuresSize)
+    val that = new RecursiveLeastSquaresFilter()
     copyValues(that, extra)
   }
 
@@ -89,6 +84,13 @@ class RecursiveLeastSquaresFilter(
    */
   def setFeaturesCol(value: String): this.type = set(featuresCol, value)
   setDefault(featuresCol, "features")
+
+  /**
+   * Optionally set size of the features vector, only used for setting parameters accross all models
+   *
+   * @group setParam
+   */
+  def setFeatureSize(value: Int): this.type = set(stateSize, value)
 
   /**
    * Set forgetting factor, which exponentially weights measurements to have more influence from recent measurements.
@@ -115,7 +117,6 @@ class RecursiveLeastSquaresFilter(
    * @group setParam
    */
   def setRegularizationMatrixFactor(value: Double): this.type = set(regularizationMatrix, getFactoredIdentity(value))
-  setDefault(regularizationMatrix, getFactoredIdentity(10E5))
 
   /**
    * Set initial estimate for model parameters for all filters. Use setInitialEstimateCol for different
@@ -143,7 +144,7 @@ class RecursiveLeastSquaresFilter(
   def setInitialStateDistributionCol(value: String): this.type = set(initialStateDistributionCol, value)
 
   private def getFactoredIdentity(value: Double): DenseMatrix = {
-    new DenseMatrix(stateSize, stateSize, DenseMatrix.eye(stateSize).values.map(_ * value))
+    new DenseMatrix(getStateSize, getStateSize, DenseMatrix.eye(getStateSize).values.map(_ * value))
   }
 
   private def validateSchema(schema: StructType): Unit = {
@@ -269,8 +270,6 @@ private[filter] trait HasForgettingFactor extends Params {
 
 private[filter] trait HasRegularizationMatrix extends Params {
 
-  def featuresSize: Int
-
   /**
    * Positive definite regularization matrix for RLS filter, typically a factor multiplied by identity matrix.
    * Small factors (factor>1) give more weight to the initial state, whereas large factors (>>1) decrease
@@ -283,10 +282,7 @@ private[filter] trait HasRegularizationMatrix extends Params {
     "regularizationMatrix",
     "Positive definite regularization matrix for RLS filter, typically a factor multiplied by identity matrix." +
     "Small factors (factor>1) give more weight to the initial state, whereas large factors (>>1) decrease" +
-    "regularization and cause RLS filter to behave like ordinary least squares",
-    (in: Matrix) => (in.numRows == featuresSize) & (in.numCols == featuresSize))
-
-  setDefault(regularizationMatrix, DenseMatrix.eye(featuresSize))
+    "regularization and cause RLS filter to behave like ordinary least squares")
 
   /**
    * Getter for regularization matrix param
@@ -297,8 +293,6 @@ private[filter] trait HasRegularizationMatrix extends Params {
 }
 
 private[filter] trait HasRegularizationMatrixCol extends Params {
-
-  def featuresSize: Int
 
   /**
    * Param for regularization matrix column for specifying different reg matrices across filters.
@@ -316,4 +310,12 @@ private[filter] trait HasRegularizationMatrixCol extends Params {
    */
   final def getRegularizationMatrixCol: String = $(regularizationMatrixCol)
 
+}
+
+/**
+ * Companion object of RLSFilter for read/write
+ */
+object RecursiveLeastSquaresFilter extends DefaultParamsReadable[RecursiveLeastSquaresFilter] {
+
+  override def load(path: String): RecursiveLeastSquaresFilter = super.load(path)
 }

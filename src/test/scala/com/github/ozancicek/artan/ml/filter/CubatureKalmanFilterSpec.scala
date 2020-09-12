@@ -17,7 +17,7 @@
 
 package com.github.ozancicek.artan.ml.filter
 
-import com.github.ozancicek.artan.ml.testutils.RegressionTestWrapper
+import com.github.ozancicek.artan.ml.testutils.{RegressionTestWrapper, DefaultReadWriteTest}
 import org.scalatest.{FunSpec, Matchers}
 import org.apache.spark.ml.linalg._
 
@@ -28,7 +28,8 @@ case class CKFOLSMeasurement(measurement: DenseVector, measurementModel: DenseMa
 class CubatureKalmanFilterSpec
   extends FunSpec
   with Matchers
-  with RegressionTestWrapper {
+  with RegressionTestWrapper
+  with DefaultReadWriteTest {
 
 
   describe("Cubature kalman filter tests") {
@@ -39,7 +40,9 @@ class CubatureKalmanFilterSpec
         measurement
       }
 
-      val filter = new CubatureKalmanFilter(3, 1)
+      val filter = new CubatureKalmanFilter()
+        .setInitialStateMean(
+          new DenseVector(Array(0.0, 0.0, 0.0)))
         .setInitialStateCovariance(
           new DenseMatrix(3, 3, Array(10.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 10.0)))
         .setMeasurementCol("measurement")
@@ -61,7 +64,9 @@ class CubatureKalmanFilterSpec
         measurement
       }
 
-      val filter = new CubatureKalmanFilter(3, 1)
+      val filter = new CubatureKalmanFilter()
+        .setInitialStateMean(
+          new DenseVector(Array(0.0, 0.0, 0.0)))
         .setInitialStateCovariance(
           new DenseMatrix(3, 3, Array(10.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 10.0)))
         .setMeasurementCol("measurement")
@@ -70,6 +75,10 @@ class CubatureKalmanFilterSpec
         .setProcessNoise(DenseMatrix.zeros(3, 3))
         .setMeasurementNoise(new DenseMatrix(1, 1, Array(10)))
         .setMeasurementFunction(measurementFunc)
+
+      it("should not fail read/write") {
+        testDefaultReadWrite(filter)
+      }
 
       it("should estimate model parameters") {
         testLogRegressionEquivalent(filter, 10E-3)

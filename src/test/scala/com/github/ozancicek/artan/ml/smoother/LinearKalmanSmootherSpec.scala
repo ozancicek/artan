@@ -22,7 +22,7 @@ import org.apache.spark.ml.stat.Summarizer
 import org.apache.spark.sql.Dataset
 import org.scalatest.{FunSpec, Matchers}
 import java.sql.Timestamp
-import com.github.ozancicek.artan.ml.testutils.RegressionTestWrapper
+import com.github.ozancicek.artan.ml.testutils.{RegressionTestWrapper, DefaultReadWriteTest}
 import scala.util.Random
 
 
@@ -36,7 +36,7 @@ case class DynamicLinearModel(measurement: DenseVector, processModel: DenseMatri
 class LinearKalmanSmootherSpec
   extends FunSpec
   with Matchers
-  with RegressionTestWrapper {
+  with RegressionTestWrapper with DefaultReadWriteTest {
 
   import spark.implicits._
   override def numSamples: Int = 100
@@ -55,8 +55,9 @@ class LinearKalmanSmootherSpec
         LocalLinearMeasurement(new DenseVector(Array(z)), newTs)
       }
 
-      val filter = new LinearKalmanSmoother(2, 1)
+      val filter = new LinearKalmanSmoother()
         .setMeasurementCol("measurement")
+        .setInitialStateMean(new DenseVector(Array(0.0, 0.0)))
         .setInitialStateCovariance(
           new DenseMatrix(2, 2, Array(1000, 0, 0, 1000)))
         .setProcessModel(
@@ -85,12 +86,17 @@ class LinearKalmanSmootherSpec
         assert(scala.math.abs(stats.getAs[DenseVector]("avg")(1) - 1.0) < 1.0)
       }
 
+      it("should not fail read/write") {
+        testDefaultReadWrite(filter)
+      }
+
     }
 
 
     describe("Ordinary least squares") {
 
-      val filter = new LinearKalmanSmoother(3, 1)
+      val filter = new LinearKalmanSmoother()
+        .setInitialStateMean(new DenseVector(Array(0.0, 0.0, 0.0)))
         .setInitialStateCovariance(
           new DenseMatrix(3, 3, Array(10.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 10.0)))
         .setMeasurementCol("measurement")
@@ -132,7 +138,8 @@ class LinearKalmanSmootherSpec
         DynamicLinearModel(measurement, processModel)
       }
 
-      val filter = new LinearKalmanSmoother(2, 1)
+      val filter = new LinearKalmanSmoother()
+        .setInitialStateMean(new DenseVector(Array(0.0, 0.0)))
         .setInitialStateCovariance(
           new DenseMatrix(2, 2, Array(10.0, 0.0, 0.0, 10.0)))
         .setMeasurementCol("measurement")

@@ -17,7 +17,8 @@
 
 from pyspark.ml.common import inherit_doc
 from pyspark.ml.param import Params, Param, TypeConverters
-
+from pyspark.ml.util import JavaMLWritable
+from artan.utils import ArtanJavaMLReadable
 from artan.state import StatefulTransformer
 from artan.filter.filter_params import KalmanFilterParams
 
@@ -42,7 +43,8 @@ class HasFixedLag(Params):
 
 
 @inherit_doc
-class LinearKalmanSmoother(StatefulTransformer, KalmanFilterParams, HasFixedLag):
+class LinearKalmanSmoother(StatefulTransformer, KalmanFilterParams, HasFixedLag,
+                           ArtanJavaMLReadable, JavaMLWritable):
     """
     Fixed lag linear kalman smoother using Rauch-Tung-Striebel method. The smoother is implemented with a
     stateful spark transformer for running parallel smoother /w spark dataframes.
@@ -56,10 +58,13 @@ class LinearKalmanSmoother(StatefulTransformer, KalmanFilterParams, HasFixedLag)
     outputs multiple estimates for a single measurement, it is advised to set event time column
     of the measurements with setEventTimeCol.
     """
-    def __init__(self, stateSize, measurementSize):
+
+    java_class = "com.github.ozancicek.artan.ml.smoother.LinearKalmanSmoother"
+
+    def __init__(self):
         super(LinearKalmanSmoother, self).__init__()
-        self._java_obj = self._new_java_obj("com.github.ozancicek.artan.ml.smoother.LinearKalmanSmoother",
-                                            stateSize, measurementSize, self.uid)
+        self._java_obj = self._new_java_obj(LinearKalmanSmoother.java_class,
+                                            self.uid)
 
     def setFixedLag(self, value):
         """
@@ -70,3 +75,15 @@ class LinearKalmanSmoother(StatefulTransformer, KalmanFilterParams, HasFixedLag)
         :return: LinearKalmanSmoother
         """
         return self._set(fixedLag=value)
+
+    @staticmethod
+    def _from_java(java_stage):
+        """
+        Given a Java object, create and return a Python wrapper of it.
+        Used for ML persistence.
+        """
+        py_stage = LinearKalmanSmoother()
+        py_stage._java_obj = java_stage
+        py_stage._resetUid(java_stage.uid())
+        py_stage._transfer_params_from_java()
+        return py_stage

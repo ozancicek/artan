@@ -18,6 +18,8 @@
 from artan.state import StatefulTransformer
 from artan.mixture.mixture_params import MixtureParams
 from pyspark.ml.param import Params, Param, TypeConverters
+from pyspark.ml.util import JavaMLWritable
+from artan.utils import ArtanJavaMLReadable
 
 
 class _HasInitialRates(Params):
@@ -58,7 +60,8 @@ class _HasInitialRatesCol(Params):
         return self.getOrDefault(self.initialRatesCol)
 
 
-class PoissonMixture(StatefulTransformer, MixtureParams, _HasInitialRates, _HasInitialRatesCol):
+class PoissonMixture(StatefulTransformer, MixtureParams, _HasInitialRates, _HasInitialRatesCol,
+                     ArtanJavaMLReadable, JavaMLWritable):
     """
     Online poisson mixture estimator with a stateful transformer, based on Cappe (2011) Online
     Expectation-Maximisation paper.
@@ -67,10 +70,10 @@ class PoissonMixture(StatefulTransformer, MixtureParams, _HasInitialRates, _HasI
     averaged stochastic E-step.
     """
 
-    def __init__(self, mixtureCount):
+    def __init__(self):
         super(PoissonMixture, self).__init__()
         self._java_obj = self._new_java_obj(
-            "com.github.ozancicek.artan.ml.mixture.PoissonMixture", mixtureCount, self.uid)
+            "com.github.ozancicek.artan.ml.mixture.PoissonMixture", self.uid)
 
     def setInitialRates(self, value):
         """
@@ -89,3 +92,15 @@ class PoissonMixture(StatefulTransformer, MixtureParams, _HasInitialRates, _HasI
         :return: PoissonMixture
         """
         return self._set(initialRatesCol=value)
+
+    @staticmethod
+    def _from_java(java_stage):
+        """
+        Given a Java object, create and return a Python wrapper of it.
+        Used for ML persistence.
+        """
+        py_stage = PoissonMixture()
+        py_stage._java_obj = java_stage
+        py_stage._resetUid(java_stage.uid())
+        py_stage._transfer_params_from_java()
+        return py_stage

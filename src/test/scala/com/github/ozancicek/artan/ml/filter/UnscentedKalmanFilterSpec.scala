@@ -17,7 +17,7 @@
 
 package com.github.ozancicek.artan.ml.filter
 
-import com.github.ozancicek.artan.ml.testutils.RegressionTestWrapper
+import com.github.ozancicek.artan.ml.testutils.{RegressionTestWrapper, DefaultReadWriteTest}
 import org.scalatest.{FunSpec, Matchers}
 import org.apache.spark.ml.linalg._
 import org.apache.spark.sql.Dataset
@@ -31,7 +31,7 @@ case class UKFMeasurement(measurement: DenseVector, measurementModel: DenseMatri
 class UnscentedKalmanFilterSpec
   extends FunSpec
   with Matchers
-  with RegressionTestWrapper {
+  with RegressionTestWrapper with DefaultReadWriteTest {
 
   import spark.implicits._
 
@@ -43,7 +43,8 @@ class UnscentedKalmanFilterSpec
         measurement
       }
 
-      val filter = new UnscentedKalmanFilter(3, 1)
+      val filter = new UnscentedKalmanFilter()
+        .setInitialStateMean(new DenseVector(Array(0.0, 0.0, 0.0)))
         .setInitialStateCovariance(
           new DenseMatrix(3, 3, Array(10.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 10.0)))
         .setMeasurementCol("measurement")
@@ -53,6 +54,10 @@ class UnscentedKalmanFilterSpec
         .setMeasurementNoise(new DenseMatrix(1, 1, Array(0.0001)))
         .setMeasurementFunction(measurementFunc)
 
+
+      it("should not fail read/write") {
+        testDefaultReadWrite(filter)
+      }
 
       it("should have same solution with lapack dgels routine") {
         testLeastSquaresSolutionEquivalent(filter, 10E-4)
@@ -90,7 +95,8 @@ class UnscentedKalmanFilterSpec
       measurement
     }
 
-    val filter = new UnscentedKalmanFilter(3, 1)
+    val filter = new UnscentedKalmanFilter()
+      .setInitialStateMean(new DenseVector(Array(0.0, 0.0, 0.0)))
       .setInitialStateCovariance(
         new DenseMatrix(3, 3, Array(0.1, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.1)))
       .setMeasurementCol("measurement")
@@ -143,7 +149,7 @@ class UnscentedKalmanFilterSpec
     val lbound = new DenseVector(Array(0.0, 0.0))
     val ubound = new DenseVector(Array(10.0, 10.0))
 
-    val filter = new UnscentedKalmanFilter(2, 1)
+    val filter = new UnscentedKalmanFilter()
       .setInitialStateMean(new DenseVector(Array(0.0, 0.0)))
       .setInitialStateCovariance(
         new DenseMatrix(2, 2, Array(10.0, 0.0, 0.0, 10.0)))

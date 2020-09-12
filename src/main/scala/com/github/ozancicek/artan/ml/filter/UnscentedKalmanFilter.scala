@@ -25,6 +25,7 @@ import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.BLAS
+import org.apache.spark.ml.util.{DefaultParamsWritable, DefaultParamsReadable}
 
 import scala.math.pow
 
@@ -62,24 +63,16 @@ import scala.math.pow
  * be specified with a dataframe column which will allow you to have different value across measurements/filters,
  * or you can specify a constant value across all measurements/filters.
  *
- * @param stateSize size of the state vector
- * @param measurementSize size of the measurement vector
  */
-class UnscentedKalmanFilter(
-    val stateSize: Int,
-    val measurementSize: Int,
-    override val uid: String)
+class UnscentedKalmanFilter(override val uid: String)
   extends KalmanTransformer[
     UnscentedKalmanStateCompute,
     UnscentedKalmanStateSpec,
     UnscentedKalmanFilter]
-  with HasProcessFunction with HasMeasurementFunction with AdaptiveNoiseParams with SigmaPointsParams {
+  with HasProcessFunction with HasMeasurementFunction with AdaptiveNoiseParams with SigmaPointsParams
+  with DefaultParamsWritable {
 
-  def this(
-    stateSize: Int,
-    measurementSize: Int) = {
-    this(stateSize, measurementSize, Identifiable.randomUID("unscentedKalmanFilter"))
-  }
+  def this() = this(Identifiable.randomUID("unscentedKalmanFilter"))
 
   protected val defaultStateKey: String = "filter.unscentedKalmanFilter.defaultStateKey"
 
@@ -164,7 +157,7 @@ class UnscentedKalmanFilter(
    * Creates a copy of this instance with the same UID and some extra params.
    */
   override def copy(extra: ParamMap): UnscentedKalmanFilter =  {
-    val that = new UnscentedKalmanFilter(stateSize, measurementSize)
+    val that = new UnscentedKalmanFilter()
     copyValues(that, extra)
   }
 
@@ -234,6 +227,7 @@ private[filter] class UnscentedKalmanStateCompute(
     }
 
     val newState = sigma.unscentedTransform(
+      state.state.mean.size,
       stateSigmaPoints,
       processNoise.toDense,
       fadingFactorSquare)
@@ -292,7 +286,7 @@ private[filter] class UnscentedKalmanStateCompute(
     val measurementSigmaPoints = stateSigmaPoints
       .map(x => measurementFunction(x, measurementModel).toDense)
     val estimateDist = sigma
-      .unscentedTransform(measurementSigmaPoints, measurementNoise, 1.0)
+      .unscentedTransform(state.state.mean.size, measurementSigmaPoints, measurementNoise, 1.0)
     val (estimateMean, estimateCov) = (estimateDist.mean.toDense, estimateDist.covariance.toDense)
     val fadingFactorSquare = scala.math.pow(fadingFactor, 2)
 
@@ -304,9 +298,9 @@ private[filter] class UnscentedKalmanStateCompute(
         BLAS.axpy(-1.0, state.state.mean, stateResidual)
         val measurementResidual = measurementSigma.copy
         BLAS.axpy(-1.0, estimateMean, measurementResidual)
-
+        val cw = sigma.covWeights(state.state.mean.size)
         BLAS.dger(
-          sigma.covWeights(i) * fadingFactorSquare,
+          cw(i) * fadingFactorSquare,
           stateResidual, measurementResidual, crossCov)
       }
     }
@@ -340,11 +334,9 @@ private[filter] class UnscentedKalmanStateCompute(
  */
 private[filter] trait SigmaPoints extends Serializable {
 
-  val stateSize: Int
+  def meanWeights(stateSize: Int): DenseVector
 
-  val meanWeights: DenseVector
-
-  val covWeights: DenseVector
+  def covWeights(stateSize: Int): DenseVector
 
   val lbound: Option[Vector]
 
@@ -369,26 +361,29 @@ private[filter] trait SigmaPoints extends Serializable {
     new DenseVector(arr)
   }
 
-  // Not stored as a matrix due to columnwise operations
+  // Not stored as a matrix due to column wise operations
   def sigmaPoints(dist: MultivariateGaussianDistribution): List[DenseVector]
 
   def unscentedTransform(
+    stateSize: Int,
     sigmaPoints: List[DenseVector],
     noise: DenseMatrix,
     fadeFactor: Double): MultivariateGaussianDistribution = {
 
+    val mw = meanWeights(stateSize)
     val newMean = new DenseVector(Array.fill(noise.numCols) {0.0})
     sigmaPoints.zipWithIndex.foreach {
       case(sigma, i) => {
-        BLAS.axpy(meanWeights(i), sigma, newMean)
+        BLAS.axpy(mw(i), sigma, newMean)
       }
     }
 
+    val cw = covWeights(stateSize)
     val newCov = noise.copy
     sigmaPoints.zipWithIndex.foreach { case(sigma, i) =>
       val residual = sigma.copy
       BLAS.axpy(-1.0, newMean, residual)
-      BLAS.dger(covWeights(i) * fadeFactor, residual, residual, newCov)
+      BLAS.dger(cw(i) * fadeFactor, residual, residual, newCov)
     }
     MultivariateGaussianDistribution(newMean, newCov)
   }
@@ -396,27 +391,26 @@ private[filter] trait SigmaPoints extends Serializable {
 
 
 private[filter] class JulierSigmaPoints(
-    val stateSize: Int,
     val kappa: Double,
     val lbound: Option[Vector],
     val ubound: Option[Vector],
     val ops: LinalgOptions) extends SigmaPoints {
 
-  private val initConst = 0.5/(stateSize + kappa)
+  private def initConst(stateSize: Int) = 0.5/(stateSize + kappa)
 
-  val meanWeights: DenseVector = {
-    val weights = Array.fill(2 * stateSize + 1) { initConst }
+  def meanWeights(stateSize: Int): DenseVector = {
+    val weights = Array.fill(2 * stateSize + 1) { initConst(stateSize) }
     weights(0) = kappa / (kappa + stateSize)
     new DenseVector(weights)
   }
 
-  val covWeights: DenseVector = meanWeights
+  def covWeights(stateSize: Int): DenseVector = meanWeights(stateSize)
 
   def sigmaPoints(dist: MultivariateGaussianDistribution): List[DenseVector] = {
     val mean = dist.mean.toDense
     val cov = dist.covariance.toDense
     val covUpdate = DenseMatrix.zeros(cov.numRows, cov.numCols)
-    BLAS.axpy(kappa + stateSize, cov, covUpdate)
+    BLAS.axpy(kappa + mean.size, cov, covUpdate)
     val sqrt = LinalgUtils.sqrt(covUpdate)(ops)
 
     val (pos, neg) = sqrt.rowIter.foldLeft((List(mean), List[DenseVector]())) {
@@ -435,7 +429,6 @@ private[filter] class JulierSigmaPoints(
 
 
 private[filter] class MerweSigmaPoints(
-    val stateSize: Int,
     val alpha: Double,
     val beta: Double,
     val kappa: Double,
@@ -443,25 +436,25 @@ private[filter] class MerweSigmaPoints(
     val ubound: Option[Vector],
     val ops: LinalgOptions) extends SigmaPoints {
 
-  private val lambda = pow(alpha, 2) * (stateSize + kappa) - stateSize
+  private def lambda(stateSize: Int) = pow(alpha, 2) * (stateSize + kappa) - stateSize
 
-  private val initConst = 0.5 / (stateSize + lambda)
+  private def initConst(stateSize: Int) = 0.5 / (stateSize + lambda(stateSize))
 
-  val meanWeights: DenseVector = {
-    val weights = Array.fill(2 * stateSize + 1) { initConst }
-    weights(0) = lambda / (stateSize + lambda)
+  def meanWeights(stateSize: Int): DenseVector = {
+    val weights = Array.fill(2 * stateSize + 1) { initConst(stateSize) }
+    weights(0) = lambda(stateSize) / (stateSize + lambda(stateSize))
     new DenseVector(weights)
   }
 
-  val covWeights: DenseVector = {
-    val weights = Array.fill(2 * stateSize + 1) { initConst }
-    weights(0) = lambda / (stateSize + lambda) + (1 - pow(alpha, 2) + beta)
+  def covWeights(stateSize: Int): DenseVector = {
+    val weights = Array.fill(2 * stateSize + 1) { initConst(stateSize) }
+    weights(0) = lambda(stateSize) / (stateSize + lambda(stateSize)) + (1 - pow(alpha, 2) + beta)
     new DenseVector(weights)
   }
 
   def sigmaPoints(dist: MultivariateGaussianDistribution): List[DenseVector] = {
     val covUpdate = DenseMatrix.zeros(dist.covariance.numRows, dist.covariance.numCols)
-    BLAS.axpy(lambda + stateSize, dist.covariance.toDense, covUpdate)
+    BLAS.axpy(lambda(dist.mean.size) + dist.mean.size, dist.covariance.toDense, covUpdate)
     val sqrt = LinalgUtils.sqrt(covUpdate)(ops)
 
     val (pos, neg) = sqrt.rowIter.foldLeft((List(dist.mean.toDense), List[DenseVector]())) {
@@ -767,8 +760,6 @@ private[filter] trait HasSigmaPointUpperBound extends Params {
 private[filter] trait SigmaPointsParams extends HasMerweAlpha with HasMerweBeta with HasMerweKappa with HasJulierKappa
   with HasSigmaPointLowerBound with HasSigmaPointUpperBound {
 
-  def stateSize: Int
-
 
   /**
    * Parameter for choosing sigma point sampling algorithm. Options are 'merwe' and 'julier'
@@ -790,10 +781,19 @@ private[filter] trait SigmaPointsParams extends HasMerweAlpha with HasMerweBeta 
   final def getSigmaPoints(ops: LinalgOptions): SigmaPoints = {
     $(sigmaPoints) match {
       case "merwe" => new MerweSigmaPoints(
-        stateSize, $(merweAlpha), $(merweBeta), $(merweKappa), getSigmaPointLowerBound, getSigmaPointUpperBound, ops)
+        $(merweAlpha), $(merweBeta), $(merweKappa), getSigmaPointLowerBound, getSigmaPointUpperBound, ops)
       case "julier" => new JulierSigmaPoints(
-        stateSize, $(julierKappa), getSigmaPointLowerBound, getSigmaPointUpperBound, ops)
+        $(julierKappa), getSigmaPointLowerBound, getSigmaPointUpperBound, ops)
       case _ => throw new Exception("Unsupported sigma point algorithm")
     }
   }
+}
+
+
+/**
+ * Companion object of UnscentedKalmanFilter for read/write
+ */
+object UnscentedKalmanFilter extends DefaultParamsReadable[UnscentedKalmanFilter] {
+
+  override def load(path: String): UnscentedKalmanFilter = super.load(path)
 }

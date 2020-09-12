@@ -24,6 +24,7 @@ import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector, Matrix, Vector}
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.BLAS
+import org.apache.spark.ml.util.{DefaultParamsWritable, DefaultParamsReadable}
 
 
 /**
@@ -57,24 +58,16 @@ import org.apache.spark.ml.BLAS
  * be specified with a dataframe column which will allow you to have different value across measurements/filters,
  * or you can specify a constant value across all measurements/filters.
  *
- * @param stateSize size of the state vector
- * @param measurementSize size of the measurement vector
  */
 class CubatureKalmanFilter(
-    val stateSize: Int,
-    val measurementSize: Int,
     override val uid: String)
   extends KalmanTransformer[
     CubatureKalmanStateCompute,
     CubatureKalmanStateSpec,
     CubatureKalmanFilter]
-  with HasProcessFunction with HasMeasurementFunction {
+  with HasProcessFunction with HasMeasurementFunction with DefaultParamsWritable {
 
-  def this(
-    stateSize: Int,
-    measurementSize: Int) = {
-    this(stateSize, measurementSize, Identifiable.randomUID("cubatureKalmanFilter"))
-  }
+  def this() = this(Identifiable.randomUID("cubatureKalmanFilter"))
 
   protected val defaultStateKey: String = "filter.cubatureKalmanFilter.defaultStateKey"
 
@@ -96,13 +89,13 @@ class CubatureKalmanFilter(
    * Creates a copy of this instance with the same UID and some extra params.
    */
   override def copy(extra: ParamMap): CubatureKalmanFilter =  {
-    val that = new CubatureKalmanFilter(stateSize, measurementSize)
+    val that = new CubatureKalmanFilter()
     copyValues(that, extra)
   }
 
   protected def stateUpdateSpec: CubatureKalmanStateSpec = new CubatureKalmanStateSpec(
     getFadingFactor,
-    new CubaturePoints(stateSize, getLinalgOptions),
+    new CubaturePoints(getLinalgOptions),
     getProcessFunctionOpt,
     getMeasurementFunctionOpt,
     outputResiduals,
@@ -235,7 +228,7 @@ private[filter] class CubatureKalmanStateCompute(
 /**
  * Class for sampling cubature points
  */
-private[filter] class CubaturePoints(val stateSize: Int, val ops: LinalgOptions) extends Serializable {
+private[filter] class CubaturePoints(val ops: LinalgOptions) extends Serializable {
 
   def rotateRight[A](seq: Seq[A], i: Int): Seq[A] = {
     val size = seq.size
@@ -243,21 +236,21 @@ private[filter] class CubaturePoints(val stateSize: Int, val ops: LinalgOptions)
     last ++ first
   }
 
-  def genSymmetricVectors(weight: Double): List[DenseVector] = {
+  def genSymmetricVectors(stateSize: Int, weight: Double): List[DenseVector] = {
     val weights = weight :: List.fill(stateSize - 1) {0.0}
     (0 until stateSize).toList.map {i =>
       new DenseVector(rotateRight(weights, i).toArray)
     }
   }
 
-  lazy val cubatureVectors: List[DenseVector] = {
+  def cubatureVectors(stateSize: Int): List[DenseVector] = {
     val weight = scala.math.sqrt(stateSize)
-    genSymmetricVectors(weight) ++ genSymmetricVectors(-weight)
+    genSymmetricVectors(stateSize, weight) ++ genSymmetricVectors(stateSize, -weight)
   }
 
   def cubaturePoints(distribution: MultivariateGaussianDistribution): List[DenseVector] = {
     val sqrtCov = LinalgUtils.sqrt(distribution.covariance.toDense)(ops)
-    cubatureVectors.map { cubVec =>
+    cubatureVectors(distribution.mean.size).map { cubVec =>
       val point = distribution.mean.toDense.copy
       BLAS.gemv(1.0, sqrtCov, cubVec, 1.0, point)
       point
@@ -283,4 +276,13 @@ private[filter] class CubaturePoints(val stateSize: Int, val ops: LinalgOptions)
 
     MultivariateGaussianDistribution(newMean, newCov)
   }
+}
+
+
+/**
+ * Companion object of CubatureKalmanFilter for read/write
+ */
+object CubatureKalmanFilter extends DefaultParamsReadable[CubatureKalmanFilter] {
+
+  override def load(path: String): CubatureKalmanFilter = super.load(path)
 }

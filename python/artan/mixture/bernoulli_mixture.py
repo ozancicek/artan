@@ -18,7 +18,8 @@
 from artan.state import StatefulTransformer
 from artan.mixture.mixture_params import MixtureParams
 from pyspark.ml.param import Params, Param, TypeConverters
-
+from pyspark.ml.util import JavaMLWritable
+from artan.utils import ArtanJavaMLReadable
 
 class _HasInitialProbabilities(Params):
     """
@@ -81,7 +82,7 @@ class _HasBernoulliMixtureModelCol(Params):
 
 
 class BernoulliMixture(StatefulTransformer, MixtureParams, _HasInitialProbabilities, _HasInitialProbabilitiesCol,
-                       _HasBernoulliMixtureModelCol):
+                       _HasBernoulliMixtureModelCol, ArtanJavaMLReadable, JavaMLWritable):
     """
     Online bernoulli mixture estimator with a stateful transformer, based on Cappe (2011) Online
     Expectation-Maximisation paper.
@@ -91,10 +92,10 @@ class BernoulliMixture(StatefulTransformer, MixtureParams, _HasInitialProbabilit
 
     """
 
-    def __init__(self, mixtureCount):
+    def __init__(self):
         super(BernoulliMixture, self).__init__()
         self._java_obj = self._new_java_obj(
-            "com.github.ozancicek.artan.ml.mixture.BernoulliMixture", mixtureCount, self.uid)
+            "com.github.ozancicek.artan.ml.mixture.BernoulliMixture", self.uid)
 
     def setInitialProbabilities(self, value):
         """
@@ -117,3 +118,15 @@ class BernoulliMixture(StatefulTransformer, MixtureParams, _HasInitialProbabilit
         :return: BernoulliMixture
         """
         return self._set(initialProbabilitiesCol=value)
+
+    @staticmethod
+    def _from_java(java_stage):
+        """
+        Given a Java object, create and return a Python wrapper of it.
+        Used for ML persistence.
+        """
+        py_stage = BernoulliMixture()
+        py_stage._java_obj = java_stage
+        py_stage._resetUid(java_stage.uid())
+        py_stage._transfer_params_from_java()
+        return py_stage

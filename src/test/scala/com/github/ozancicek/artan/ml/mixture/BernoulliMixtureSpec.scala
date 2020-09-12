@@ -20,7 +20,7 @@ package com.github.ozancicek.artan.ml.mixture
 import breeze.stats.distributions.{RandBasis, Bernoulli}
 import org.apache.spark.sql.functions.max
 import com.github.ozancicek.artan.ml.stats.{BernoulliDistribution, BernoulliMixtureDistribution}
-import com.github.ozancicek.artan.ml.testutils.StructuredStreamingTestWrapper
+import com.github.ozancicek.artan.ml.testutils.{StructuredStreamingTestWrapper, DefaultReadWriteTest}
 import org.scalatest.{FunSpec, Matchers}
 
 
@@ -32,7 +32,8 @@ case class BernoulliSeq(sample: Boolean)
 class BernoulliMixtureSpec
   extends FunSpec
     with Matchers
-    with StructuredStreamingTestWrapper {
+    with StructuredStreamingTestWrapper
+    with DefaultReadWriteTest {
 
   import spark.implicits._
   implicit val basis: RandBasis = RandBasis.withSeed(0)
@@ -67,7 +68,9 @@ class BernoulliMixtureSpec
       val measurements = generateBernoulliSequence(size, weights, dists)
         .map(BernoulliSeq(_))
 
-      val em = new BernoulliMixture(2)
+      val em = new BernoulliMixture()
+        .setInitialWeights(Array(0.5, 0.5))
+        .setMixtureCount(2)
         .setInitialProbabilities(Array(0.4, 0.8))
         .setStepSize(0.1)
         .setMinibatchSize(30)
@@ -97,6 +100,11 @@ class BernoulliMixtureSpec
         assert(maeCoeffs < coeffThreshold)
         assert(maeProbs < meanThreshold)
       }
+
+      it("should not fail read/write") {
+        testDefaultReadWrite(em)
+      }
+
     }
   }
 }

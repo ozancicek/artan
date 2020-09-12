@@ -21,7 +21,7 @@ import breeze.stats.distributions.RandBasis
 import org.apache.spark.sql.functions.max
 import com.github.ozancicek.artan.ml.stats.GaussianMixtureDistribution
 import com.github.ozancicek.artan.ml.stats.MultivariateGaussianDistribution
-import com.github.ozancicek.artan.ml.testutils.StructuredStreamingTestWrapper
+import com.github.ozancicek.artan.ml.testutils.{StructuredStreamingTestWrapper, DefaultReadWriteTest}
 import org.scalatest.{FunSpec, Matchers}
 import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector}
 import org.apache.spark.ml.BreezeConversions._
@@ -34,7 +34,8 @@ case class GaussianSeq(sample: DenseVector)
 class MultivariateGaussianMixtureSpec
   extends FunSpec
     with Matchers
-    with StructuredStreamingTestWrapper {
+    with StructuredStreamingTestWrapper
+    with DefaultReadWriteTest {
 
   import spark.implicits._
   implicit val basis: RandBasis = RandBasis.withSeed(0)
@@ -75,7 +76,9 @@ class MultivariateGaussianMixtureSpec
         .map(GaussianSeq(_))
 
       val eye = Array(1.0, 0.0, 0.0, 1.0)
-      val em = new MultivariateGaussianMixture(3)
+      val em = new MultivariateGaussianMixture()
+        .setMixtureCount(3)
+        .setInitialWeights(Array(0.33, 0.33, 0.33))
         .setInitialMeans(Array(Array(9.0, 9.0), Array(1.0, 1.0), Array(5.0, 5.0)))
         .setInitialCovariances(Array(eye, eye, eye))
         .setStepSize(0.01)
@@ -114,6 +117,11 @@ class MultivariateGaussianMixtureSpec
         assert(maeMeans < meanThreshold)
         assert(maeCovs < covsThreshold)
       }
+
+      it("should not fail read/write") {
+        testDefaultReadWrite(em)
+      }
+
     }
   }
 }

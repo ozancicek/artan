@@ -27,6 +27,7 @@ import org.apache.spark.ml.param.{IntParam, ParamMap, ParamValidators}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.{DataFrame, Dataset, Encoders}
 import org.apache.spark.sql.types.StructType
+import org.apache.spark.ml.util.{DefaultParamsWritable, DefaultParamsReadable}
 
 import scala.collection.immutable.Queue
 
@@ -45,19 +46,13 @@ import scala.collection.immutable.Queue
  *
  * Except fixedLag parameter, LinearKalmanSmoother has the same parameters with LinearKalmanFilter
  *
- * @param stateSize size of the state vector
- * @param measurementSize size of the measurement vector
  */
 class LinearKalmanSmoother(
-    val stateSize: Int,
-    val measurementSize: Int,
     override val uid: String)
   extends StatefulTransformer[String, KalmanOutput, Queue[KalmanOutput], RTSOutput, LinearKalmanSmoother]
-  with KalmanUpdateParams[LinearKalmanSmoother] {
+  with KalmanUpdateParams[LinearKalmanSmoother] with DefaultParamsWritable {
 
-  def this(stateSize: Int, measurementSize: Int) = {
-    this(stateSize, measurementSize, Identifiable.randomUID("LinearKalmanSmoother"))
-  }
+  def this() = this(Identifiable.randomUID("LinearKalmanSmoother"))
 
   implicit val stateKeyEncoder = Encoders.STRING
   protected val defaultStateKey: String = "smoother.LinearKalmanSmoother.defaultStateKey"
@@ -85,12 +80,12 @@ class LinearKalmanSmoother(
   }
 
   override def copy(extra: ParamMap): LinearKalmanSmoother =  {
-    val that = new LinearKalmanSmoother(stateSize, measurementSize)
+    val that = new LinearKalmanSmoother()
     copyValues(that, extra)
   }
 
   def transform(dataset: Dataset[_]): DataFrame = {
-    val lkf = new LinearKalmanFilter(stateSize, measurementSize)
+    val lkf = new LinearKalmanFilter
 
     val copied = copyValues(lkf, extractParamMap)
 
@@ -201,4 +196,12 @@ private[smoother] class LKFSmootherStateSpec(val lag: Int, val ops: LinalgOption
       Some(currentState.enqueue(row))
     }
   }
+}
+
+/**
+ * Companion object of LinearKalmanSmoother for read/write
+ */
+object LinearKalmanSmoother extends DefaultParamsReadable[LinearKalmanSmoother] {
+
+  override def load(path: String): LinearKalmanSmoother = super.load(path)
 }
