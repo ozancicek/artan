@@ -75,7 +75,8 @@ object MMAERateSourceOLS {
       .withColumn("label", labelUDF($"x", $"y", randn() * noiseParam))
       .withColumn("features", featuresUDF($"x", $"y"))
 
-    val filter = new LinearKalmanFilter(stateSize, measurementsSize)
+    val filter = new LinearKalmanFilter()
+      .setInitialStateMean(new DenseVector(Array(0.0, 0.0, 0.0)))
       .setInitialStateCovariance(
         new DenseMatrix(3, 3, Array(10.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 10.0)))
       .setStateKeyCol("stateKey")

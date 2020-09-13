@@ -68,7 +68,9 @@ if __name__ == "__main__":
     initial_means = [[3.0, 5.0], [6.0, 6.0], [7.0, 1.0]]
     eye = [1.0, 0.0, 0.0, 1.0]
     initial_covs = [eye, eye, eye]
-    gmm = MultivariateGaussianMixture(3)\
+    gmm = MultivariateGaussianMixture()\
+        .setMixtureCount(3)\
+        .setInitialWeights([0.0, 0.0, 0.0])\
         .setStateKeyCol("stateKey")\
         .setInitialMeans(initial_means)\
         .setInitialCovariances(initial_covs)\

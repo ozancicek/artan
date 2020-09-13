@@ -14,7 +14,7 @@ typically use the state with largest stateIndex as a snapshot of the state.
         // Batch dataframe of measurements
         val batchMeasurements: DataFrame = ...
 
-        val batchFilter = new LinearKalmanFilter(2, 1)
+        val batchFilter = new LinearKalmanFilter()
           .setStateKeyCol("stateKey")
           .setMeasurementCol("measurement")
 
@@ -123,9 +123,12 @@ can be set from the input dataframe. This will cause measurements to be processe
 
         // Filter for estimating local linear increasing trend
 
-        val filter = new LinearKalmanFilter(2, 1)
+        val filter = new LinearKalmanFilter()
           .setMeasurementCol("measurement")
           .setEventTimeCol("eventTime")
+          .setInitialStateMean(new DenseVector(Array(0.0, 0.0)))
+          .setInitialStateCovariance(
+            DenseMatrix.eye(2))
           .setProcessModel(
             new DenseMatrix(2, 2, Array(1, 0, 1, 1)))
           .setProcessNoise(
@@ -202,7 +205,7 @@ column to help propagating watermarks.
 
     .. code-block:: scala
 
-      val filter = new LinearKalmanFilter(2, 1)
+      val filter = new LinearKalmanFilter()
         .setMeasurementCol("measurement")
         .setEventTimeCol("eventTime")
         .setWatermarkDuration("10 seconds")
@@ -232,7 +235,7 @@ the state will be initialized as if it received no measurements. Supported value
 
         // Event time based state timeout. States receiving no measurements for 12 hours will be cleared.
         // Timeout duration is measured with event time, so event time column must be set.
-        val filter = new LinearKalmanFilter(2, 1)
+        val filter = new LinearKalmanFilter()
           .setStateKeyCol("modelId")
           .setMeasurementCol("measurement")
           .setEventTimeCol("eventTime")
@@ -241,7 +244,7 @@ the state will be initialized as if it received no measurements. Supported value
 
         // Process time based state timeout. States receiving no measurements for 12 hours will be cleared.
         // Timeout duration is measured with processing time. Therefore, it's not necessary to set event time column
-        val filter = new LinearKalmanFilter(2, 1)
+        val filter = new LinearKalmanFilter()
           .setStateKeyCol("modelId")
           .setMeasurementCol("measurement")
           .setStateTimeoutDuration("12 hours")

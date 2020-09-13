@@ -86,8 +86,6 @@ if __name__ == "__main__":
     b = 0.2
     c = 1.2
     noise_param = 1
-    state_size = 3
-    measurement_size = 1
 
     label_udf = F.udf(lambda x, y, w: Vectors.dense([x * a + y * b + c + w]), VectorUDT())
     features_udf = F.udf(lambda x, y: Matrices.dense(1, 3, [x, y, 1]), MatrixUDT())
@@ -101,10 +99,11 @@ if __name__ == "__main__":
         .withColumn("label", label_udf("x", "y", "w"))\
         .withColumn("features", features_udf("x", "y"))
 
-    lkf = LinearKalmanFilter(state_size, measurement_size)\
+    lkf = LinearKalmanFilter()\
         .setStateKeyCol("stateKey")\
         .setMeasurementCol("label")\
-        .setMeasurementModelCol("features")\
+        .setMeasurementModelCol("features") \
+        .setInitialStateMean(Vectors.dense([0.0, 0.0, 0.0]))\
         .setInitialStateCovariance(Matrices.dense(3, 3, [10, 0, 0, 0, 10, 0, 0, 0, 10]))\
         .setProcessModel(Matrices.dense(3, 3, [1, 0, 0, 0, 1, 0, 0, 0, 1]))\
         .setProcessNoise(Matrices.dense(3, 3, [0] * 9))\

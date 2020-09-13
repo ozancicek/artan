@@ -91,7 +91,8 @@ can be same for all measurements/filters, so their values are set directly with 
 
     .. code-block:: scala
 
-        val filter = new LinearKalmanFilter(stateSize, measurementSize)
+        val filter = new LinearKalmanFilter()
+          .setInitialStateMean(new DenseVector(Array(0.0, 0.0, 0.0)))
           .setInitialStateCovariance(
             new DenseMatrix(3, 3, Array(10.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 10.0)))
           .setStateKeyCol("stateKey")
@@ -213,10 +214,11 @@ can be same for all measurements/filters, so their values are set directly with 
 
     .. code-block:: python
 
-        lkf = LinearKalmanFilter(state_size, measurement_size)\
+        lkf = LinearKalmanFilter()\
             .setStateKeyCol("stateKey")\
             .setMeasurementCol("label")\
             .setMeasurementModelCol("features")\
+            .setInitialStateMean(Vectors.dense([0.0, 0.0, 0.0]))\
             .setInitialCovariance(Matrices.dense(3, 3, [10, 0, 0, 0, 10, 0, 0, 0, 10]))\
             .setProcessModel(Matrices.dense(3, 3, [1, 0, 0, 0, 1, 0, 0, 0, 1]))\
             .setProcessNoise(Matrices.dense(3, 3, [0] * 9))\

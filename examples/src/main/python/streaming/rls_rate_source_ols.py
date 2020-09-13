@@ -22,7 +22,7 @@ from artan.filter import RecursiveLeastSquaresFilter
 from pyspark.sql import SparkSession
 import pyspark.sql.functions as F
 from pyspark.ml.feature import VectorAssembler
-
+from pyspark.ml.linalg import Vectors
 
 if __name__ == "__main__":
     """
@@ -87,8 +87,9 @@ if __name__ == "__main__":
         .withColumn("w", F.randn(0) * noise_param)\
         .withColumn("label", label_expression)
 
-    rls = RecursiveLeastSquaresFilter(3)\
+    rls = RecursiveLeastSquaresFilter()\
         .setStateKeyCol("stateKey")\
+        .setInitialEstimate(Vectors.dense([0.0, 0.0, 0.0]))\
         .setRegularizationMatrixFactor(10E6)\
         .setForgettingFactor(0.99)
 

@@ -65,8 +65,9 @@ object RLSRateSourceOLS {
       a*x + b*y + c + r
     })
 
-    val filter = new RecursiveLeastSquaresFilter(3)
+    val filter = new RecursiveLeastSquaresFilter()
       .setStateKeyCol("stateKey")
+      .setInitialEstimate(new DenseVector(Array(0.0, 0.0, 0.0)))
       .setRegularizationMatrixFactor(10E6)
       .setForgettingFactor(0.99)
 

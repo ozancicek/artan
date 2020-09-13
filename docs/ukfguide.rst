@@ -31,8 +31,6 @@ should be ``(Vector, Matrix) => Vector``.
         val a = 0.2
         val b = 0.7
         val noiseParam = 1.0
-        val stateSize = 2
-        val measurementSize = 1
 
         // UDF's for generating measurement vector ([y]) and measurement model matrix ([[x ,1]])
         val measurementUDF = udf((x: Double, r: Double) => {
@@ -51,8 +49,9 @@ should be ``(Vector, Matrix) => Vector``.
           measurement
         }
 
-        val filter = new UnscentedKalmanFilter(stateSize, measurementSize)
+        val filter = new UnscentedKalmanFilter()
           .setStateKeyCol("stateKey")
+          .setInitialStateMean(new DenseVector(Array(0.0, 0.0)))
           .setInitialStateCovariance(
             DenseMatrix.eye(2))
           .setMeasurementCol("measurement")

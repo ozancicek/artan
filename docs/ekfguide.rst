@@ -60,8 +60,6 @@ for defining the features matrix, and the nonlinear update is done with the defi
         val a = 0.2
         val b = 0.7
         val noiseParam = 1.0
-        val stateSize = 2
-        val measurementSize = 1
 
         // UDF's for generating measurement vector ([y]) and measurement model matrix ([[x ,1]])
         val measurementUDF = udf((x: Double, r: Double) => {
@@ -90,8 +88,9 @@ for defining the features matrix, and the nonlinear update is done with the defi
           new DenseMatrix(1, 2, jacs)
         }
 
-        val filter = new ExtendedKalmanFilter(stateSize, measurementSize)
+        val filter = new ExtendedKalmanFilter()
           .setStateKeyCol("stateKey")
+          .setInitialStateMean(new DenseVector(Array(0.0, 0.0)))
           .setInitialStateCovariance(
             new DenseMatrix(2, 2, Array(10.0, 0.0, 0.0, 10.0)))
           .setMeasurementCol("measurement")

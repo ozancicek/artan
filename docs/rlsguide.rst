@@ -73,8 +73,11 @@ identifying different models and their incremented index.
 
         val truncate = udf((state: DenseVector) => state.values.map(t => (math floor t * 100)/100))
 
-        val filter = new RecursiveLeastSquaresFilter(featuresSize)
+        val filter = new RecursiveLeastSquaresFilter()
           .setStateKeyCol("stateKey")
+          .setInitialEstimate(new DenseVector(Array(0.0, 0.0, 0.0)))
+          .setRegularizationMatrixFactor(10E6)
+          .setForgettingFactor(0.99)
 
         val query = filter.transform(features)
           .select($"stateKey", $"stateIndex", truncate($"state.mean").alias("modelParameters"))
@@ -180,8 +183,11 @@ identifying different models and their incremented index.
 
     .. code-block:: python
 
-        rls = RecursiveLeastSquaresFilter(features_size)\
-            .setStateKeyCol("stateKey")
+        rls = RecursiveLeastSquaresFilter()\
+            .setStateKeyCol("stateKey")\
+            .setInitialEstimate(Vectors.dense([0.0, 0.0, 0.0]))\
+            .setRegularizationMatrixFactor(10E6)\
+            .setForgettingFactor(0.99)
 
         query = rls.transform(measurements)\
             .writeStream\

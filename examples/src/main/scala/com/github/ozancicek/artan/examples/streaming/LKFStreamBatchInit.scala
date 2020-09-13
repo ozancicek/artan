@@ -53,9 +53,10 @@ object LKFStreamBatchInit {
 
     val measurementUdf = udf((t: Long, r: Double) => new DenseVector(Array(t.toDouble + r)))
 
-    val batchFilter = new LinearKalmanFilter(2, 1)
+    val batchFilter = new LinearKalmanFilter()
       .setStateKeyCol("stateKey")
       .setMeasurementCol("measurement")
+      .setInitialStateMean(new DenseVector(Array(0.0, 0.0)))
       .setInitialStateCovariance(
         new DenseMatrix(2, 2, Array(1000, 0, 0, 1000)))
       .setProcessModel(

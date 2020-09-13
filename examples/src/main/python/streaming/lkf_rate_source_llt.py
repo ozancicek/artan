@@ -81,9 +81,10 @@ if __name__ == "__main__":
         .withColumn("stateKey", F.col("mod").cast("String"))\
         .withColumn("trend", (F.col("value")/num_states).cast("Integer") + F.randn() * noise_param)
 
-    lkf = LinearKalmanFilter(2, 1)\
+    lkf = LinearKalmanFilter()\
         .setStateKeyCol("stateKey")\
         .setMeasurementCol("measurement")\
+        .setInitialStateMean(Vectors.dense([0.0, 0.0]))\
         .setInitialStateCovariance(Matrices.dense(2, 2, [10000.0, 0.0, 0.0, 10000.0]))\
         .setProcessModel(Matrices.dense(2, 2, [1.0, 0.0, 1.0, 1.0]))\
         .setProcessNoise(Matrices.dense(2, 2, [0.0001, 0.0, 0.0, 0.0001]))\

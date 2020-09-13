@@ -62,7 +62,8 @@ the same window. This window can be set from ``setMultipleModelMeasurementWindow
 
     .. code-block:: scala
 
-        val filter = new LinearKalmanFilter(stateSize, measurementsSize)
+        val filter = new LinearKalmanFilter()
+          .setInitialStateMean(new DenseVector(Array(0.0, 0.0, 0.0)))
           .setInitialStateCovariance(
             new DenseMatrix(3, 3, Array(10.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 10.0)))
           .setStateKeyCol("stateKey")
