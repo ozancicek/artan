@@ -75,6 +75,7 @@ identifying different models and their incremented index.
 
         val filter = new RecursiveLeastSquaresFilter()
           .setStateKeyCol("stateKey")
+          .setFeatureSize(3)
           .setInitialEstimate(new DenseVector(Array(0.0, 0.0, 0.0)))
           .setRegularizationMatrixFactor(10E6)
           .setForgettingFactor(0.99)
@@ -185,6 +186,7 @@ identifying different models and their incremented index.
 
         rls = RecursiveLeastSquaresFilter()\
             .setStateKeyCol("stateKey")\
+            .setFeatureSize(3)\
             .setInitialEstimate(Vectors.dense([0.0, 0.0, 0.0]))\
             .setRegularizationMatrixFactor(10E6)\
             .setForgettingFactor(0.99)

@@ -89,6 +89,7 @@ if __name__ == "__main__":
 
     rls = RecursiveLeastSquaresFilter()\
         .setStateKeyCol("stateKey")\
+        .setFeatureSize(3)\
         .setInitialEstimate(Vectors.dense([0.0, 0.0, 0.0]))\
         .setRegularizationMatrixFactor(10E6)\
         .setForgettingFactor(0.99)

@@ -70,7 +70,7 @@ if __name__ == "__main__":
     initial_covs = [eye, eye, eye]
     gmm = MultivariateGaussianMixture()\
         .setMixtureCount(3)\
-        .setInitialWeights([0.0, 0.0, 0.0])\
+        .setInitialWeights([0.33, 0.33, 0.33])\
         .setStateKeyCol("stateKey")\
         .setInitialMeans(initial_means)\
         .setInitialCovariances(initial_covs)\

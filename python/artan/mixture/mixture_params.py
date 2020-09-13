@@ -343,6 +343,15 @@ class MixtureParams(HasSampleCol, HasStepSize, HasStepSizeCol, HasInitialWeights
                     HasMinibatchSizeCol, HasUpdateHoldoutCol, HasBatchTrainEnabled, HasBatchTrainMaxIter,
                     HasBatchTrainTol, HasMixtureCount):
 
+    def setMixtureCount(self, value):
+        """
+        Sets the number of components in the finite mixture
+
+        :param value: Int
+        :return: MixtureTransformer
+        """
+        return self._set(mixtureCount=value)
+
     def setSampleCol(self, value):
         """
         Sets the sample column for the mixture model inputs. Depending on the mixture distribution, sample type should

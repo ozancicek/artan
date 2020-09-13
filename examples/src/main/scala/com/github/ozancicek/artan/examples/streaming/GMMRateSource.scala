@@ -61,6 +61,7 @@ object GMMRateSource {
     val mixture = when(weight < 0.2, dist1).when(weight < 0.5, dist2).otherwise(dist3)
 
     val gmm = new MultivariateGaussianMixture()
+      .setMixtureCount(3)
       .setInitialWeights(Array(0.33, 0.33, 0.33))
       .setStateKeyCol("stateKey")
       .setInitialMeans(Array(Array(3.0, 5.0), Array(6.0, 6.0), Array(7.0, 1.0)))
