@@ -217,11 +217,11 @@ class LinearKalmanFilterTests(ReusedSparkTestCase):
         complete_measurements = create_df(zs)
 
         initial_state = initial_filter.transform(initial_measurements)\
-            .filter(f"stateIndex == {len(initial)}")\
+            .filter("stateIndex == {}".format(len(initial)))\
             .select("stateKey", "state")
 
         complete_state = initial_filter.transform(complete_measurements) \
-            .filter(f"stateIndex == {len(zs)}")\
+            .filter("stateIndex == {}".format(len(zs)))\
             .select("stateKey", "state")
 
         restarted_filter = filter\
@@ -231,7 +231,7 @@ class LinearKalmanFilterTests(ReusedSparkTestCase):
             .crossJoin(initial_state)
 
         restarted_state = restarted_filter.transform(remaining_measurements)\
-            .filter(f"stateIndex == {n - split_point}")\
+            .filter("stateIndex == {}".format(n - split_point))\
             .select("stateKey", "state")
 
         assert(restarted_state.collect() == complete_state.collect())
