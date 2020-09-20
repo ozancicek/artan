@@ -180,6 +180,62 @@ class LinearKalmanFilterTests(ReusedSparkTestCase):
         expected, _, _, _ = np.linalg.lstsq(features, y, rcond=None)
         np.testing.assert_array_almost_equal(state, expected.reshape(2), decimal=5)
 
+    def test_batch_save_and_resume(self):
+        n = 100
+        ts = np.arange(0, n)
+        zs = np.random.normal(0, 1, n) + ts
+
+        split_point = n//2
+        initial = zs[:split_point]
+        remaining = zs[split_point:]
+
+        filter = LinearKalmanFilter()\
+            .setMeasurementCol("measurement")\
+            .setInitialStateMean(
+                Vectors.dense([0.0, 0.0]))\
+            .setInitialStateCovariance(
+                Matrices.dense(2, 2, [1, 0, 0, 1]))\
+            .setProcessModel(
+                Matrices.dense(2, 2, [1, 0, 1, 1]))\
+            .setProcessNoise(
+                Matrices.dense(2, 2, [0.01, 0.0, 0.0, 0.01]))\
+            .setMeasurementNoise(
+                Matrices.dense(1, 1, [1]))\
+            .setMeasurementModel(
+                Matrices.dense(1, 2, [1, 0]))
+
+        initial_filter = filter.setInitialStateCovariance(
+                Matrices.dense(2, 2, [1000.0, 0.0, 0.0, 1000.0]))
+
+        def create_df(m):
+            return self.spark.createDataFrame(
+                [(Vectors.dense(m[i]), ) for i in range(len(m))],
+                ["measurement"])
+
+        initial_measurements = create_df(initial)
+
+        complete_measurements = create_df(zs)
+
+        initial_state = initial_filter.transform(initial_measurements)\
+            .filter(f"stateIndex == {len(initial)}")\
+            .select("stateKey", "state")
+
+        complete_state = initial_filter.transform(complete_measurements) \
+            .filter(f"stateIndex == {len(zs)}")\
+            .select("stateKey", "state")
+
+        restarted_filter = filter\
+            .setInitialStateDistributionCol("state")
+
+        remaining_measurements = create_df(remaining)\
+            .crossJoin(initial_state)
+
+        restarted_state = restarted_filter.transform(remaining_measurements)\
+            .filter(f"stateIndex == {n - split_point}")\
+            .select("stateKey", "state")
+
+        assert(restarted_state.collect() == complete_state.collect())
+
     def test_multiple_model_adaptive_filter(self):
         n = 100
         a = 0.27

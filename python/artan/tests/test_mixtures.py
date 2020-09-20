@@ -180,7 +180,7 @@ class PoissonMixtureTests(ReusedSparkTestCase):
         assert(mae_weights < 0.1)
         for i, dist in enumerate(mixture_model.distributions):
             mae_rate = _mae(dist.rate, self.rates[i])
-            assert(mae_rate < 2)
+            assert(mae_rate < 4)
 
     def test_persistance(self):
         pmm = PoissonMixture() \

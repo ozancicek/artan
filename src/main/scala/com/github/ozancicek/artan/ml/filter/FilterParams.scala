@@ -559,7 +559,7 @@ private[artan] trait HasInitialStateDistributionCol extends Params {
    */
   final val initialStateDistributionCol: Param[String] = new Param[String](
     this,
-    "initialStateCol",
+    "initialStateDistributionCol",
     "Column name for initial state distribution. It should be a struct column with mean and covariance fields" +
       "mean field should be vector, and covariance field should be matrix")
 
