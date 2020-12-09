@@ -20,7 +20,7 @@ val longDesc = """Online latent state estimation with Apache Spark.
 
 lazy val settings = Seq(
   scalaVersion := scalaVer,
-  version := "0.5.1",
+  version := "0.5.2-SNAPSHOT",
   organization := "com.github.ozancicek",
   organizationName := "ozancicek",
   sparkVersion := sparkVer,
